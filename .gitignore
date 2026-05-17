@@ -1,4 +1,12 @@
 .env
+.codex
 *.pyc
 __pycache__/
 db.sqlite3
+db.sqlite3*
+*.sqlite3
+*.sqlite3-journal
+media/
+staticfiles/
+venv/
+.venv/
