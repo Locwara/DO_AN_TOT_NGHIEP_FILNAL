@@ -1,0 +1,188 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Quản lý môn học{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap justify-between items-end gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">Quản lý môn học</h2>
+        <p class="text-neutral-500 mt-1">Kiểm duyệt và quản lý các môn học trong hệ thống.</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'administation:subject_export' %}?status={{ status_filter }}" class="btn btn-ghost">
+            <span class="material-symbols-outlined text-sm">download</span>
+            Xuất CSV
+        </a>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="mt-6">
+    <form method="get" class="admin-filter-form">
+        <input type="hidden" name="status" value="{{ status_filter }}">
+        <div class="flex-1">
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo mã, tên, mô tả, giảng viên..." class="form-input">
+        </div>
+        <button type="submit" class="btn btn-primary">Tìm</button>
+        {% if search_query %}
+        <a href="{% url 'administation:subject_approvals' %}?status={{ status_filter }}" class="btn btn-ghost">Xóa</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="flex border-b border-primary-200 gap-6 overflow-x-auto mt-6">
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'pending' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?status=pending">
+        <span class="material-symbols-outlined text-xl">hourglass_top</span>
+        Chờ duyệt
+        {% if pending_count %}<span class="bg-primary-100 text-primary-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ pending_count }}</span>{% endif %}
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'approved' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?status=approved">
+        <span class="material-symbols-outlined text-xl">check_circle</span>
+        Đã duyệt
+        {% if approved_count %}<span class="bg-success-100 text-success-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ approved_count }}</span>{% endif %}
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'rejected' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?status=rejected">
+        <span class="material-symbols-outlined text-xl">cancel</span>
+        Từ chối
+        {% if rejected_count %}<span class="bg-danger-100 text-danger-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ rejected_count }}</span>{% endif %}
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'all' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?status=all">
+        <span class="material-symbols-outlined text-xl">list</span>
+        Tất cả
+    </a>
+</div>
+
+{% if subjects %}
+<form method="post" action="{% url 'administation:subject_bulk_action' %}">
+    {% csrf_token %}
+    <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+        <div class="p-4 border-b border-primary-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-neutral-600">{{ page_obj.paginator.count }} môn học</span>
+            </div>
+            <div class="flex gap-2">
+                <select name="action" class="form-select text-sm">
+                    <option value="">Chọn hành động</option>
+                    <option value="approve">Duyệt</option>
+                    <option value="reject">Từ chối</option>
+                    <option value="activate">Kích hoạt</option>
+                    <option value="deactivate">Vô hiệu hóa</option>
+                </select>
+                <button type="submit" class="btn btn-primary text-sm">Áp dụng</button>
+            </div>
+        </div>
+        <table class="w-full text-left">
+            <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+                <tr>
+                    <th class="px-4 py-3">
+                        <input type="checkbox" id="select-all" class="rounded">
+                    </th>
+                    <th class="px-4 py-3">Môn học</th>
+                    <th class="px-4 py-3 hidden md:table-cell">Người tạo</th>
+                    <th class="px-4 py-3 hidden lg:table-cell">Thời gian</th>
+                    <th class="px-4 py-3 hidden md:table-cell">Dùng trong lớp</th>
+                    <th class="px-4 py-3 hidden lg:table-cell">Ngôn ngữ</th>
+                    <th class="px-4 py-3">Trạng thái</th>
+                    <th class="px-4 py-3 text-right">Thao tác</th>
+                </tr>
+            </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for subject in subjects %}
+            <tr class="hover:bg-primary-50 transition-colors">
+                <td class="px-4 py-3">
+                    <input type="checkbox" name="subject_ids" value="{{ subject.id }}" class="rounded">
+                </td>
+                <td class="px-6 py-4">
+                    <p class="text-xs font-bold text-slate-500">{{ subject.code }}</p>
+                    <p class="text-sm font-bold">{{ subject.name }}</p>
+                    <p class="text-xs text-slate-600 truncate max-w-[260px]">{{ subject.description|default:"—" }}</p>
+                </td>
+                <td class="px-6 py-4 hidden md:table-cell">
+                    {% if subject.created_by %}
+                    <p class="text-sm font-medium">{{ subject.created_by.get_full_name|default:subject.created_by.username }}</p>
+                    <p class="text-xs text-slate-500">GV</p>
+                    {% else %}
+                    <p class="text-sm text-slate-400">—</p>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 hidden lg:table-cell">
+                    <p class="text-xs text-slate-600">{{ subject.created_at|date:"d/m/Y H:i" }}</p>
+                    {% if subject.reviewed_at %}
+                    <p class="text-xs text-slate-500">Duyệt: {{ subject.reviewed_at|date:"d/m/Y H:i" }}</p>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 hidden md:table-cell">
+                    <p class="text-sm">{{ subject.classroom_count|default:0 }} lớp</p>
+                </td>
+                <td class="px-6 py-4 hidden lg:table-cell">
+                    <div class="flex flex-wrap gap-1">
+                        {% for lang in subject.languages.all %}
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700">{{ lang.display_name }}</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    {% if subject.status == 'pending' %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-warning-100 text-warning-600 uppercase">Chờ duyệt</span>
+                    {% elif subject.status == 'approved' %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-success-100 text-success-600 uppercase">Đã duyệt</span>
+                    {% else %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-danger-100 text-danger-600 uppercase">Từ chối</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex gap-2 justify-end">
+                        {% if subject.status == 'pending' %}
+                        <button type="submit" formaction="{% url 'administation:approve_subject' subject.pk %}" class="h-8 w-8 rounded-lg bg-success-100 text-success-600 flex items-center justify-center hover:bg-success-500 hover:text-white transition-all" title="Duyệt">
+                            <span class="material-symbols-outlined text-lg">check</span>
+                        </button>
+                        <button type="submit" formaction="{% url 'administation:reject_subject' subject.pk %}" class="h-8 w-8 rounded-lg bg-danger-100 text-danger-600 flex items-center justify-center hover:bg-danger-500 hover:text-white transition-all" title="Từ chối" onclick="return confirm('Từ chối môn học này?')">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</form>
+
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-between py-4">
+    <p class="text-neutral-600 text-sm">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?status={{ status_filter }}&search={{ search_query }}&page={{ page_obj.previous_page_number }}" class="btn btn-sm">Trước</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?status={{ status_filter }}&search={{ search_query }}&page={{ page_obj.next_page_number }}" class="btn btn-sm">Sau</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center mt-6">
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">menu_book</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">Không có môn học nào</h3>
+    {% if search_query %}
+    <p class="text-neutral-500">Không tìm thấy môn học nào khớp với "{{ search_query }}".</p>
+    <a href="{% url 'administation:subject_approvals' %}?status={{ status_filter }}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
+    {% else %}
+    <p class="text-neutral-500">Chưa có môn học trong danh mục này.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+// Select all checkbox
+const selectAll = document.getElementById('select-all');
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('input[name="subject_ids"]');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}Sổ điểm - {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Sổ điểm</span>
+    </nav>
+
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-black tracking-tight">Sổ điểm lớp học</h1>
+            <p class="text-slate-600 mt-1">{{ classroom.name }} • Theo dõi tiến độ, điểm và bài nộp muộn của học sinh.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'classrooms:gradebook_export' pk=classroom.pk %}{% if querystring %}?{{ querystring }}{% endif %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition-colors">
+                <span class="material-symbols-outlined text-sm">download</span>
+                Xuất CSV
+            </a>
+            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Về lớp học
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Học sinh</p>
+                <span class="material-symbols-outlined text-primary">group</span>
+            </div>
+            <p class="text-3xl font-black text-primary">{{ members_count }}</p>
+            <p class="text-xs text-slate-600 mt-1">Theo bộ lọc hiện tại</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bài tập</p>
+                <span class="material-symbols-outlined text-indigo-500">assignment</span>
+            </div>
+            <p class="text-3xl font-black">{{ assignments_count }}</p>
+            <p class="text-xs text-slate-600 mt-1">Bài đang hiển thị</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Có bài nộp</p>
+                <span class="material-symbols-outlined text-emerald-500">task_alt</span>
+            </div>
+            <p class="text-3xl font-black text-emerald-500">{{ overall_completion_rate }}%</p>
+            <p class="text-xs text-slate-600 mt-1">{{ submitted_cells }} lượt có bài</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Điểm TB</p>
+                <span class="material-symbols-outlined text-amber-500">monitoring</span>
+            </div>
+            <p class="text-3xl font-black text-amber-500">{{ class_avg_score }}</p>
+            <p class="text-xs text-slate-600 mt-1">Tính trên bài đã chấm</p>
+        </div>
+    </div>
+
+    <form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            <label class="block">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Công bố</span>
+                <select name="published" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="all" {% if published_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="published" {% if published_filter == 'published' %}selected{% endif %}>Đã công bố</option>
+                    <option value="draft" {% if published_filter == 'draft' %}selected{% endif %}>Bản nháp</option>
+                </select>
+            </label>
+            <label class="block">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Môn học</span>
+                <select name="cs" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not cs_filter %}selected{% endif %}>Tất cả môn</option>
+                    <option value="none" {% if cs_filter == 'none' %}selected{% endif %}>Chưa gắn môn</option>
+                    {% for link in classroom_subjects %}
+                    <option value="{{ link.pk }}" {% if cs_filter == link.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ link.subject.code }} - {{ link.subject.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="block">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Học kỳ</span>
+                <select name="semester" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not sem_filter %}selected{% endif %}>Tất cả học kỳ</option>
+                    <option value="current" {% if sem_filter == 'current' %}selected{% endif %}>Học kỳ hiện tại</option>
+                    <option value="none" {% if sem_filter == 'none' %}selected{% endif %}>Chưa gắn học kỳ</option>
+                    {% for semester in semesters %}
+                    <option value="{{ semester.pk }}" {% if sem_filter == semester.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ semester.name|default:semester.code }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="block">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</span>
+                <select name="status" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả học sinh</option>
+                    <option value="missing" {% if status_filter == 'missing' %}selected{% endif %}>Còn thiếu bài</option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Đã có bài hoàn thành</option>
+                    <option value="late" {% if status_filter == 'late' %}selected{% endif %}>Có bài nộp muộn</option>
+                </select>
+            </label>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors flex-1">
+                    <span class="material-symbols-outlined text-sm">filter_alt</span>
+                    Lọc
+                </button>
+                <a href="{% url 'classrooms:gradebook' pk=classroom.pk %}" class="inline-flex items-center justify-center size-10 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors" title="Xóa bộ lọc">
+                    <span class="material-symbols-outlined text-sm">restart_alt</span>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        {% if assignments and rows %}
+        <div class="overflow-x-auto">
+            <table class="min-w-[980px] text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="sticky left-0 z-10 bg-slate-50 text-left px-4 py-3 font-bold text-slate-700 min-w-[240px]">Học sinh</th>
+                        <th class="text-center px-3 py-3 font-bold text-slate-700 min-w-[96px]">Hoàn thành</th>
+                        <th class="text-center px-3 py-3 font-bold text-slate-700 min-w-[96px]">Điểm TB</th>
+                        {% for assignment in assignments %}
+                        <th class="text-left px-3 py-3 font-bold text-slate-700 min-w-[180px] max-w-[220px]">
+                            <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="block hover:text-primary">
+                                <span class="block truncate">{{ assignment.title }}</span>
+                                <span class="block text-[11px] font-medium text-slate-500 mt-0.5">
+                                    {{ assignment.max_score|floatformat:1 }} điểm
+                                    {% if not assignment.is_published %} • Nháp{% endif %}
+                                    {% if assignment.due_date %} • {{ assignment.due_date|date:"d/m" }}{% endif %}
+                                </span>
+                            </a>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for row in rows %}
+                    <tr class="hover:bg-slate-50/70">
+                        <td class="sticky left-0 z-10 bg-white px-4 py-3 min-w-[240px]">
+                            <div class="flex items-center gap-3">
+                                {% if row.student.profiles.avatar_url %}
+                                <div class="bg-center bg-cover rounded-full size-9 border border-slate-200 flex-shrink-0" style="background-image: url('{{ row.student.profiles.avatar_url }}');"></div>
+                                {% else %}
+                                <div class="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-black flex-shrink-0">
+                                    {{ row.student.first_name|first|default:row.student.username|first|upper }}
+                                </div>
+                                {% endif %}
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-900 truncate">{{ row.student.get_full_name|default:row.student.username }}</p>
+                                    <p class="text-xs text-slate-500 truncate">{{ row.student.email|default:row.student.username }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center px-3 py-3">
+                            <span class="font-black text-slate-900">{{ row.completed_count }}</span><span class="text-slate-500">/{{ assignments_count }}</span>
+                            <div class="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                <div class="h-full bg-primary" style="width: {{ row.completion_rate }}%"></div>
+                            </div>
+                        </td>
+                        <td class="text-center px-3 py-3">
+                            {% if row.avg_score is not None %}
+                            <span class="font-black text-primary">{{ row.avg_score|floatformat:1 }}</span>
+                            {% else %}
+                            <span class="text-slate-400">-</span>
+                            {% endif %}
+                            {% if row.late_count %}
+                            <p class="text-[11px] font-bold text-amber-500 mt-1">{{ row.late_count }} trễ</p>
+                            {% endif %}
+                        </td>
+                        {% for cell in row.cells %}
+                        <td class="px-3 py-3 align-top">
+                            {% if cell.submission %}
+                            <a href="{% url 'submissions:grade' pk=cell.submission.pk %}" class="block rounded-lg border px-3 py-2 transition-colors {% if cell.status == 'finished' and cell.has_percent and cell.percent >= 80 %}border-emerald-200 bg-emerald-50 hover:bg-emerald-100{% elif cell.status == 'finished' and cell.has_percent and cell.percent >= 50 %}border-primary-200 bg-primary-50 hover:bg-primary-100{% elif cell.status == 'finished' %}border-amber-200 bg-amber-50 hover:bg-amber-100{% elif cell.status == 'error' %}border-red-200 bg-red-50 hover:bg-red-100{% else %}border-slate-200 bg-slate-50 hover:bg-slate-100{% endif %}">
+                                <div class="flex items-center justify-between gap-2">
+                                    {% if cell.has_score %}
+                                    <span class="font-black text-slate-900">{{ cell.score|floatformat:1 }}</span>
+                                    {% else %}
+                                    <span class="font-bold text-slate-700">{{ cell.status }}</span>
+                                    {% endif %}
+                                    {% if cell.is_late %}
+                                    <span class="material-symbols-outlined text-amber-500 text-sm" title="Nộp muộn">schedule</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-1">
+                                    {{ cell.attempts }} lần nộp
+                                    {% if cell.has_percent %} • {{ cell.percent }}%{% endif %}
+                                </p>
+                            </a>
+                            {% else %}
+                            <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-slate-400">
+                                <p class="font-bold">Chưa nộp</p>
+                                <p class="text-[11px] mt-1">0 lần nộp</p>
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-10 text-center text-slate-600">
+            <span class="material-symbols-outlined text-4xl mb-2 text-slate-400">table_chart</span>
+            {% if not assignments %}
+            <p class="font-bold text-slate-900">Chưa có bài tập phù hợp bộ lọc.</p>
+            <p class="text-sm mt-1">Hãy tạo hoặc công bố bài tập để sổ điểm có dữ liệu.</p>
+            {% else %}
+            <p class="font-bold text-slate-900">Không có học sinh phù hợp bộ lọc.</p>
+            <p class="text-sm mt-1">Thử đổi trạng thái lọc hoặc quay lại danh sách đầy đủ.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

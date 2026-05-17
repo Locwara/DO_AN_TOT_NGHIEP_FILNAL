@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}DevLearn - Học lập trình với Web IDE và chấm điểm tự động{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto">
+    <div class="@container">
+        <div class="hero-light rounded-b-[22px] flex flex-col gap-10 px-6 py-12 md:py-20 @[864px]:flex-row items-center">
+            <div class="flex flex-col gap-8 flex-1">
+                <div class="flex flex-col gap-4 text-left">
+                    <p class="eyebrow">DevLearn Programming Platform</p>
+                    <h1 class="text-4xl md:text-6xl font-black leading-tight tracking-tight">
+                        Học lập trình với <span class="text-primary">Web IDE</span> và chấm điểm tự động
+                    </h1>
+                    <p class="text-lg md:text-xl font-normal leading-relaxed text-slate-600 max-w-[600px]">
+                        Nền tảng học lập trình cho sinh viên, giáo viên và admin: lớp học theo môn, bài tập có testcase, bài thi có phiên làm bài, phản hồi và thống kê rõ ràng.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    {% if not user.is_authenticated %}
+                    <a href="{% url 'accounts:register' %}" class="btn btn-primary min-h-12 px-6 text-base">
+                        Bắt đầu miễn phí
+                    </a>
+                    {% else %}
+                    <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-primary min-h-12 px-6 text-base">
+                        Vào lớp học
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="w-full flex-1 relative" id="ide">
+                <div class="w-full aspect-video rounded-[14px] bg-primary-950 border border-primary-900 shadow-2xl overflow-hidden">
+                    <div class="h-8 bg-primary-900 flex items-center px-4 gap-2">
+                        <div class="size-3 rounded-full bg-danger-500"></div>
+                        <div class="size-3 rounded-full bg-warning-500"></div>
+                        <div class="size-3 rounded-full bg-success-500"></div>
+                        <div class="ml-4 h-4 w-32 bg-primary-800 rounded"></div>
+                    </div>
+                    <div class="p-6 font-mono text-sm">
+                        <div class="flex gap-4">
+                            <span class="text-slate-400">1</span>
+                            <span class="text-primary-300">def</span> <span class="text-green-400">grade_submission</span>(code):
+                        </div>
+                        <div class="flex gap-4">
+                            <span class="text-slate-400">2</span>
+                            <span class="ml-4 text-slate-300"># Initializing AI grader...</span>
+                        </div>
+                        <div class="flex gap-4">
+                            <span class="text-slate-400">3</span>
+                            <span class="ml-4 text-primary">devlearn.analyze</span>(code)
+                        </div>
+                        <div class="mt-8 p-4 rounded bg-primary/10 border border-primary/20">
+                            <div class="flex items-center gap-2 text-primary font-bold mb-2">
+                                <span class="material-symbols-outlined text-sm">check_circle</span>
+                                Grading Complete
+                            </div>
+                            <div class="text-slate-200">Score: 95/100 - Efficiency optimization suggested at line 12.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="flex flex-col gap-10 px-6 py-20" id="features">
+        <div class="flex flex-col gap-4 text-center items-center">
+            <p class="eyebrow">Core workflow</p>
+            <h2 class="text-3xl md:text-5xl font-bold leading-tight max-w-[800px]">
+                Đúng việc cho lớp học lập trình
+            </h2>
+            <p class="text-slate-600 text-lg max-w-[720px]">
+                Nền tảng tối ưu cho việc dạy và học lập trình với các công cụ mạnh mẽ.
+            </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="course-card flex flex-col gap-4 p-8">
+                <div class="text-primary bg-primary/10 size-12 rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-3xl">check_circle</span>
+                </div>
+                <h3 class="text-xl font-bold">Chấm điểm tự động</h3>
+                <p class="text-slate-600 text-sm leading-relaxed">
+                    Phản hồi tức thì với test cases tự động, metrics hiệu suất và kiểm tra style code.
+                </p>
+            </div>
+            <div class="course-card flex flex-col gap-4 p-8" id="community">
+                <div class="text-primary bg-primary/10 size-12 rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-3xl">code</span>
+                </div>
+                <h3 class="text-xl font-bold">Web IDE tương tác</h3>
+                <p class="text-slate-600 text-sm leading-relaxed">
+                    Môi trường code đầy đủ ngay trên trình duyệt, không cần cài đặt, hỗ trợ nhiều ngôn ngữ.
+                </p>
+            </div>
+            <div class="course-card flex flex-col gap-4 p-8">
+                <div class="text-primary bg-primary/10 size-12 rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-3xl">forum</span>
+                </div>
+                <h3 class="text-xl font-bold">Thảo luận cộng tác</h3>
+                <p class="text-slate-600 text-sm leading-relaxed">
+                    Diễn đàn thảo luận và peer review giúp sinh viên học hỏi và phát triển cùng nhau.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

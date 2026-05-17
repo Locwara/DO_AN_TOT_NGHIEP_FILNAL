@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Kiểm tra đạo văn - {{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:28 }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Kiểm tra đạo văn</span>
+    </nav>
+
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-black tracking-tight">Kiểm tra đạo văn</h1>
+            <p class="text-slate-600 mt-1">{{ assignment.title }} • So sánh bài nộp mới nhất đã chấm xong của mỗi học sinh.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">bar_chart</span>
+                Thống kê
+            </a>
+            <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Về bài tập
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+        <div class="space-y-6">
+            <section class="bg-amber-50 border border-amber-200 rounded-xl p-5 text-amber-800">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-500">info</span>
+                    <div class="text-sm leading-relaxed">
+                        <p class="font-bold mb-1">Điểm similarity chỉ là tín hiệu tham khảo.</p>
+                        <p>Hệ thống so sánh text, token và cấu trúc code sau chuẩn hóa. Kết quả cao không tự động kết luận gian lận; giáo viên cần xem ngữ cảnh, yêu cầu bài và trao đổi với học sinh khi cần.</p>
+                    </div>
+                </div>
+            </section>
+
+            {% if latest_report %}
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bài so sánh</p>
+                    <p class="text-3xl font-black text-primary mt-1">{{ latest_report.submissions_count }}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Số cặp</p>
+                    <p class="text-3xl font-black mt-1">{{ latest_report.pairs_count }}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Đáng chú ý</p>
+                    <p class="text-3xl font-black text-red-500 mt-1">{{ latest_report.suspicious_count }}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ngưỡng</p>
+                    <p class="text-3xl font-black text-amber-500 mt-1">{{ latest_report.threshold|floatformat:2 }}</p>
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">compare_arrows</span>
+                        Kết quả so sánh
+                    </h2>
+                    {% if latest_report %}
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-50 text-slate-500">{{ pairs_count }} cặp</span>
+                        <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if not suspicious_only %}bg-primary text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">Tất cả</a>
+                        <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}?suspicious=1" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if suspicious_only %}bg-red-500 text-white{% else %}bg-red-500/10 text-red-500 hover:bg-red-500/20{% endif %}">Chỉ đáng chú ý</a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if latest_report and pairs %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-[960px] text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Cặp bài</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700">Similarity</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700">Text</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700">Token</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700">Structural</th>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for pair in pairs %}
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        <a href="{% url 'submissions:detail' pk=pair.submission_a.pk %}" class="p-2 rounded-lg border border-slate-200 hover:border-primary transition-colors">
+                                            <p class="font-bold truncate">{{ pair.submission_a.student.get_full_name|default:pair.submission_a.student.username }}</p>
+                                            <p class="text-xs text-slate-500">Submission #{{ pair.submission_a.pk }} • {{ pair.submission_a.submitted_at|date:"d/m H:i" }}</p>
+                                        </a>
+                                        <a href="{% url 'submissions:detail' pk=pair.submission_b.pk %}" class="p-2 rounded-lg border border-slate-200 hover:border-primary transition-colors">
+                                            <p class="font-bold truncate">{{ pair.submission_b.student.get_full_name|default:pair.submission_b.student.username }}</p>
+                                            <p class="text-xs text-slate-500">Submission #{{ pair.submission_b.pk }} • {{ pair.submission_b.submitted_at|date:"d/m H:i" }}</p>
+                                        </a>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-right font-black {% if pair.is_suspicious %}text-red-500{% else %}text-primary{% endif %}">{{ pair.similarity_score|floatformat:3 }}</td>
+                                <td class="px-4 py-3 text-right">{{ pair.text_score|floatformat:3 }}</td>
+                                <td class="px-4 py-3 text-right">{{ pair.token_score|floatformat:3 }}</td>
+                                <td class="px-4 py-3 text-right">{{ pair.structural_score|floatformat:3 }}</td>
+                                <td class="px-4 py-3">
+                                    {% if pair.is_suspicious %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">priority_high</span>
+                                        Đáng chú ý
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">check</span>
+                                        Bình thường
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if pairs_page_obj.has_other_pages %}
+                <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
+                    <p class="text-sm text-slate-500">Trang {{ pairs_page_obj.number }} / {{ pairs_page_obj.paginator.num_pages }}</p>
+                    <div class="flex gap-2">
+                        {% if pairs_page_obj.has_previous %}
+                        <a class="px-3 py-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-700 hover:bg-slate-200" href="?page={{ pairs_page_obj.previous_page_number }}{% if suspicious_only %}&suspicious=1{% endif %}">Trước</a>
+                        {% endif %}
+                        {% if pairs_page_obj.has_next %}
+                        <a class="px-3 py-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-700 hover:bg-slate-200" href="?page={{ pairs_page_obj.next_page_number }}{% if suspicious_only %}&suspicious=1{% endif %}">Sau</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% elif latest_report %}
+                <div class="p-10 text-center text-slate-600">
+                    <span class="material-symbols-outlined text-4xl text-slate-400 mb-2">verified</span>
+                    {% if latest_report.submissions_count < 2 %}
+                    <p class="font-bold text-slate-900">Cần ít nhất 2 học sinh có bài nộp finished.</p>
+                    <p class="text-sm mt-1">Hiện có {{ latest_report.submissions_count }} bài nộp mới nhất hợp lệ để so sánh.</p>
+                    {% else %}
+                    <p class="font-bold text-slate-900">Không có cặp nào trong bộ lọc hiện tại.</p>
+                    <p class="text-sm mt-1">Thử tắt filter chỉ đáng chú ý hoặc chạy lại với ngưỡng thấp hơn.</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="p-10 text-center text-slate-600">
+                    <span class="material-symbols-outlined text-4xl text-slate-400 mb-2">policy</span>
+                    <p class="font-bold text-slate-900">Chưa có report đạo văn.</p>
+                    <p class="text-sm mt-1">Chạy kiểm tra để tạo report đầu tiên cho bài tập này.</p>
+                </div>
+                {% endif %}
+            </section>
+        </div>
+
+        <aside class="space-y-6">
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">play_circle</span>
+                    Chạy kiểm tra
+                </h2>
+                <form method="post" action="{% url 'assignments:run_plagiarism' pk=assignment.pk %}" class="space-y-4">
+                    {% csrf_token %}
+                    <label class="block">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ngưỡng đáng chú ý</span>
+                        <input type="number" name="threshold" value="{% if latest_report %}{{ latest_report.threshold }}{% else %}{{ default_threshold }}{% endif %}" min="0" max="1" step="0.01" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    </label>
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-sm">policy</span>
+                        Chạy kiểm tra
+                    </button>
+                </form>
+                <p class="text-xs text-slate-500 mt-3">Hiện có {{ latest_submissions_count }} bài nộp finished mới nhất theo từng học sinh.</p>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-500">history</span>
+                    Report gần đây
+                </h2>
+                {% if reports %}
+                <div class="space-y-2">
+                    {% for report in reports %}
+                    <div class="p-3 border border-slate-200 rounded-lg">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded {% if report.status == 'finished' %}bg-emerald-500/10 text-emerald-600{% elif report.status == 'error' %}bg-red-500/10 text-red-500{% else %}bg-amber-500/10 text-amber-500{% endif %}">{{ report.status }}</span>
+                            <span class="text-[11px] text-slate-500">{{ report.created_at|date:"d/m H:i" }}</span>
+                        </div>
+                        <p class="text-sm font-bold mt-2">{{ report.suspicious_count }} đáng chú ý / {{ report.pairs_count }} cặp</p>
+                        <p class="text-xs text-slate-500 mt-1">Ngưỡng {{ report.threshold|floatformat:2 }}{% if report.created_by %} • {{ report.created_by.username }}{% endif %}</p>
+                        {% if report.error_message %}
+                        <p class="text-xs text-red-500 mt-2">{{ report.error_message }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-slate-600 text-center py-4">Chưa có report.</p>
+                {% endif %}
+            </section>
+        </aside>
+    </div>
+</div>
+{% endblock %}

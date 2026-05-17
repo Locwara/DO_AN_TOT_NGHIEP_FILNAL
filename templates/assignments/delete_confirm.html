@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Xóa {{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md bg-white dark:bg-slate-900 p-8 rounded-xl border border-primary-200 shadow-sm">
+        <div class="flex items-center justify-center mb-6">
+            <div class="flex items-center justify-center size-12 rounded-lg bg-red-500/10 text-red-500">
+                <span class="material-symbols-outlined text-3xl">warning</span>
+            </div>
+        </div>
+        <h3 class="text-2xl font-bold mb-2 text-center">Xóa bài tập?</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-sm text-center mb-6">
+            Bạn có chắc muốn xóa bài tập <strong class="text-slate-900 dark:text-slate-100">{{ assignment.title }}</strong>?
+            Tất cả testcase, file đính kèm và bài nộp liên quan sẽ bị xóa vĩnh viễn.
+        </p>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <button type="submit" class="w-full bg-red-500 text-white font-bold py-3 rounded-lg hover:bg-red-600 transition-colors">
+                Xác nhận xóa
+            </button>
+            <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="w-full block text-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold py-3 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                Hủy
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

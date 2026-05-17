@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Xóa {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md bg-white p-8 rounded-xl border border-primary-200 shadow-sm">
+        <div class="flex items-center justify-center mb-6">
+            <div class="flex items-center justify-center size-12 rounded-lg bg-red-500/10 text-red-500">
+                <span class="material-symbols-outlined text-3xl">warning</span>
+            </div>
+        </div>
+        <h3 class="text-2xl font-bold mb-2 text-center">{% if subject_mode %}Gỡ môn khỏi lớp?{% else %}Xóa lớp học?{% endif %}</h3>
+        <p class="text-slate-600 text-sm text-center mb-6">
+            {% if subject_mode %}
+            Bạn có chắc muốn gỡ môn <strong class="text-slate-900">{{ subject.code }} - {{ subject.name }}</strong> khỏi lớp này? Môn học toàn cục vẫn được giữ lại cho các lớp khác.
+            {% else %}
+            Bạn có chắc muốn xóa lớp <strong class="text-slate-900">{{ classroom.name }}</strong>? Lớp sẽ bị ẩn khỏi danh sách nhưng dữ liệu vẫn được giữ lại.
+            {% endif %}
+        </p>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <button type="submit" class="w-full bg-red-500 text-white font-bold py-3 rounded-lg hover:bg-red-600 transition-colors">
+                Xác nhận xóa
+            </button>
+            <a href="{% if subject_mode %}{% url 'classrooms:subjects' pk=classroom.pk %}{% else %}{% url 'classrooms:classroom_detail' pk=classroom.pk %}{% endif %}" class="w-full block text-center bg-slate-100 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-200 transition-colors">
+                Hủy
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

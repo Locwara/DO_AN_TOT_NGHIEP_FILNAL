@@ -1,0 +1,156 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Tổng quan{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-col gap-2">
+    <h1 class="text-slate-900 text-3xl font-black leading-tight tracking-tight">Admin Control Center</h1>
+    <p class="text-slate-600 text-base">Tổng quan hệ thống và quản trị nền tảng DevLearn.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Tổng người dùng</p>
+            <span class="material-symbols-outlined text-primary">group</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ total_users }}</p>
+        <p class="text-xs text-slate-500">{{ total_teachers }} GV • {{ total_students }} SV</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Chờ duyệt GV</p>
+            <span class="material-symbols-outlined text-amber-500">person_check</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ pending_teachers }}</p>
+        {% if pending_teachers > 0 %}
+        <a href="{% url 'administation:teacher_approvals' %}" class="text-xs text-primary font-medium hover:underline">Xem ngay →</a>
+        {% else %}
+        <p class="text-xs text-emerald-500 font-medium">Không có đơn chờ</p>
+        {% endif %}
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Lớp học</p>
+            <span class="material-symbols-outlined text-primary">school</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ total_classrooms }}</p>
+        <p class="text-xs text-slate-500">Đang hoạt động</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Bài nộp</p>
+            <span class="material-symbols-outlined text-indigo-500">assignment_turned_in</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ total_submissions }}</p>
+        <p class="text-xs text-slate-500">{{ active_languages }} ngôn ngữ • {{ active_sandboxes }} sandbox</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Môn chờ duyệt</p>
+            <span class="material-symbols-outlined text-primary">menu_book</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ pending_subjects }}</p>
+        {% if pending_subjects > 0 %}
+        <a href="{% url 'administation:subject_approvals' %}" class="text-xs text-primary font-medium hover:underline">Xem ngay →</a>
+        {% else %}
+        <p class="text-xs text-emerald-500 font-medium">Không có môn chờ</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if latest_metrics %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">CPU Usage</p>
+            <span class="material-symbols-outlined text-amber-500">memory</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ latest_metrics.cpu_usage|default:"N/A" }}%</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Memory Usage</p>
+            <span class="material-symbols-outlined text-primary">database</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ latest_metrics.memory_usage|default:"N/A" }}%</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Active Containers</p>
+            <span class="material-symbols-outlined text-primary">layers</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ latest_metrics.active_containers|default:"0" }}</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-600 text-sm font-medium">Avg Execution</p>
+            <span class="material-symbols-outlined text-indigo-500">timer</span>
+        </div>
+        <p class="text-slate-900 text-2xl font-bold">{{ latest_metrics.avg_execution_time|default:"0" }}ms</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="flex flex-col gap-4 rounded-xl border border-primary/10 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-bold">Đơn đăng ký giáo viên</h3>
+            <a href="{% url 'administation:teacher_approvals' %}" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
+        </div>
+        <div class="flex flex-col gap-3">
+            {% for reg in recent_registrations %}
+            <div class="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/5">
+                <div class="flex items-center gap-3">
+                    <div class="size-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-sm">
+                        {{ reg.user.username|make_list|first|upper }}
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold">{{ reg.user.get_full_name|default:reg.user.username }}</p>
+                        <p class="text-xs text-slate-600">{{ reg.institution|default:"Không rõ" }} • {{ reg.created_at|timesince }} trước</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <form method="post" action="{% url 'administation:approve_teacher' reg.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all" title="Phê duyệt">
+                            <span class="material-symbols-outlined text-lg">check</span>
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'administation:reject_teacher' reg.pk %}" class="inline" onsubmit="return confirm('Từ chối đơn này?')">
+                        {% csrf_token %}
+                        <button type="submit" class="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Từ chối">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-6 text-slate-500">
+                <span class="material-symbols-outlined text-3xl mb-2 block">check_circle</span>
+                <p class="text-sm">Không có đơn chờ duyệt</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-4 rounded-xl border border-primary/10 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-bold">Hoạt động gần đây</h3>
+            <a href="{% url 'administation:activity_logs' %}" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
+        </div>
+        <div class="flex flex-col gap-2">
+            {% for log in recent_logs %}
+            <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <span class="material-symbols-outlined text-slate-500 text-lg">history</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm truncate"><span class="font-medium">{{ log.user.username|default:"System" }}</span> {{ log.action }}</p>
+                    <p class="text-[11px] text-slate-600">{{ log.created_at|timesince }} trước • {{ log.ip_address|default:"" }}</p>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-center text-sm text-slate-600 py-6">Chưa có hoạt động nào</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

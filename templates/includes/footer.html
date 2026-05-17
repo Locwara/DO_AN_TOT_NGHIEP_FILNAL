@@ -1,0 +1,38 @@
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+                <div class="footer-logo"><span class="mono">&lt;/&gt;</span> DevLearn</div>
+                <p class="footer-desc">Nền tảng học lập trình với Web IDE, chấm điểm tự động và quản lý lớp học theo môn.</p>
+            </div>
+            <div class="footer-links">
+                <h4 class="footer-heading">Sản phẩm</h4>
+                <a href="#features">Features</a>
+                <a href="#ide">Web IDE</a>
+                <a href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+            </div>
+            <div class="footer-links">
+                <h4 class="footer-heading">Học tập</h4>
+                <a href="{% url 'assignments:calendar' %}">Lịch bài tập</a>
+                <a href="{% url 'classrooms:classroom_list' %}">Khám phá lớp</a>
+                <a href="#community">Cộng đồng</a>
+            </div>
+            <div class="footer-links">
+                <h4 class="footer-heading">Tài khoản</h4>
+                {% if user.is_authenticated %}
+                <a href="{% url 'accounts:profile' %}">Hồ sơ</a>
+                <a href="{% url 'notifications:list' %}">Thông báo</a>
+                <a href="{% url 'accounts:logout' %}">Đăng xuất</a>
+                {% else %}
+                <a href="{% url 'accounts:login' %}">Đăng nhập</a>
+                <a href="{% url 'accounts:register' %}">Đăng ký</a>
+                <a href="{% url 'accounts:password_reset' %}">Quên mật khẩu</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 DevLearn Programming Platform.</span>
+            <span>Built for teaching, learning, and thoughtful code review.</span>
+        </div>
+    </div>
+</footer>

@@ -1,0 +1,62 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}{% if is_edit %}Sửa Sandbox{% else %}Thêm Sandbox{% endif %}{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="eyebrow">Sandbox</p>
+        <h2 class="text-2xl font-bold text-primary-900 mt-1">
+            {% if is_edit %}Chỉnh sửa cấu hình Sandbox{% else %}Thêm cấu hình Sandbox{% endif %}
+        </h2>
+        <p class="text-neutral-500 mt-1">Thiết lập Docker image và giới hạn tài nguyên cho từng ngôn ngữ.</p>
+    </div>
+    <a href="{% url 'administation:sandboxes' %}" class="btn btn-ghost">
+        <span class="material-symbols-outlined text-sm">arrow_back</span>
+        Quay lại
+    </a>
+</div>
+
+<form method="post" action="" class="card p-6 space-y-5 max-w-2xl">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+            <label class="form-label">Ngôn ngữ <span class="text-danger-600">*</span></label>
+            <input type="text" name="language" value="{{ form.language.value|default:'' }}" class="form-input font-mono" placeholder="python">
+            {% if form.language.errors %}<p class="form-error">{{ form.language.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Docker Image <span class="text-danger-600">*</span></label>
+            <input type="text" name="docker_image" value="{{ form.docker_image.value|default:'' }}" class="form-input font-mono" placeholder="python:3.11-alpine">
+            {% if form.docker_image.errors %}<p class="form-error">{{ form.docker_image.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Timeout (giây)</label>
+            <input type="number" name="timeout_seconds" value="{{ form.timeout_seconds.value|default:'5' }}" min="1" max="60" class="form-input">
+            {% if form.timeout_seconds.errors %}<p class="form-error">{{ form.timeout_seconds.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Memory Limit (MB)</label>
+            <input type="number" name="memory_limit_mb" value="{{ form.memory_limit_mb.value|default:'256' }}" min="32" max="1024" class="form-input">
+            {% if form.memory_limit_mb.errors %}<p class="form-error">{{ form.memory_limit_mb.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">CPU Limit</label>
+            <input type="number" name="cpu_limit" value="{{ form.cpu_limit.value|default:'1.0' }}" min="0.1" max="4.0" step="0.1" class="form-input">
+            {% if form.cpu_limit.errors %}<p class="form-error">{{ form.cpu_limit.errors.0 }}</p>{% endif %}
+        </div>
+        <div class="flex items-center gap-3 pt-6">
+            <input type="checkbox" name="is_active" id="is_active" {% if form.is_active.value %}checked{% endif %} class="rounded border-slate-300 text-primary focus:ring-primary">
+            <label for="is_active" class="text-sm font-medium text-neutral-700">Kích hoạt</label>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+        <a href="{% url 'administation:sandboxes' %}" class="btn btn-ghost">Hủy</a>
+        <button type="submit" class="btn btn-primary">
+            <span class="material-symbols-outlined text-sm">save</span>
+            {% if is_edit %}Cập nhật{% else %}Thêm mới{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}

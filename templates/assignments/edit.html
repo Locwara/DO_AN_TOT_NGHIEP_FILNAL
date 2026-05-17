@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Chỉnh sửa {{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-6">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:24 }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Chỉnh sửa</span>
+    </nav>
+
+    <div class="mb-10">
+        <h1 class="text-4xl font-black leading-tight tracking-tight mb-2">Chỉnh sửa bài tập</h1>
+        <p class="text-slate-600 text-lg">{{ assignment.title }}</p>
+    </div>
+
+    {% include 'assignments/_assignment_form.html' with is_edit=True %}
+</div>
+{% endblock %}

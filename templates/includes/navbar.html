@@ -1,0 +1,91 @@
+<header class="site-header">
+    <div class="header-inner">
+        <a href="{% url 'home' %}" class="logo" aria-label="DevLearn home">
+            <span class="logo-icon">&lt;/&gt;</span>
+            <span class="logo-text">Dev<span class="accent">Learn</span></span>
+        </a>
+
+        {% if user.is_authenticated %}
+        <nav class="nav" aria-label="Điều hướng chính">
+            {% if user.profiles.role == 'teacher' %}
+            <a class="nav-link" href="{% url 'accounts:teacher_dashboard' %}">Dashboard giáo viên</a>
+            {% elif user.profiles.role == 'admin' or user.is_superuser %}
+            <a class="nav-link" href="{% url 'administation:dashboard' %}">Dashboard admin</a>
+            {% else %}
+            <a class="nav-link" href="{% url 'accounts:student_dashboard' %}">Dashboard học sinh</a>
+            {% endif %}
+            <a class="nav-link" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+            <a class="nav-link" href="{% url 'assignments:calendar' %}">Lịch</a>
+            {% if user.profiles.role == 'teacher' %}
+            <a class="nav-link" href="{% url 'classrooms:create' %}">Tạo lớp</a>
+            {% endif %}
+            {% if user.profiles.role == 'admin' or user.is_superuser %}
+            <a class="nav-link" href="{% url 'administation:dashboard' %}">Quản trị</a>
+            {% endif %}
+        </nav>
+
+        <div class="header-actions">
+            <div class="relative group pb-3 -mb-3">
+                <a href="{% url 'notifications:list' %}" class="btn-icon relative" title="Thông báo" aria-label="Thông báo">
+                    <span class="material-symbols-outlined text-xl">notifications</span>
+                    {% if unread_notifications_count %}
+                    <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">{{ unread_notifications_count }}</span>
+                    {% endif %}
+                </a>
+                <div class="invisible opacity-0 translate-y-1 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto focus-within:visible focus-within:opacity-100 focus-within:translate-y-0 focus-within:pointer-events-auto absolute right-0 top-12 w-80 bg-white border border-primary-200 rounded-lg shadow-xl overflow-hidden z-50 transition-all duration-150">
+                    <div class="px-4 py-3 border-b border-primary-200 flex items-center justify-between">
+                        <span class="text-sm font-bold text-slate-900">Thông báo</span>
+                        <a href="{% url 'notifications:list' %}" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
+                    </div>
+                    {% if recent_notifications %}
+                    <div class="divide-y divide-primary-100 max-h-80 overflow-y-auto">
+                        {% for notification in recent_notifications %}
+                        <a href="{% url 'notifications:open' notification.pk %}" class="block px-4 py-3 hover:bg-primary-50 {% if not notification.is_read %}bg-primary/5{% endif %}">
+                            <div class="flex items-start gap-2">
+                                {% if not notification.is_read %}
+                                <span class="mt-1.5 size-2 rounded-full bg-primary flex-shrink-0"></span>
+                                {% endif %}
+                                <div class="min-w-0">
+                                    <p class="text-sm font-bold text-slate-900 truncate">{{ notification.title }}</p>
+                                    {% if notification.message %}
+                                    <p class="text-xs text-slate-600 mt-1 line-clamp-2">{{ notification.message }}</p>
+                                    {% endif %}
+                                    <p class="text-[11px] text-slate-500 mt-1">{{ notification.created_at|timesince }} trước</p>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="px-4 py-8 text-center text-slate-600">
+                        <span class="material-symbols-outlined text-3xl mb-1">notifications_off</span>
+                        <p class="text-sm">Chưa có thông báo</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <a href="{% url 'accounts:logout' %}" class="btn btn-ghost hidden sm:inline-flex">Đăng xuất</a>
+            <a href="{% url 'accounts:profile' %}" aria-label="Hồ sơ cá nhân">
+                {% if user.profiles.avatar_url %}
+                <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" style="background-image: url('{{ user.profiles.avatar_url }}');"></div>
+                {% else %}
+                <div class="size-10 rounded-full border-2 border-primary/20 bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    {{ user.first_name|first|default:user.username|first|upper }}
+                </div>
+                {% endif %}
+            </a>
+        </div>
+        {% else %}
+        <nav class="nav" aria-label="Điều hướng giới thiệu">
+            <a class="nav-link" href="#features">Features</a>
+            <a class="nav-link" href="#ide">IDE</a>
+            <a class="nav-link" href="#community">Community</a>
+        </nav>
+        <div class="header-actions">
+            <a href="{% url 'accounts:register' %}" class="btn btn-primary">Đăng ký</a>
+            <a href="{% url 'accounts:login' %}" class="btn btn-outline">Đăng nhập</a>
+        </div>
+        {% endif %}
+    </div>
+</header>

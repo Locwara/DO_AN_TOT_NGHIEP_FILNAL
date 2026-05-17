@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% block title %}{{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        {% if assignment.classroom_subject %}
+        <a class="hover:text-primary" href="{% url 'classrooms:subject_detail' pk=classroom.pk link_pk=assignment.classroom_subject.pk %}">{{ assignment.classroom_subject.subject.code }}</a>
+        {% else %}
+        <a class="hover:text-primary" href="{% url 'assignments:list' classroom_pk=classroom.pk %}">Bài tập</a>
+        {% endif %}
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">{{ assignment.title|truncatechars:30 }}</span>
+    </nav>
+
+    <!-- Header -->
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div>
+            <div class="flex items-center gap-3 mb-2 flex-wrap">
+                <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
+                {% if not assignment.is_published %}
+                <span class="text-xs font-bold px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded">Nháp</span>
+                {% else %}
+                <span class="text-xs font-bold px-2 py-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded">Đã công bố</span>
+                {% endif %}
+                {% if assignment.is_exam %}
+                <span class="text-xs font-bold px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">timer</span>
+                    EXAM{% if assignment.exam_duration_minutes %} • {{ assignment.exam_duration_minutes }}ph{% endif %}
+                </span>
+                {% endif %}
+                {% if assignment.classroom_subject %}
+                <span class="text-xs font-bold px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">menu_book</span>
+                    {{ assignment.classroom_subject.subject.code }}
+                    {% if assignment.classroom_subject.semester %} · {{ assignment.classroom_subject.semester.code }}{% endif %}
+                </span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-4 text-sm text-slate-600">
+                {% if assignment.difficulty %}
+                <span class="font-bold uppercase {% if assignment.difficulty == 'easy' %}text-emerald-500{% elif assignment.difficulty == 'medium' %}text-amber-500{% elif assignment.difficulty == 'hard' %}text-red-500{% elif assignment.difficulty == 'expert' %}text-purple-500{% endif %}">{{ assignment.difficulty }}</span>
+                {% endif %}
+                <span class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">schedule</span>
+                    Hạn: {{ assignment.due_date|date:"d/m/Y H:i"|default:"Không giới hạn" }}
+                </span>
+                <span>Điểm: {{ assignment.max_score }}</span>
+                {% if assignment.max_attempts %}
+                <span>Tối đa {{ assignment.max_attempts }} lần nộp</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex gap-3">
+            {% if is_teacher %}
+            <form method="post" action="{% url 'assignments:toggle_publish' pk=assignment.pk %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="flex items-center gap-2 {% if assignment.is_published %}bg-amber-500/10 text-amber-500 hover:bg-amber-500/20{% else %}bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20{% endif %} font-bold py-2.5 px-5 rounded-lg transition-colors text-sm">
+                    <span class="material-symbols-outlined text-sm">{% if assignment.is_published %}visibility_off{% else %}visibility{% endif %}</span>
+                    {% if assignment.is_published %}Ẩn{% else %}Công bố{% endif %}
+                </button>
+            </form>
+            <a href="{% url 'assignments:edit' pk=assignment.pk %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-200 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">edit</span> Chỉnh sửa
+            </a>
+            <form method="post" action="{% url 'assignments:clone' pk=assignment.pk %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-200 transition-colors text-sm">
+                    <span class="material-symbols-outlined text-sm">content_copy</span> Nhân bản
+                </button>
+            </form>
+            <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">bar_chart</span> Thống kê
+            </a>
+            <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2.5 px-5 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">policy</span> Đạo văn
+            </a>
+            {% if assignment.is_exam %}
+            <a href="{% url 'submissions:exam_monitor' assignment_pk=assignment.pk %}" class="flex items-center gap-2 bg-amber-500/10 text-amber-600 font-bold py-2.5 px-5 rounded-lg hover:bg-amber-500/20 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">monitoring</span> Phòng thi
+            </a>
+            {% endif %}
+            {% else %}
+            <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">{% if assignment.is_exam %}timer{% else %}code{% endif %}</span> {% if assignment.is_exam %}Vào phòng thi{% else %}Làm bài{% endif %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Main Content -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Description -->
+            {% if assignment.description %}
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">description</span>
+                    Mô tả
+                </h2>
+                <div class="text-slate-600 leading-relaxed whitespace-pre-wrap">{{ assignment.description }}</div>
+            </section>
+            {% endif %}
+
+            <!-- Instructions -->
+            {% if assignment.instructions %}
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">article</span>
+                    Hướng dẫn
+                </h2>
+                <div class="text-slate-600 leading-relaxed whitespace-pre-wrap">{{ assignment.instructions }}</div>
+            </section>
+            {% endif %}
+
+            <!-- Testcases -->
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">check_circle</span>
+                        Testcases
+                        <span class="text-sm font-normal text-slate-600">({{ total_testcases }} tổng{% if not is_teacher %}, {{ sample_count }} mẫu{% endif %})</span>
+                    </h2>
+                    {% if is_teacher %}
+                    <div class="flex items-center gap-2">
+                        <a href="{% url 'assignments:import_testcases' pk=assignment.pk %}" class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors" title="Import JSON/CSV">
+                            <span class="material-symbols-outlined text-sm">upload_file</span> Import
+                        </a>
+                        <a href="{% url 'assignments:add_testcase' pk=assignment.pk %}" class="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors">
+                            <span class="material-symbols-outlined text-sm">add</span> Thêm
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if testcases %}
+                <div class="space-y-4">
+                    {% for tc in testcases %}
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-3 flex items-center justify-between border-b border-slate-200">
+                            <div class="flex items-center gap-3">
+                                {% if tc.is_sample %}
+                                <span class="text-xs font-bold uppercase px-2 py-0.5 bg-green-500/10 text-green-500 rounded">Mẫu</span>
+                                {% endif %}
+                                {% if tc.is_hidden %}
+                                <span class="text-xs font-bold uppercase px-2 py-0.5 bg-slate-500/20 text-slate-600 rounded">Ẩn</span>
+                                {% endif %}
+                                <span class="font-semibold text-sm">{{ tc.name|default:"Testcase" }}</span>
+                                <span class="text-xs text-slate-500">Trọng số: {{ tc.weight }}</span>
+                            </div>
+                            {% if is_teacher %}
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'assignments:edit_testcase' pk=assignment.pk tc_pk=tc.pk %}" class="text-slate-500 hover:text-primary transition-colors">
+                                    <span class="material-symbols-outlined text-lg">edit</span>
+                                </a>
+                                <form method="post" action="{% url 'assignments:delete_testcase' pk=assignment.pk tc_pk=tc.pk %}" style="display:inline">
+                                    {% csrf_token %}
+                                    <button type="submit" onclick="return confirm('Xóa testcase này?')" class="text-slate-500 hover:text-red-500 transition-colors">
+                                        <span class="material-symbols-outlined text-lg">delete</span>
+                                    </button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if tc.is_hidden and not is_teacher %}
+                        <div class="p-4 bg-slate-100 italic text-slate-600 text-sm">
+                            Nội dung testcase ẩn - không hiển thị cho sinh viên.
+                        </div>
+                        {% else %}
+                        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Input</label>
+                                <pre class="bg-primary-950 text-slate-300 p-3 rounded-lg text-xs overflow-x-auto max-h-40">{{ tc.input_data|default:"(trống)" }}</pre>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Expected Output</label>
+                                <pre class="bg-primary-950 text-slate-300 p-3 rounded-lg text-xs overflow-x-auto max-h-40">{{ tc.expected_output|default:"(trống)" }}</pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if tc.timeout_override or tc.memory_override %}
+                        <div class="px-4 py-2 bg-slate-50 flex gap-4 text-xs font-medium text-slate-500">
+                            {% if tc.memory_override %}
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">memory</span> {{ tc.memory_override }}MB</span>
+                            {% endif %}
+                            {% if tc.timeout_override %}
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">speed</span> {{ tc.timeout_override }}s</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8 text-slate-600">
+                    <span class="material-symbols-outlined text-3xl mb-2">check_circle</span>
+                    <p>{% if is_teacher %}Chưa có testcase nào. Hãy thêm testcase!{% else %}Chưa có testcase mẫu.{% endif %}</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Files -->
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">attach_file</span>
+                        Tài liệu đính kèm
+                    </h2>
+                    {% if is_teacher %}
+                    <form method="post" action="{% url 'assignments:upload_file' pk=assignment.pk %}" enctype="multipart/form-data" class="flex items-center gap-2">
+                        {% csrf_token %}
+                        <input type="file" name="file" id="file-upload" class="hidden" onchange="this.form.submit()">
+                        <label for="file-upload" class="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+                            <span class="material-symbols-outlined text-sm">upload</span> Tải lên
+                        </label>
+                    </form>
+                    {% endif %}
+                </div>
+
+                {% if files %}
+                <div class="space-y-2">
+                    {% for file in files %}
+                    <div class="flex items-center justify-between p-3 bg-slate-100 rounded-lg">
+                        <a href="{{ file.file_url }}" target="_blank" class="flex items-center gap-3 hover:text-primary transition-colors">
+                            <span class="material-symbols-outlined text-primary">{% if 'pdf' in file.mime_type %}picture_as_pdf{% elif 'image' in file.mime_type %}image{% elif 'zip' in file.mime_type %}folder_zip{% else %}description{% endif %}</span>
+                            <div>
+                                <span class="text-sm font-medium">{{ file.file_name }}</span>
+                                {% if file.file_size %}
+                                <span class="text-xs text-slate-500 ml-2">{{ file.file_size|filesizeformat }}</span>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% if is_teacher %}
+                        <form method="post" action="{% url 'assignments:delete_file' pk=assignment.pk file_pk=file.pk %}" style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit" onclick="return confirm('Xóa file này?')" class="text-slate-500 hover:text-red-500 transition-colors">
+                                <span class="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8 text-slate-600">
+                    <span class="material-symbols-outlined text-3xl mb-2">attach_file</span>
+                    <p>Chưa có tài liệu đính kèm.</p>
+                </div>
+                {% endif %}
+            </section>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            {% if is_teacher %}
+            <section class="bg-white p-6 rounded-xl border border-slate-200">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">fact_check</span>
+                    Checklist công bố
+                </h3>
+                <div class="space-y-3">
+                    {% for item in setup_checks %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="material-symbols-outlined text-base {% if item.done %}text-emerald-500{% else %}text-amber-500{% endif %}">
+                            {% if item.done %}check_circle{% else %}radio_button_unchecked{% endif %}
+                        </span>
+                        <span class="{% if item.done %}text-slate-700{% else %}text-slate-600 font-medium{% endif %}">{{ item.label }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Info Card -->
+            <section class="bg-primary/5 p-6 rounded-xl border border-primary/20">
+                <h3 class="text-lg font-bold mb-4">Thông tin bài tập</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Loại</span>
+                        <span class="font-bold">{% if assignment.type == 'auto_grade' %}Tự động{% elif assignment.type == 'manual_grade' %}Thủ công{% else %}Kết hợp{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Điểm tối đa</span>
+                        <span class="font-bold">{{ assignment.max_score }}</span>
+                    </div>
+                    {% if assignment.max_attempts %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Số lần nộp tối đa</span>
+                        <span class="font-bold">{{ assignment.max_attempts }}</span>
+                    </div>
+                    {% endif %}
+                    {% if assignment.start_date %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Bắt đầu</span>
+                        <span class="font-bold">{{ assignment.start_date|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if assignment.due_date %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Hạn nộp</span>
+                        <span class="font-bold">{{ assignment.due_date|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if assignment.late_submission_allowed %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Nộp muộn</span>
+                        <span class="font-bold text-amber-500">Cho phép (-{{ assignment.late_penalty_percent }}%)</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Testcases</span>
+                        <span class="font-bold">{{ total_testcases }} ({{ sample_count }} mẫu, {{ hidden_count }} ẩn)</span>
+                    </div>
+                    {% if assignment.allowed_languages %}
+                    <div>
+                        <span class="text-slate-600 block mb-1">Ngôn ngữ cho phép</span>
+                        <div class="flex flex-wrap gap-1">
+                            {% for lang in assignment.allowed_languages %}
+                            <span class="text-xs bg-slate-200 px-2 py-0.5 rounded font-bold">{{ lang }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if not is_teacher %}
+                <hr class="my-4 border-primary/20">
+                <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all text-center block">
+                    {% if assignment.is_exam %}Vào phòng thi{% else %}Bắt đầu làm bài{% endif %}
+                </a>
+                {% endif %}
+            </section>
+
+            {% if rubrics and not is_teacher %}
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 class="font-bold mb-4 flex items-center justify-between gap-3">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">rubric</span>
+                        Rubric
+                    </span>
+                    <span class="text-xs font-bold text-slate-500">{{ rubric_total|floatformat:1 }} điểm</span>
+                </h3>
+                <div class="space-y-3">
+                    {% for rubric in rubrics %}
+                    <div class="p-3 border border-slate-200 rounded-lg">
+                        <p class="text-sm font-bold">{{ rubric.name }}</p>
+                        {% if rubric.description %}
+                        <p class="text-xs text-slate-600 mt-1">{{ rubric.description }}</p>
+                        {% endif %}
+                        <p class="text-[11px] font-bold text-primary mt-1">{{ rubric.max_points|floatformat:1 }} điểm</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if is_teacher %}
+            <!-- Rubric -->
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 class="font-bold mb-4 flex items-center justify-between gap-3">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">rubric</span>
+                        Rubric
+                    </span>
+                    <span class="text-xs font-bold text-slate-500">{{ rubric_total|floatformat:1 }}/{{ assignment.max_score }}</span>
+                </h3>
+                {% if rubrics %}
+                <div class="space-y-3 mb-4">
+                    {% for rubric in rubrics %}
+                    <div class="p-3 border border-slate-200 rounded-lg">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold truncate">{{ rubric.name }}</p>
+                                {% if rubric.description %}
+                                <p class="text-xs text-slate-600 mt-1">{{ rubric.description }}</p>
+                                {% endif %}
+                                <p class="text-[11px] font-bold text-primary mt-1">{{ rubric.max_points|floatformat:1 }} điểm</p>
+                            </div>
+                            <form method="post" action="{% url 'assignments:delete_rubric' pk=assignment.pk rubric_pk=rubric.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" onclick="return confirm('Ẩn tiêu chí rubric này? Các điểm đã chấm vẫn được lưu.')" class="text-slate-400 hover:text-red-500 transition-colors" title="Ẩn tiêu chí">
+                                    <span class="material-symbols-outlined text-sm">delete</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-slate-600 mb-4">Chưa có tiêu chí rubric.</p>
+                {% endif %}
+                <form method="post" action="{% url 'assignments:add_rubric' pk=assignment.pk %}" class="space-y-3 border-t border-slate-200 pt-4">
+                    {% csrf_token %}
+                    <input type="text" name="name" placeholder="Tên tiêu chí" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <textarea name="description" rows="2" placeholder="Mô tả ngắn" class="w-full rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary"></textarea>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" name="max_points" step="0.5" min="0" placeholder="Điểm" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                        <input type="number" name="order_index" min="0" value="{{ rubrics|length }}" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    </div>
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 h-10 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Thêm tiêu chí
+                    </button>
+                </form>
+            </section>
+
+            <!-- Teacher Quick Stats -->
+            {% if statistics %}
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">bar_chart</span>
+                    Thống kê nhanh
+                </h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Tổng bài nộp</span>
+                        <span class="font-bold">{{ statistics.total_submissions }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Sinh viên nộp</span>
+                        <span class="font-bold">{{ statistics.unique_students }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Điểm trung bình</span>
+                        <span class="font-bold">{{ statistics.avg_score|floatformat:1 }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Tỷ lệ pass</span>
+                        <span class="font-bold text-emerald-500">{{ statistics.pass_rate|floatformat:0 }}%</span>
+                    </div>
+                </div>
+                <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="w-full mt-4 py-2 border border-slate-200 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors text-center block">
+                    Xem chi tiết
+                </a>
+            </section>
+            {% endif %}
+
+            <!-- Danger Zone -->
+            <section class="bg-white border border-red-200 rounded-xl p-6">
+                <h3 class="text-sm font-bold text-red-500 mb-3">Vùng nguy hiểm</h3>
+                <a href="{% url 'assignments:delete' pk=assignment.pk %}" class="inline-flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2 px-4 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
+                    <span class="material-symbols-outlined text-sm">delete</span> Xóa bài tập
+                </a>
+            </section>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

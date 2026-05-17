@@ -1,0 +1,173 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Quản lý người dùng{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap justify-between items-end gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">Quản lý người dùng</h2>
+        <p class="text-neutral-500 mt-1">Quản lý tài khoản học sinh và giáo viên.</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'administation:user_create' %}" class="btn btn-primary">
+            <span class="material-symbols-outlined text-sm">person_add</span>
+            Tạo user
+        </a>
+        <a href="{% url 'administation:user_export' %}?role={{ role_filter }}&status={{ status_filter }}&search={{ search_query|urlencode }}" class="btn btn-ghost">
+            <span class="material-symbols-outlined text-sm">download</span>
+            Xuất CSV
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="flex flex-wrap gap-4 mt-6">
+    <form method="get" class="admin-filter-form flex-1">
+        <div class="flex-1">
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo tên, username, email..." class="form-input">
+        </div>
+        <select name="role" class="form-select">
+            <option value="all" {% if role_filter == 'all' %}selected{% endif %}>Tất cả vai trò</option>
+            <option value="student" {% if role_filter == 'student' %}selected{% endif %}>Học sinh</option>
+            <option value="teacher" {% if role_filter == 'teacher' %}selected{% endif %}>Giáo viên</option>
+            <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
+        </select>
+        <select name="status" class="form-select">
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả trạng thái</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Hoạt động</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Vô hiệu</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Tìm</button>
+    </form>
+</div>
+
+{% if users %}
+<form method="post" action="{% url 'administation:user_bulk_action' %}">
+    {% csrf_token %}
+    <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+        <div class="p-4 border-b border-primary-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-neutral-600">{{ page_obj.paginator.count }} người dùng</span>
+            </div>
+            <div class="flex gap-2">
+                <select name="action" class="form-select text-sm">
+                    <option value="">Chọn hành động</option>
+                    <option value="activate">Kích hoạt</option>
+                    <option value="deactivate">Vô hiệu hóa</option>
+                    <option value="delete">Xóa</option>
+                </select>
+                <button type="submit" class="btn btn-primary text-sm">Áp dụng</button>
+            </div>
+        </div>
+        <table class="w-full text-left">
+            <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+                <tr>
+                    <th class="px-4 py-3">
+                        <input type="checkbox" id="select-all" class="rounded">
+                    </th>
+                    <th class="px-4 py-3">Người dùng</th>
+                    <th class="px-4 py-3 hidden md:table-cell">Vai trò</th>
+                    <th class="px-4 py-3 hidden lg:table-cell">Bài nộp</th>
+                    <th class="px-4 py-3 hidden lg:table-cell">Trạng thái</th>
+                    <th class="px-4 py-3">Ngày tham gia</th>
+                    <th class="px-4 py-3 text-right">Hành động</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-primary-200">
+                {% for user in users %}
+                <tr class="hover:bg-primary-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <input type="checkbox" name="user_ids" value="{{ user.id }}" class="rounded">
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold text-sm">
+                                {{ user.first_name|first|default:user.username|first|upper }}
+                            </div>
+                            <div>
+                                <p class="font-medium text-neutral-900">{{ user.get_full_name|default:user.username }}</p>
+                                <p class="text-sm text-neutral-500">@{{ user.username }}</p>
+                                <p class="text-xs text-neutral-400">{{ user.email }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 hidden md:table-cell">
+                        {% if user.profiles %}
+                        <span class="px-2 py-1 rounded-full text-xs font-bold uppercase
+                            {% if user.profiles.role == 'teacher' %}bg-accent-100 text-accent-700
+                            {% elif user.profiles.role == 'student' %}bg-primary-100 text-primary-700
+                            {% else %}bg-neutral-100 text-neutral-700{% endif %}">
+                            {% if user.profiles.role == 'teacher' %}Giáo viên{% elif user.profiles.role == 'student' %}Học sinh{% else %}{{ user.profiles.role|default:"—" }}{% endif %}
+                        </span>
+
+                        {% else %}
+                        <span class="text-neutral-400">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="px-4 py-3 hidden lg:table-cell">
+                        <span class="text-sm text-neutral-900">{{ user.assignment_count }} bài</span>
+                    </td>
+                    <td class="px-4 py-3 hidden lg:table-cell">
+                        <span class="px-2 py-1 rounded-full text-xs font-bold uppercase
+                            {% if user.is_active %}bg-success-100 text-success-700{% else %}bg-danger-100 text-danger-700{% endif %}">
+                            {{ user.is_active|yesno:"Hoạt động,Vô hiệu" }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-neutral-500">
+                        {{ user.date_joined|date:"d/m/Y" }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex justify-end gap-2">
+                            <a href="{% url 'administation:user_detail' user.pk %}" class="btn btn-sm" title="Chi tiết">
+                                <span class="material-symbols-outlined text-xs">visibility</span>
+                            </a>
+                            <a href="{% url 'administation:user_edit' user.pk %}" class="btn btn-sm" title="Sửa">
+                                <span class="material-symbols-outlined text-xs">edit</span>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</form>
+
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-between py-4">
+    <p class="text-neutral-600 text-sm">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&role={{ role_filter }}&status={{ status_filter }}" class="btn btn-sm">Trước</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&role={{ role_filter }}&status={{ status_filter }}" class="btn btn-sm">Sau</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center mt-6">
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">group</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">Không tìm thấy người dùng</h3>
+    {% if search_query %}
+    <p class="text-neutral-500">Không có người dùng nào khớp với "{{ search_query }}".</p>
+    <a href="{% url 'administation:user_management' %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
+    {% else %}
+    <p class="text-neutral-500">Chưa có người dùng nào.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+// Select all checkbox
+const selectAll = document.getElementById('select-all');
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('input[name="user_ids"]');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+}
+</script>
+{% endblock %}

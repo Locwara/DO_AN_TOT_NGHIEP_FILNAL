@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Tạo lớp học mới - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[700px] flex-1">
+        <div class="flex items-center gap-3 mb-6">
+            <a href="{% url 'classrooms:classroom_list' %}" class="text-slate-500 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <h1 class="text-2xl font-bold">Tạo lớp học mới</h1>
+        </div>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <ul class="list-disc list-inside">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="p-6 bg-white rounded-xl border border-slate-200">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-3xl">school</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">Thông tin lớp học</h3>
+                        <p class="text-slate-600 text-sm">Mã mời sẽ được tự động tạo</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tên lớp học</label>
+                        <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="Tên lớp học" required/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Mô tả</label>
+                        <textarea name="description" rows="4"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm resize-none"
+                            placeholder="Mô tả lớp học...">{{ form.description.value|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Số sinh viên tối đa</label>
+                        <input type="number" name="max_students" value="{{ form.max_students.value|default:'100' }}" min="1" max="500"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div class="rounded-lg border border-primary-100 bg-primary-50/60 p-4">
+                        <label class="flex items-start gap-3 text-sm">
+                            <input type="checkbox" name="join_requires_approval" {% if form.join_requires_approval.value %}checked{% endif %} class="mt-1 rounded border-slate-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="font-bold text-slate-800 block">Học sinh tham gia cần giáo viên duyệt</span>
+                                <span class="text-xs text-slate-600">Bật tùy chọn này nếu bạn muốn học sinh gửi yêu cầu trước, sau đó duyệt trong mục Chờ duyệt của lớp. Nếu tắt, học sinh có mã mời sẽ vào lớp ngay.</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'classrooms:classroom_list' %}" class="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                    Hủy
+                </a>
+                <button type="submit" class="flex items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">add_circle</span>
+                    Tạo lớp học
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

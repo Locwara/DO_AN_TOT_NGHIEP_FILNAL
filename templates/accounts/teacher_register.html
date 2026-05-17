@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Đăng ký Giáo viên - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[700px] flex-1">
+        <div class="flex items-center gap-3 mb-6">
+            <a href="{% url 'accounts:profile' %}" class="text-slate-500 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <h1 class="text-2xl font-bold">Đăng ký làm Giáo viên</h1>
+        </div>
+
+        {% if existing %}
+        <div class="p-6 bg-white rounded-xl border border-slate-200">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="size-14 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-amber-500 text-3xl">hourglass_top</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold">Đơn đang chờ phê duyệt</h3>
+                    <p class="text-slate-600 text-sm">Gửi ngày {{ existing.created_at|date:"d/m/Y" }}</p>
+                </div>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <span class="text-slate-500 font-medium">Tổ chức:</span>
+                    <span class="ml-2">{{ existing.institution }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-500 font-medium">Lý do:</span>
+                    <span class="ml-2">{{ existing.reason }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-500 font-medium">Trạng thái:</span>
+                    <span class="ml-2 px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-xs font-bold uppercase">{{ existing.status }}</span>
+                </div>
+            </div>
+        </div>
+        {% elif form %}
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <ul class="list-disc list-inside">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="p-6 bg-white rounded-xl border border-slate-200">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-3xl">school</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">Thông tin đăng ký</h3>
+                        <p class="text-slate-600 text-sm">Điền thông tin để được xét duyệt làm giáo viên</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tên trường / Tổ chức</label>
+                        <input type="text" name="institution" value="{{ form.institution.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="Tên trường / tổ chức" required/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Lý do đăng ký</label>
+                        <textarea name="reason" rows="4"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm resize-none"
+                            placeholder="Lý do bạn muốn trở thành giáo viên...">{{ form.reason.value|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Link tài liệu minh chứng</label>
+                        <input type="url" name="proof_document_url" value="{{ form.proof_document_url.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="Link Google Drive, Cloudinary..."/>
+                        <p class="text-xs text-slate-600 mt-1">Upload tài liệu lên Google Drive hoặc Cloudinary rồi dán link vào đây</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'accounts:profile' %}" class="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                    Hủy
+                </a>
+                <button type="submit" class="flex items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">send</span>
+                    Gửi đơn đăng ký
+                </button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

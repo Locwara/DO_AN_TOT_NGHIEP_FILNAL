@@ -1,0 +1,64 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}{% if is_edit %}Sửa ngôn ngữ{% else %}Thêm ngôn ngữ{% endif %}{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="eyebrow">Programming Languages</p>
+        <h2 class="text-2xl font-bold text-primary-900 mt-1">
+            {% if is_edit %}Chỉnh sửa ngôn ngữ{% else %}Thêm ngôn ngữ mới{% endif %}
+        </h2>
+        <p class="text-neutral-500 mt-1">Cấu hình ngôn ngữ lập trình hiển thị trong IDE và bài nộp.</p>
+    </div>
+    <a href="{% url 'administation:languages' %}" class="btn btn-ghost">
+        <span class="material-symbols-outlined text-sm">arrow_back</span>
+        Quay lại
+    </a>
+</div>
+
+<form method="post" action="" class="card p-6 space-y-5 max-w-2xl">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+            <label class="form-label">Tên (slug) <span class="text-danger-600">*</span></label>
+            <input type="text" name="name" value="{{ form.name.value|default:'' }}" class="form-input font-mono" placeholder="python">
+            {% if form.name.errors %}<p class="form-error">{{ form.name.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Tên hiển thị <span class="text-danger-600">*</span></label>
+            <input type="text" name="display_name" value="{{ form.display_name.value|default:'' }}" class="form-input" placeholder="Python 3.11">
+            {% if form.display_name.errors %}<p class="form-error">{{ form.display_name.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Phiên bản</label>
+            <input type="text" name="version" value="{{ form.version.value|default:'' }}" class="form-input" placeholder="3.11">
+        </div>
+        <div>
+            <label class="form-label">Đuôi file</label>
+            <input type="text" name="file_extension" value="{{ form.file_extension.value|default:'' }}" class="form-input" placeholder=".py">
+        </div>
+        <div>
+            <label class="form-label">Syntax Highlight Mode</label>
+            <input type="text" name="syntax_highlight_mode" value="{{ form.syntax_highlight_mode.value|default:'' }}" class="form-input" placeholder="python">
+        </div>
+        <div class="flex items-center gap-3 pt-6">
+            <input type="checkbox" name="is_active" id="is_active" {% if form.is_active.value %}checked{% endif %} class="rounded border-slate-300 text-primary focus:ring-primary">
+            <label for="is_active" class="text-sm font-medium text-neutral-700">Kích hoạt</label>
+        </div>
+    </div>
+
+    <div>
+        <label class="form-label">Template mặc định</label>
+        <textarea name="default_template" rows="5" class="form-textarea font-mono" placeholder="# Write your code here...">{{ form.default_template.value|default:'' }}</textarea>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+        <a href="{% url 'administation:languages' %}" class="btn btn-ghost">Hủy</a>
+        <button type="submit" class="btn btn-primary">
+            <span class="material-symbols-outlined text-sm">save</span>
+            {% if is_edit %}Cập nhật{% else %}Thêm mới{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}

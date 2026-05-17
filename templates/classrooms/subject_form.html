@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Sửa môn học{% else %}Tạo môn học{% endif %}{% if classroom %} - {{ classroom.name }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[1100px] w-full flex-1 gap-6">
+        <div class="flex items-center gap-3">
+            <a href="{% if back_url == 'classrooms:subjects' and classroom %}{% url 'classrooms:subjects' pk=classroom.pk %}{% else %}{% url 'classrooms:classroom_detail' pk=classroom.pk %}{% endif %}" class="text-slate-500 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold">{% if is_edit %}Chỉnh sửa môn học{% else %}Tạo môn học mới{% endif %}</h1>
+                {% if classroom %}<p class="text-sm text-slate-500">Lớp: {{ classroom.name }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+            <!-- FORM -->
+            <form method="post" class="space-y-6" id="subject-form" data-is-edit="{% if is_edit %}1{% else %}0{% endif %}" data-subject-id="{% if subject %}{{ subject.pk }}{% else %}{% endif %}">
+                {% csrf_token %}
+                {% if form.errors %}
+                <div class="p-4 rounded-lg bg-danger-50 border border-danger-200 text-danger-600 text-sm">
+                    {{ form.non_field_errors }}
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                        <div>{{ field.label }}: {{ error }}</div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="p-6 bg-white rounded-xl border border-slate-200">
+                    <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5">
+                        <!-- Mã môn: readonly, auto-sinh -->
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">
+                                Mã môn học
+                                <span class="text-xs font-normal text-slate-500">(tự sinh)</span>
+                            </label>
+                            <div class="flex items-center gap-2 w-full rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-900 font-mono font-bold">
+                                <span class="material-symbols-outlined text-primary text-base">auto_awesome</span>
+                                <span id="code-preview">{{ next_code_preview }}</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">{% if is_edit %}Mã hiện tại của môn (không đổi).{% else %}Mã sẽ được gán khi lưu.{% endif %}</p>
+                        </div>
+
+                        <!-- Tên môn -->
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Tên môn học *</label>
+                            <div class="relative">
+                                <input
+                                    id="subject-name-input"
+                                    type="text"
+                                    name="name"
+                                    value="{{ form.name.value|default:'' }}"
+                                    class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900"
+                                    placeholder="VD: Lập trình hướng đối tượng"
+                                    autocomplete="off"
+                                    required>
+                                <span id="name-check-icon" aria-hidden="true" class="absolute right-3 top-1/2 -translate-y-1/2 text-transparent">
+                                    <span class="material-symbols-outlined text-base"></span>
+                                </span>
+                            </div>
+                            <p id="name-check-msg" role="status" aria-live="polite" class="text-xs mt-1 text-slate-500">Nhập tên môn. Hệ thống sẽ tự kiểm tra trùng lặp với các môn đã có.</p>
+                        </div>
+
+                        <!-- Mô tả -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Mô tả</label>
+                            <textarea name="description" rows="4" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 resize-none" placeholder="Mô tả nội dung, mục tiêu môn học...">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Languages -->
+                <div class="p-6 bg-white rounded-xl border border-slate-200">
+                    <h3 class="text-lg font-bold mb-1">Ngôn ngữ lập trình *</h3>
+                    <p class="text-sm text-slate-600 mb-4">Chọn 1 hoặc nhiều ngôn ngữ được dạy trong môn này.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% for checkbox in form.languages %}
+                        <label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                            <span class="mt-0.5">{{ checkbox.tag }}</span>
+                            <span class="text-sm font-medium">{{ checkbox.choice_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if form.languages.errors %}
+                    <p class="text-danger-600 text-xs mt-2">{{ form.languages.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <a href="{% if back_url == 'classrooms:subjects' and classroom %}{% url 'classrooms:subjects' pk=classroom.pk %}{% else %}{% url 'classrooms:classroom_detail' pk=classroom.pk %}{% endif %}" class="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">Hủy</a>
+                    <button
+                        id="submit-btn"
+                        type="submit"
+                        class="flex items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                        <span class="material-symbols-outlined text-sm">save</span>
+                        {% if is_edit %}Lưu thay đổi{% else %}Tạo môn học{% endif %}
+                    </button>
+                </div>
+            </form>
+
+            <!-- PANEL: DANH SÁCH MÔN ĐÃ CÓ -->
+            <aside class="bg-white rounded-xl border border-slate-200 overflow-hidden h-fit lg:sticky lg:top-20">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="material-symbols-outlined text-primary">library_books</span>
+                        <h3 class="font-bold">Môn học đã có</h3>
+                        <span class="ml-auto text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{{ existing_subjects|length }}</span>
+                    </div>
+                    <p class="text-xs text-slate-500">Kiểm tra trước khi tạo để tránh trùng.</p>
+                </div>
+                <div class="p-4 border-b border-slate-200">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
+                        <input
+                            id="existing-filter"
+                            type="text"
+                            placeholder="Tìm theo mã / tên..."
+                            class="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+                    </div>
+                </div>
+                <div id="existing-list" class="max-h-[480px] overflow-y-auto divide-y divide-slate-100">
+                    {% for s in existing_subjects %}
+                    <div class="px-5 py-3 hover:bg-slate-50 transition-colors existing-item"
+                         data-code="{{ s.code|lower }}"
+                         data-name="{{ s.name|lower }}">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <span class="text-xs font-mono font-bold text-primary">{{ s.code }}</span>
+                            {% if s.status == 'approved' %}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 uppercase">Duyệt</span>
+                            {% elif s.status == 'pending' %}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 uppercase">Chờ</span>
+                            {% elif s.status == 'rejected' %}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 uppercase">Từ chối</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm font-medium text-slate-800 leading-snug">{{ s.name }}</p>
+                        {% if s.languages.all %}
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            {% for lang in s.languages.all %}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">{{ lang.display_name|default:lang.name }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="px-5 py-8 text-center text-sm text-slate-500">
+                        <span class="material-symbols-outlined text-3xl text-slate-300 block mb-2">inbox</span>
+                        Chưa có môn học nào trong hệ thống.
+                    </div>
+                    {% endfor %}
+                </div>
+                <div id="existing-empty-msg" class="px-5 py-6 text-center text-sm text-slate-500 hidden">
+                    Không có môn nào khớp.
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    const form = document.getElementById('subject-form');
+    const nameInput = document.getElementById('subject-name-input');
+    const msgEl = document.getElementById('name-check-msg');
+    const iconWrap = document.getElementById('name-check-icon');
+    const iconEl = iconWrap.querySelector('span');
+    const submitBtn = document.getElementById('submit-btn');
+    const filterInput = document.getElementById('existing-filter');
+    const listEl = document.getElementById('existing-list');
+    const emptyMsg = document.getElementById('existing-empty-msg');
+    const subjectId = form.dataset.subjectId || '';
+
+    const checkUrl = "{% url 'classrooms:subject_check_name' %}";
+
+    // --- Filter danh sách môn đã có ---
+    if (filterInput) {
+        filterInput.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            const items = listEl.querySelectorAll('.existing-item');
+            let shown = 0;
+            items.forEach(function(it) {
+                const code = it.dataset.code || '';
+                const name = it.dataset.name || '';
+                if (!q || code.includes(q) || name.includes(q)) {
+                    it.classList.remove('hidden');
+                    shown++;
+                } else {
+                    it.classList.add('hidden');
+                }
+            });
+            if (items.length > 0) {
+                emptyMsg.classList.toggle('hidden', shown > 0);
+            }
+        });
+    }
+
+    // --- Check trùng tên (debounced) ---
+    let debounceTimer = null;
+    let lastAvailable = true;
+    let reqSeq = 0;  // chặn stale response khi user gõ nhanh
+
+    function setState(state, message) {
+        // state: 'idle' | 'checking' | 'ok' | 'duplicate' | 'error'
+        nameInput.classList.remove('ring-2', 'ring-emerald-500/50', 'ring-red-500/50', 'ring-amber-500/50', 'border-emerald-500', 'border-red-500');
+        iconEl.classList.remove('text-emerald-500', 'text-red-500', 'text-amber-500', 'text-slate-400');
+        iconWrap.classList.remove('text-transparent');
+        msgEl.classList.remove('text-emerald-600', 'text-red-600', 'text-amber-600', 'text-slate-500');
+
+        if (state === 'idle') {
+            iconWrap.classList.add('text-transparent');
+            msgEl.classList.add('text-slate-500');
+            iconEl.textContent = '';
+        } else if (state === 'checking') {
+            iconEl.textContent = 'sync';
+            iconEl.classList.add('text-slate-400', 'animate-spin');
+            msgEl.classList.add('text-slate-500');
+        } else if (state === 'ok') {
+            nameInput.classList.add('ring-2', 'ring-emerald-500/50', 'border-emerald-500');
+            iconEl.textContent = 'check_circle';
+            iconEl.classList.add('text-emerald-500');
+            iconEl.classList.remove('animate-spin');
+            msgEl.classList.add('text-emerald-600');
+        } else if (state === 'duplicate') {
+            nameInput.classList.add('ring-2', 'ring-red-500/50', 'border-red-500');
+            iconEl.textContent = 'error';
+            iconEl.classList.add('text-red-500');
+            iconEl.classList.remove('animate-spin');
+            msgEl.classList.add('text-red-600');
+        } else if (state === 'error') {
+            iconEl.textContent = 'warning';
+            iconEl.classList.add('text-amber-500');
+            iconEl.classList.remove('animate-spin');
+            msgEl.classList.add('text-amber-600');
+        }
+        msgEl.textContent = message;
+    }
+
+    function updateSubmit() {
+        if (!lastAvailable) {
+            submitBtn.disabled = true;
+        } else {
+            submitBtn.disabled = false;
+        }
+    }
+
+    function checkName() {
+        const name = nameInput.value.trim();
+        if (!name) {
+            lastAvailable = true;
+            setState('idle', 'Nhập tên môn. Hệ thống sẽ tự kiểm tra trùng lặp với các môn đã có.');
+            updateSubmit();
+            return;
+        }
+        setState('checking', 'Đang kiểm tra...');
+
+        const params = new URLSearchParams({ name: name });
+        if (subjectId) params.append('exclude', subjectId);
+
+        const mySeq = ++reqSeq;
+
+        fetch(checkUrl + '?' + params.toString(), {
+            method: 'GET',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(data) {
+            // Bỏ qua nếu đã có request mới hơn hoặc input đã thay đổi
+            if (mySeq !== reqSeq || nameInput.value.trim() !== name) return;
+            if (data.available) {
+                lastAvailable = true;
+                setState('ok', '✓ Tên môn hợp lệ, chưa bị trùng.');
+            } else {
+                lastAvailable = false;
+                const c = data.conflict;
+                setState('duplicate', '✗ Trùng với môn đã có: ' + (c ? c.code + ' — ' + c.name : '(không xác định)'));
+            }
+            updateSubmit();
+        })
+        .catch(function() {
+            if (mySeq !== reqSeq) return;
+            // Không chặn submit nếu lỗi mạng — server-side vẫn check
+            lastAvailable = true;
+            setState('error', 'Không kiểm tra được (lỗi mạng). Sẽ được kiểm tra lại khi lưu.');
+            updateSubmit();
+        });
+    }
+
+    if (nameInput) {
+        nameInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(checkName, 400);
+        });
+        // Chạy lần đầu nếu có giá trị sẵn (edit mode)
+        if (nameInput.value.trim()) {
+            checkName();
+        }
+    }
+})();
+</script>
+{% endblock %}

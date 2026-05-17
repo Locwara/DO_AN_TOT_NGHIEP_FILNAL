@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Môn học - {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Môn học</span>
+    </nav>
+
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-black tracking-tight">Môn học của lớp</h1>
+            <p class="text-slate-600 mt-1">{{ classroom.name }} • {{ subject_links|length }} môn{% if semester_filter %} (đang lọc){% endif %}</p>
+        </div>
+        {% if can_manage_subjects %}
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{% url 'classrooms:subject_create' pk=classroom.pk %}" class="flex items-center gap-2 bg-primary text-white font-bold py-3 px-6 rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">add_circle</span>
+                Tạo môn mới
+            </a>
+            <a href="{% url 'classrooms:subject_assign' pk=classroom.pk %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-3 px-6 rounded-lg hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">playlist_add</span>
+                Gán môn có sẵn
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Semester filter tabs -->
+    <div class="flex border-b border-slate-200 gap-4 overflow-x-auto mb-8">
+        <a class="flex items-center gap-2 border-b-2 {% if not semester_filter %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors whitespace-nowrap" href="?">
+            <span class="material-symbols-outlined text-sm">view_list</span> Tất cả
+        </a>
+        <a class="flex items-center gap-2 border-b-2 {% if semester_filter == 'current' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors whitespace-nowrap" href="?semester=current">
+            <span class="material-symbols-outlined text-sm">event_available</span> Kỳ hiện tại
+        </a>
+        {% for sem in all_semesters %}
+        <a class="flex items-center gap-2 border-b-2 {% if semester_filter == sem.pk|stringformat:'s' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors whitespace-nowrap" href="?semester={{ sem.pk }}">
+            <span class="text-xs font-mono">{{ sem.code }}</span>
+            {% if sem.is_current %}<span class="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">NOW</span>{% endif %}
+        </a>
+        {% endfor %}
+        <a class="flex items-center gap-2 border-b-2 {% if semester_filter == 'none' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors whitespace-nowrap" href="?semester=none">
+            <span class="material-symbols-outlined text-sm">help_outline</span> Chưa phân kỳ
+        </a>
+    </div>
+
+    {% if grouped_links %}
+    {% for group in grouped_links %}
+    <section class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <span class="material-symbols-outlined text-lg">event_note</span>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold">{{ group.label }}</h2>
+                {% if group.semester %}
+                <p class="text-xs text-slate-500">
+                    {% if group.semester.start_date %}{{ group.semester.start_date|date:"d/m/Y" }}{% endif %}
+                    {% if group.semester.end_date %} → {{ group.semester.end_date|date:"d/m/Y" }}{% endif %}
+                    {% if group.semester.is_current %}<span class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">Đang diễn ra</span>{% endif %}
+                </p>
+                {% endif %}
+            </div>
+            <span class="ml-auto text-xs text-slate-500">{{ group.links|length }} môn</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {% for link in group.links %}
+            {% with subject=link.subject %}
+            <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col hover:border-primary transition-colors">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">{{ subject.code }}</p>
+                        <a href="{% url 'classrooms:subject_detail' pk=classroom.pk link_pk=link.pk %}" class="block text-lg font-bold mt-1 hover:text-primary transition-colors">{{ subject.name }}</a>
+                    </div>
+                    {% if subject.status == 'approved' %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-success-100 text-success-600 uppercase">Đã duyệt</span>
+                    {% elif subject.status == 'pending' %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-warning-100 text-warning-600 uppercase">Chờ duyệt</span>
+                    {% else %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-danger-100 text-danger-600 uppercase">Từ chối</span>
+                    {% endif %}
+                </div>
+
+                {% if subject.description %}
+                <p class="text-sm text-slate-600 leading-relaxed mb-3 line-clamp-3">{{ subject.description }}</p>
+                {% endif %}
+
+                <div class="flex flex-wrap gap-2 mb-4">
+                    {% for lang in subject.languages.all %}
+                    <span class="text-xs px-2 py-1 rounded-full bg-primary-50 text-primary-700 font-medium">{{ lang.display_name }}</span>
+                    {% empty %}
+                    <span class="text-xs text-slate-500">Chưa gắn ngôn ngữ</span>
+                    {% endfor %}
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                        <span class="material-symbols-outlined text-sm">assignment</span>
+                        <span>{{ link.assignment_count|default:0 }} bài tập</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="{% url 'classrooms:subject_detail' pk=classroom.pk link_pk=link.pk %}" class="text-xs text-primary font-bold hover:underline">Vào môn</a>
+                        {% if can_manage_subjects %}
+                        <a href="{% url 'assignments:create' classroom_pk=classroom.pk %}?cs={{ link.pk }}" class="text-xs text-slate-600 hover:text-primary transition-colors" title="Thêm bài tập vào môn này">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                        </a>
+                        {% if request.user.is_superuser or subject.created_by_id == request.user.id %}
+                        <a href="{% url 'classrooms:subject_edit' classroom_pk=classroom.pk subject_pk=subject.pk %}" class="text-slate-500 hover:text-primary transition-colors" title="Sửa môn">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'classrooms:subject_delete' classroom_pk=classroom.pk subject_pk=subject.pk %}?link={{ link.pk }}" class="text-slate-500 hover:text-danger-600 transition-colors" title="Gỡ môn khỏi lớp (chỉ kỳ này)">
+                            <span class="material-symbols-outlined text-sm">link_off</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+    {% else %}
+    <div class="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center">
+        <span class="material-symbols-outlined text-5xl text-slate-400 mb-3">menu_book</span>
+        <h3 class="text-xl font-bold mb-2">Chưa có môn học nào</h3>
+        <p class="text-slate-600">
+            {% if semester_filter %}
+            Không có môn học nào trong bộ lọc đang chọn.
+            {% else %}
+            Tạo hoặc gán môn học để cấu trúc lớp học theo từng kỳ.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% block title %}Thảo luận - {{ assignment.title }} | DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex justify-center py-8">
+    <div class="flex flex-col max-w-[1024px] w-full px-6 gap-6">
+
+        <div class="flex flex-wrap justify-between items-end gap-4">
+            <div class="flex flex-col gap-2">
+                <nav class="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                    <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' classroom.pk %}">{{ classroom.name }}</a>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <a class="hover:text-primary" href="{% url 'assignments:detail' assignment.pk %}">{{ assignment.title }}</a>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <span class="text-slate-900 font-medium">Thảo luận</span>
+                </nav>
+                <p class="eyebrow">Discussions</p>
+                <h2 class="text-2xl font-bold text-primary-900">Diễn đàn thảo luận</h2>
+                <p class="text-neutral-500">Đặt câu hỏi, thảo luận và chia sẻ kiến thức với bạn cùng lớp.</p>
+            </div>
+            <a href="{% url 'discussions:create' assignment.pk %}" class="btn btn-primary">
+                <span class="material-symbols-outlined text-sm">add_circle</span>
+                Đặt câu hỏi
+            </a>
+        </div>
+
+        <div class="w-full">
+            <form method="get" action="">
+                {% if tab != 'all' %}<input type="hidden" name="tab" value="{{ tab }}">{% endif %}
+                <label class="flex flex-col min-w-40 h-14 w-full">
+                    <div class="flex w-full flex-1 items-stretch rounded-lg h-full shadow-sm">
+                        <div class="text-neutral-500 flex bg-primary-50 items-center justify-center pl-5 rounded-l-lg border border-primary-200 border-r-0">
+                            <span class="material-symbols-outlined text-2xl">search</span>
+                        </div>
+                        <input name="q" value="{{ query }}" class="form-input rounded-none flex w-full min-w-0 flex-1 h-full px-4 pl-3 text-base" placeholder="Tìm kiếm chủ đề, câu hỏi...">
+                    </div>
+                </label>
+            </form>
+        </div>
+
+        <div class="flex border-b border-slate-200 gap-8 overflow-x-auto">
+            <a class="flex items-center gap-2 border-b-2 {% if tab == 'all' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors" href="?tab=all{% if query %}&q={{ query }}{% endif %}">
+                <span class="material-symbols-outlined text-xl">forum</span>
+                Tất cả
+            </a>
+            <a class="flex items-center gap-2 border-b-2 {% if tab == 'unanswered' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors" href="?tab=unanswered{% if query %}&q={{ query }}{% endif %}">
+                <span class="material-symbols-outlined text-xl">contact_support</span>
+                Chưa trả lời
+            </a>
+            <a class="flex items-center gap-2 border-b-2 {% if tab == 'my' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors" href="?tab=my{% if query %}&q={{ query }}{% endif %}">
+                <span class="material-symbols-outlined text-xl">person</span>
+                Câu hỏi của tôi
+            </a>
+            <a class="flex items-center gap-2 border-b-2 {% if tab == 'popular' %}border-primary text-primary font-bold{% else %}border-transparent text-slate-500 hover:text-slate-700 font-medium{% endif %} pb-3 transition-colors" href="?tab=popular{% if query %}&q={{ query }}{% endif %}">
+                <span class="material-symbols-outlined text-xl">trending_up</span>
+                Phổ biến
+            </a>
+        </div>
+
+        <div class="@container">
+            {% if discussions %}
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4 w-auto min-w-[300px]">Chủ đề</th>
+                            <th class="px-6 py-4 w-28 text-center hidden md:table-cell">Votes</th>
+                            <th class="px-6 py-4 w-28 text-center hidden md:table-cell">Trả lời</th>
+                            <th class="px-6 py-4 w-40 hidden lg:table-cell">Trạng thái</th>
+                            <th class="px-6 py-4 w-44 text-right hidden sm:table-cell">Người đăng</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        {% for item in discussions %}
+                        <tr class="group hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-5">
+                                <div class="flex flex-col gap-1">
+                                    <div class="flex items-center gap-2">
+                                        {% if item.discussion.is_pinned %}
+                                        <span class="material-symbols-outlined text-amber-500 text-sm">push_pin</span>
+                                        {% endif %}
+                                        <a class="text-slate-900 font-bold text-base hover:text-primary transition-colors leading-tight" href="{% url 'discussions:detail' item.discussion.pk %}">
+                                            {{ item.title }}
+                                        </a>
+                                    </div>
+                                    {% if item.body_preview %}
+                                    <p class="text-slate-600 text-sm line-clamp-1">{{ item.body_preview }}</p>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-5 hidden md:table-cell">
+                                <div class="flex flex-col items-center">
+                                    <span class="text-slate-900 font-bold text-lg">{{ item.discussion.upvotes }}</span>
+                                    <span class="text-[10px] text-slate-500 uppercase font-medium">Votes</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-5 hidden md:table-cell">
+                                <div class="flex flex-col items-center">
+                                    <span class="text-slate-900 font-bold text-lg">{{ item.reply_count }}</span>
+                                    <span class="text-[10px] text-slate-500 uppercase font-medium">Trả lời</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-5 hidden lg:table-cell">
+                                {% if item.has_answer %}
+                                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 w-fit">
+                                    <span class="material-symbols-outlined text-sm font-bold">check_circle</span>
+                                    <span class="text-xs font-bold uppercase tracking-wide">Đã giải</span>
+                                </div>
+                                {% elif item.reply_count > 0 %}
+                                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 w-fit">
+                                    <span class="material-symbols-outlined text-sm font-bold">help</span>
+                                    <span class="text-xs font-bold uppercase tracking-wide">Đang thảo luận</span>
+                                </div>
+                                {% else %}
+                                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-500/10 text-slate-600 w-fit">
+                                    <span class="material-symbols-outlined text-sm font-bold">history</span>
+                                    <span class="text-xs font-bold uppercase tracking-wide">Chờ trả lời</span>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-5 hidden sm:table-cell">
+                                <div class="flex items-center justify-end gap-3">
+                                    <div class="text-right">
+                                        <p class="text-sm font-bold text-slate-900">{{ item.discussion.user.get_full_name|default:item.discussion.user.username }}</p>
+                                        <p class="text-[11px] text-slate-500">{{ item.discussion.created_at|timesince }} trước</p>
+                                    </div>
+                                    <div class="flex items-center justify-center rounded-full size-10 bg-primary/10 text-primary font-bold text-sm">
+                                        {{ item.discussion.user.username|make_list|first|upper }}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-16 text-center">
+                <span class="material-symbols-outlined text-6xl text-slate-400 mb-4">forum</span>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">Chưa có thảo luận nào</h3>
+                <p class="text-slate-600 mb-6">Hãy là người đầu tiên đặt câu hỏi!</p>
+                <a href="{% url 'discussions:create' assignment.pk %}" class="flex items-center justify-center rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold hover:brightness-110 transition-all">
+                    <span class="material-symbols-outlined mr-2 text-sm">add_circle</span>
+                    Đặt câu hỏi
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="flex items-center justify-between py-4">
+            <p class="text-slate-600 text-sm font-medium">
+                Hiển thị {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ total_count }} chủ đề
+            </p>
+            <div class="flex gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&tab={{ tab }}{% if query %}&q={{ query }}{% endif %}" class="flex items-center justify-center rounded-lg h-10 w-10 border border-slate-200 text-slate-500 hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-outlined">chevron_left</span>
+                </a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <span class="flex items-center justify-center rounded-lg h-10 w-10 bg-primary text-white font-bold">{{ num }}</span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}&tab={{ tab }}{% if query %}&q={{ query }}{% endif %}" class="flex items-center justify-center rounded-lg h-10 w-10 border border-slate-200 text-slate-500 hover:bg-slate-200 transition-colors">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&tab={{ tab }}{% if query %}&q={{ query }}{% endif %}" class="flex items-center justify-center rounded-lg h-10 w-10 border border-slate-200 text-slate-500 hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

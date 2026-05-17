@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Bảng xếp hạng - {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[900px] mx-auto px-6 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Bảng xếp hạng</span>
+    </nav>
+
+    <div class="flex items-center gap-3 mb-8">
+        <div class="size-12 rounded-lg bg-amber-500/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-amber-500 text-2xl">leaderboard</span>
+        </div>
+        <div>
+            <h1 class="text-2xl font-bold">Bảng xếp hạng</h1>
+            <p class="text-slate-600 text-sm">{{ classroom.name }}</p>
+        </div>
+    </div>
+
+    {% if leaderboard %}
+    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div class="divide-y divide-slate-200">
+            {% for entry in leaderboard %}
+            <div class="flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors {% if entry.student == request.user %}bg-primary/5{% endif %}">
+                <!-- Rank -->
+                <div class="w-10 text-center">
+                    {% if entry.rank == 1 %}
+                    <div class="size-10 rounded-full bg-yellow-400/20 text-yellow-500 flex items-center justify-center">
+                        <span class="material-symbols-outlined">workspace_premium</span>
+                    </div>
+                    {% elif entry.rank == 2 %}
+                    <div class="size-10 rounded-full bg-slate-300/30 text-slate-500 flex items-center justify-center">
+                        <span class="material-symbols-outlined">workspace_premium</span>
+                    </div>
+                    {% elif entry.rank == 3 %}
+                    <div class="size-10 rounded-full bg-orange-400/20 text-orange-500 flex items-center justify-center">
+                        <span class="material-symbols-outlined">workspace_premium</span>
+                    </div>
+                    {% else %}
+                    <span class="text-lg font-black text-slate-500">{{ entry.rank|default:forloop.counter }}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Student Info -->
+                <div class="flex items-center gap-3 flex-1">
+                    {% if entry.student.profiles.avatar_url %}
+                    <div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border border-slate-200" style="background-image: url('{{ entry.student.profiles.avatar_url }}');"></div>
+                    {% else %}
+                    <div class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                        {{ entry.student.first_name|first|default:entry.student.username|first|upper }}
+                    </div>
+                    {% endif %}
+                    <div>
+                        <p class="font-bold {% if entry.student == request.user %}text-primary{% endif %}">
+                            {{ entry.student.get_full_name|default:entry.student.username }}
+                            {% if entry.student == request.user %}<span class="text-xs">(Bạn)</span>{% endif %}
+                        </p>
+                        <p class="text-xs text-slate-600">{{ entry.assignments_completed }} bài hoàn thành</p>
+                    </div>
+                </div>
+
+                <!-- Score -->
+                <div class="text-right">
+                    <p class="text-lg font-black {% if entry.student == request.user %}text-primary{% endif %}">{{ entry.total_score|floatformat:0 }} pts</p>
+                    <p class="text-xs text-slate-600">TB: {{ entry.avg_score|floatformat:1 }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <div class="size-20 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined text-4xl text-slate-400">leaderboard</span>
+        </div>
+        <h3 class="text-xl font-bold mb-2">Chưa có dữ liệu xếp hạng</h3>
+        <p class="text-slate-600">Bảng xếp hạng sẽ được cập nhật khi có sinh viên nộp bài.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

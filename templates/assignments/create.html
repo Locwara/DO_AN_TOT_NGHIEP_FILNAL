@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Tạo bài tập mới - {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-6">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:list' classroom_pk=classroom.pk %}">Bài tập</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Tạo mới</span>
+    </nav>
+
+    <div class="mb-10">
+        <h1 class="text-4xl font-black leading-tight tracking-tight mb-2">Tạo bài tập mới</h1>
+        <p class="text-slate-600 text-lg">Thiết lập bài tập, đề bài và cấu hình chấm điểm.</p>
+    </div>
+
+    {% include 'assignments/_assignment_form.html' with is_edit=False %}
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Theo dõi phòng thi - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-6">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:32 }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="font-medium text-slate-900">Theo dõi phòng thi</span>
+    </nav>
+
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-red-500 mb-2">Exam monitor</p>
+            <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
+            <p class="text-slate-600 mt-1">{{ assignment.exam_duration_minutes|default:"-" }} phút{% if assignment.exam_start_time %} • Mở {{ assignment.exam_start_time|date:"d/m/Y H:i" }}{% endif %}</p>
+        </div>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Về bài thi
+        </a>
+        <a href="{% url 'submissions:exam_monitor_export' assignment_pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90">
+            <span class="material-symbols-outlined text-sm">download</span>
+            Xuất CSV
+        </a>
+    </div>
+
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Chưa vào</p>
+            <p class="text-3xl font-black mt-1">{{ counts.not_started }}</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Đang làm</p>
+            <p class="text-3xl font-black text-emerald-600 mt-1">{{ counts.running }}</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Đã nộp</p>
+            <p class="text-3xl font-black text-primary mt-1">{{ counts.submitted }}</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Hết giờ</p>
+            <p class="text-3xl font-black text-red-500 mt-1">{{ counts.expired }}</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-4">
+            <p class="text-xs font-bold uppercase text-slate-500">Warning</p>
+            <p class="text-3xl font-black text-amber-500 mt-1">{{ counts.warnings }}</p>
+        </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2 font-bold">
+                <span class="material-symbols-outlined text-primary">monitoring</span>
+                Phiên thi
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'submissions:exam_monitor' assignment_pk=assignment.pk %}" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'all' %}bg-primary text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">Tất cả</a>
+                <a href="?status=running" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'running' %}bg-emerald-600 text-white{% else %}bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20{% endif %}">Đang làm</a>
+                <a href="?status=submitted" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'submitted' %}bg-primary text-white{% else %}bg-primary/10 text-primary hover:bg-primary/20{% endif %}">Đã nộp</a>
+                <a href="?status=expired" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'expired' %}bg-red-500 text-white{% else %}bg-red-500/10 text-red-600 hover:bg-red-500/20{% endif %}">Hết giờ</a>
+            </div>
+        </div>
+        {% if sessions %}
+        <div class="overflow-x-auto">
+            <table class="min-w-[980px] text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="text-left px-4 py-3">Học sinh</th>
+                        <th class="text-left px-4 py-3">Trạng thái</th>
+                        <th class="text-left px-4 py-3">Bắt đầu</th>
+                        <th class="text-left px-4 py-3">Kết thúc</th>
+                        <th class="text-right px-4 py-3">Run</th>
+                        <th class="text-right px-4 py-3">Warning</th>
+                        <th class="text-left px-4 py-3">Bài nộp</th>
+                        <th class="text-left px-4 py-3">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for session in sessions %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 font-bold">{{ session.student.get_full_name|default:session.student.username }}</td>
+                        <td class="px-4 py-3">{{ session.get_status_display }}</td>
+                        <td class="px-4 py-3">{{ session.started_at|date:"d/m H:i"|default:"-" }}</td>
+                        <td class="px-4 py-3">{{ session.ends_at|date:"d/m H:i"|default:"-" }}</td>
+                        <td class="px-4 py-3 text-right">{{ session.run_count }}</td>
+                        <td class="px-4 py-3 text-right {% if session.violation_count %}text-amber-600 font-bold{% endif %}">{{ session.violation_count }}</td>
+                        <td class="px-4 py-3">
+                            {% if session.final_submission %}
+                            <a class="text-primary font-bold hover:underline" href="{% url 'submissions:detail' pk=session.final_submission.pk %}">#{{ session.final_submission.pk }}</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap gap-2">
+                                <form method="post" action="{% url 'submissions:extend_exam_session' session_pk=session.pk %}" class="flex gap-1">
+                                    {% csrf_token %}
+                                    <input name="minutes" type="number" min="1" value="5" class="w-16 h-8 rounded border-slate-200 text-xs">
+                                    <button class="h-8 px-2 rounded bg-amber-500/10 text-amber-600 text-xs font-bold hover:bg-amber-500/20">Gia hạn</button>
+                                </form>
+                                {% if not session.final_submission %}
+                                <form method="post" action="{% url 'submissions:force_submit_exam_session' session_pk=session.pk %}">
+                                    {% csrf_token %}
+                                    <button class="h-8 px-2 rounded bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20" onclick="return confirm('Force submit draft hiện tại?')">Force submit</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
+            <p class="text-sm text-slate-500">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</p>
+            <div class="flex gap-2">
+                {% if page_obj.has_previous %}
+                <a class="px-3 py-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-700 hover:bg-slate-200" href="?page={{ page_obj.previous_page_number }}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">Trước</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a class="px-3 py-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-700 hover:bg-slate-200" href="?page={{ page_obj.next_page_number }}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">Sau</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="p-10 text-center text-slate-600">
+            <span class="material-symbols-outlined text-4xl text-slate-400">hourglass_empty</span>
+            <p class="font-bold text-slate-900 mt-2">Chưa có học sinh bắt đầu thi.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

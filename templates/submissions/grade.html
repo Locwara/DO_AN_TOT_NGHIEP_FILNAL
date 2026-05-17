@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% block title %}Chấm bài - {{ submission.student.get_full_name|default:submission.student.username }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .code-table td { padding: 1px 0; }
+    .comment-highlight { background: rgba(19, 127, 236, 0.08); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto">
+    <div class="flex flex-col lg:flex-row">
+        <!-- Main Content -->
+        <div class="flex-1 min-w-0 overflow-y-auto">
+            <!-- Header -->
+            <div class="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-primary-900 bg-background-dark/50 backdrop-blur-sm sticky top-0 z-10">
+                <div class="flex flex-col gap-1">
+                    <nav class="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+                        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
+                        <span>/</span>
+                        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
+                    </nav>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-xl font-bold">{{ submission.student.get_full_name|default:submission.student.username }}</h1>
+                        {% if submission.is_late %}
+                        <span class="px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 text-xs font-semibold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">schedule</span>
+                            Nộp muộn (-{{ submission.penalty_applied }}%)
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    {% if prev_submission %}
+                    <a href="{% url 'submissions:grade' pk=prev_submission.pk %}" class="flex items-center gap-2 px-4 h-10 rounded-lg bg-primary-900 text-slate-200 hover:bg-primary-800 transition-colors text-sm font-semibold">
+                        <span class="material-symbols-outlined text-xl">chevron_left</span>Trước
+                    </a>
+                    {% endif %}
+                    <div class="text-sm font-medium text-slate-400 px-2">
+                        {% if current_index is not None %}<span class="text-white">{{ current_index|add:1 }}</span> / {{ total_submissions }}{% endif %}
+                    </div>
+                    {% if next_submission %}
+                    <a href="{% url 'submissions:grade' pk=next_submission.pk %}" class="flex items-center gap-2 px-4 h-10 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors text-sm font-semibold shadow-lg shadow-primary/20">
+                        Tiếp <span class="material-symbols-outlined text-xl">chevron_right</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Code View -->
+            <div class="p-6">
+                <div class="rounded-xl border border-primary-900 bg-primary-950 overflow-hidden shadow-sm">
+                    <div class="flex items-center justify-between px-4 py-2 bg-primary-900 border-b border-primary-900">
+                        <div class="flex items-center gap-2 px-3 py-1 bg-primary-900 rounded-md border border-primary-800">
+                            <span class="material-symbols-outlined text-primary text-sm">description</span>
+                            <span class="text-xs font-semibold text-slate-200">solution.{{ submission.language }}</span>
+                        </div>
+                        <span class="text-xs text-slate-400">{{ submission.submitted_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="overflow-x-auto font-mono text-sm leading-relaxed">
+                        <table class="w-full border-collapse code-table">
+                            <tbody>
+                                {% for line in code_lines %}
+                                <tr class="group hover:bg-primary/5 transition-colors {% if forloop.counter in comments_by_line %}comment-highlight{% endif %}" id="line-{{ forloop.counter }}">
+                                    <td class="w-12 text-center text-slate-400 select-none border-r border-primary-900 bg-background-dark/30 py-1 cursor-pointer hover:text-primary hover:bg-primary/10 transition-colors" onclick="showCommentInput({{ forloop.counter }})">{{ forloop.counter }}</td>
+                                    <td class="pl-6 py-1 text-slate-200 whitespace-pre">{{ line }}</td>
+                                </tr>
+                                {% for comment in code_comments %}
+                                {% if comment.line_number == forloop.parentloop.counter %}
+                                <tr>
+                                    <td colspan="2" class="px-0">
+                                        <div class="mx-8 my-1 p-3 bg-primary-900 border-l-4 border-primary rounded-r shadow-sm">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">{{ comment.teacher.username|first|upper }}</div>
+                                                    <span class="text-xs font-bold text-white">{{ comment.teacher.get_full_name|default:comment.teacher.username }}</span>
+                                                </div>
+                                                <span class="text-[10px] text-slate-400">{{ comment.created_at|date:"d/m H:i" }}</span>
+                                            </div>
+                                            <p class="text-sm text-slate-200">{{ comment.comment_text }}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                                {% endfor %}
+                                <tr class="h-8">
+                                    <td class="border-r border-primary-900 bg-background-dark/30"></td>
+                                    <td class="pl-6 py-1 text-slate-400 italic text-xs flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-sm">add</span>
+                                        Click vào số dòng để thêm nhận xét
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Inline Comment Input (hidden by default) -->
+                <div id="comment-input-box" class="hidden mt-2 p-4 bg-primary-900 rounded-xl border border-primary-800">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-primary text-sm">chat_bubble</span>
+                        <span class="text-xs font-bold">Thêm nhận xét tại dòng <span id="comment-line-display"></span></span>
+                    </div>
+                    <input type="hidden" id="comment-line-number">
+                    <textarea id="comment-text" class="w-full h-16 text-sm bg-primary-950 border border-primary-800 rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary text-slate-200 resize-none" placeholder="Nhận xét về dòng code này..."></textarea>
+                    <div class="mt-2 flex gap-2">
+                        <button id="comment-submit-btn" onclick="submitComment()" class="px-4 py-1.5 text-xs font-bold text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors">Gửi nhận xét</button>
+                        <button onclick="hideCommentInput()" class="px-4 py-1.5 text-xs font-bold text-slate-400 bg-primary-800 rounded-lg hover:bg-primary-700 transition-colors">Hủy</button>
+                    </div>
+                    <p id="comment-submit-status" class="text-xs text-slate-400 mt-2" role="status" aria-live="polite"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Grading Panel -->
+        <aside class="w-full lg:w-[380px] border-l border-primary-900 bg-background-dark overflow-y-auto p-6 flex flex-col gap-6">
+            <div>
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">analytics</span>
+                    Chấm điểm
+                </h3>
+
+                <!-- Auto Score -->
+                <div class="p-4 rounded-xl bg-primary-900/50 border border-primary-800 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-slate-200">Điểm tự động</span>
+                        <span class="text-sm font-bold">{{ submission.total_score|floatformat:1 }} / {{ submission.max_score }}</span>
+                    </div>
+                    <div class="w-full h-2 bg-primary-800 rounded-full overflow-hidden">
+                        {% widthratio submission.total_score submission.max_score 100 as score_percent %}
+                        <div class="h-full bg-primary" style="width: {% widthratio submission.total_score submission.max_score 100 %}%"></div>
+                    </div>
+                    <div class="mt-2 text-xs text-slate-400">
+                        Tests: {{ submission.passed_testcases }}/{{ submission.total_testcases }} passed
+                    </div>
+                </div>
+
+                <!-- Test Case Results -->
+                <div class="space-y-2 mb-4 max-h-[200px] overflow-y-auto">
+                    {% for d in details %}
+                    <div class="flex items-center justify-between px-3 py-2 rounded-lg text-xs
+                        {% if d.result_status == 'accepted' or d.result_status == 'passed' %}bg-green-500/5 border border-green-500/20
+                        {% else %}bg-red-500/5 border border-red-500/20{% endif %}">
+                        <div class="flex items-center gap-2">
+                            {% if d.result_status == 'accepted' or d.result_status == 'passed' %}
+                            <span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            {% else %}
+                            <span class="material-symbols-outlined text-red-400 text-sm">cancel</span>
+                            {% endif %}
+                            <span class="font-medium">{{ d.testcase.name|default:"TC" }}</span>
+                        </div>
+                        <span class="text-slate-400">{{ d.execution_time|floatformat:0 }}ms • +{{ d.score_earned|floatformat:1 }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Manual Grading Form -->
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="grade">
+                {% if rubric_items %}
+                <div class="p-4 rounded-xl bg-primary-900/50 border border-primary-800">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <label class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-lg">rubric</span>
+                            Chấm theo rubric
+                        </label>
+                        <span class="text-xs text-slate-400">Tổng: {{ rubric_total|floatformat:1 }}</span>
+                    </div>
+                    <div class="space-y-3">
+                        {% for item in rubric_items %}
+                        <div class="p-3 rounded-lg bg-primary-950 border border-primary-800">
+                            <div class="flex items-start justify-between gap-3 mb-2">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-bold text-white">{{ item.rubric.name }}</p>
+                                    {% if item.rubric.description %}
+                                    <p class="text-xs text-slate-400 mt-1">{{ item.rubric.description }}</p>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs font-bold text-primary flex-shrink-0">/{{ item.rubric.max_points|floatformat:1 }}</span>
+                            </div>
+                            <input type="number" name="rubric_score_{{ item.rubric.pk }}" value="{% if item.score %}{{ item.score.score|floatformat:1 }}{% endif %}" step="0.5" min="0" max="{{ item.rubric.max_points }}" class="w-full h-9 text-sm bg-primary-900 border border-primary-800 rounded-lg px-3 text-white focus:ring-1 focus:ring-primary" placeholder="Điểm">
+                            <textarea name="rubric_comment_{{ item.rubric.pk }}" rows="2" class="w-full mt-2 p-2 text-xs bg-primary-900 border border-primary-800 rounded-lg focus:ring-1 focus:ring-primary text-slate-200 resize-none placeholder:text-slate-500" placeholder="Nhận xét theo tiêu chí...">{% if item.score %}{{ item.score.comment|default:'' }}{% endif %}</textarea>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <label class="mt-3 flex items-center gap-2 text-xs font-bold text-slate-300">
+                        <input type="checkbox" name="use_rubric_score" value="1" class="rounded border-primary-800 bg-primary-900 text-primary focus:ring-primary">
+                        Dùng tổng điểm rubric làm điểm cuối cùng
+                    </label>
+                </div>
+                {% endif %}
+                <div>
+                    <label class="text-sm font-medium text-slate-200 mb-1 block">Điểm thủ công</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" name="manual_score" value="{{ form.manual_score.value|default:'' }}" step="0.5" min="0" max="{{ submission.max_score }}"
+                               class="w-24 h-10 text-sm text-center bg-primary-900 border border-primary-800 rounded-lg text-white focus:ring-1 focus:ring-primary">
+                        <span class="text-xs text-slate-300">/ {{ submission.max_score }}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="text-sm font-medium text-slate-200 block">Nhận xét tổng quan</label>
+                        {% if feedback_templates %}
+                        <span class="text-[11px] text-slate-400">Bấm mẫu để chèn</span>
+                        {% endif %}
+                    </div>
+                    {% if feedback_templates %}
+                    <div class="flex flex-wrap gap-1.5 mb-2">
+                        {% for tpl in feedback_templates %}
+                        <button type="button" onclick="insertFeedbackTemplate('{{ tpl.content|escapejs }}')" class="px-2 py-1 rounded bg-primary-900 border border-primary-800 text-[11px] font-bold text-slate-200 hover:border-primary transition-colors">
+                            {{ tpl.title }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <textarea name="teacher_comment" id="teacher-comment" rows="5"
+                              class="w-full p-3 text-sm bg-primary-900 border border-primary-800 rounded-xl focus:ring-1 focus:ring-primary text-slate-200 resize-none placeholder:text-slate-500"
+                              placeholder="Nhận xét về bài làm...">{{ form.teacher_comment.value|default:'' }}</textarea>
+                </div>
+
+                <!-- Final Grade Display -->
+                <div class="p-4 rounded-2xl bg-primary/10 border-2 border-primary/20 flex flex-col items-center text-center">
+                    <span class="text-xs font-bold text-primary uppercase tracking-widest mb-1">Điểm cuối cùng</span>
+                    <div class="text-3xl font-extrabold">
+                        {% if submission.manual_score is not None %}
+                        {{ submission.manual_score|floatformat:1 }}
+                        {% else %}
+                        {{ submission.total_score|floatformat:1 }}
+                        {% endif %}
+                        <span class="text-lg text-slate-300 font-medium">/{{ submission.max_score }}</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 pt-2">
+                    <button type="submit" class="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">publish</span>
+                        Lưu & Chấm điểm
+                    </button>
+                    <a href="{% url 'submissions:teacher_list' assignment_pk=assignment.pk %}" class="w-full py-3 bg-primary-900 border border-primary-800 text-slate-300 font-semibold rounded-xl text-center hover:bg-primary-800 transition-all text-sm">
+                        Quay lại danh sách
+                    </a>
+                </div>
+            </form>
+
+            <div class="p-4 rounded-xl bg-primary-900/50 border border-primary-800">
+                <h4 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-lg">quickreply</span>
+                    Feedback mẫu
+                </h4>
+                <form method="post" class="space-y-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_feedback_template">
+                    <input type="text" name="title" class="w-full h-9 text-sm bg-primary-950 border border-primary-800 rounded-lg px-3 text-white focus:ring-1 focus:ring-primary" placeholder="Tên mẫu">
+                    <input type="text" name="category" class="w-full h-9 text-sm bg-primary-950 border border-primary-800 rounded-lg px-3 text-white focus:ring-1 focus:ring-primary" placeholder="Nhóm (logic, style...)">
+                    <textarea name="content" rows="3" class="w-full p-2 text-xs bg-primary-950 border border-primary-800 rounded-lg text-slate-200 resize-none focus:ring-1 focus:ring-primary" placeholder="Nội dung nhận xét mẫu..."></textarea>
+                    <button type="submit" class="w-full h-9 rounded-lg bg-primary-800 text-slate-200 text-xs font-bold hover:bg-primary-700 transition-colors">Lưu mẫu</button>
+                </form>
+                {% if feedback_templates %}
+                <div class="mt-3 space-y-1.5">
+                    {% for tpl in feedback_templates %}
+                    <div class="flex items-center justify-between gap-2 text-xs text-slate-400">
+                        <span class="truncate">{{ tpl.title }}{% if tpl.category %} • {{ tpl.category }}{% endif %}</span>
+                        <form method="post" action="{% url 'submissions:delete_feedback_template' pk=submission.pk template_pk=tpl.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="text-slate-500 hover:text-red-400" title="Xóa mẫu">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script>
+const CSRF_TOKEN = '{{ csrf_token }}';
+const SUBMISSION_PK = {{ submission.pk }};
+
+function showCommentInput(lineNumber) {
+    const box = document.getElementById('comment-input-box');
+    document.getElementById('comment-line-number').value = lineNumber;
+    document.getElementById('comment-line-display').textContent = lineNumber;
+    document.getElementById('comment-text').value = '';
+    box.classList.remove('hidden');
+
+    const lineEl = document.getElementById('line-' + lineNumber);
+    if (lineEl) {
+        lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('comment-text').focus();
+}
+
+function hideCommentInput() {
+    document.getElementById('comment-input-box').classList.add('hidden');
+}
+
+function submitComment() {
+    const lineNumber = parseInt(document.getElementById('comment-line-number').value);
+    const commentText = document.getElementById('comment-text').value.trim();
+    if (!commentText) return;
+    const submitBtn = document.getElementById('comment-submit-btn');
+    const statusEl = document.getElementById('comment-submit-status');
+    const lineEl = document.getElementById('line-' + lineNumber);
+    const optimisticId = `pending-comment-${Date.now()}`;
+    if (submitBtn) submitBtn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Đang gửi nhận xét...';
+    if (lineEl) {
+        lineEl.insertAdjacentHTML('afterend', `
+            <tr id="${optimisticId}">
+                <td colspan="2" class="px-0">
+                    <div class="mx-8 my-1 p-3 bg-primary-900 border-l-4 border-primary rounded-r shadow-sm opacity-80">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-white">Bạn</span>
+                            <span class="text-[10px] text-slate-400">vừa gửi</span>
+                        </div>
+                        <p class="text-sm text-slate-200">${escapeHtml(commentText)}</p>
+                    </div>
+                </td>
+            </tr>
+        `);
+    }
+
+    fetch(`/submissions/comment/${SUBMISSION_PK}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ line_number: lineNumber, comment_text: commentText }),
+    })
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => {
+        if (data.status === 'ok') {
+            if (statusEl) statusEl.textContent = 'Đã gửi nhận xét.';
+            hideCommentInput();
+        } else {
+            const temp = document.getElementById(optimisticId);
+            if (temp) temp.remove();
+            alert(data.message || 'Lỗi');
+        }
+    })
+    .catch(() => {
+        const temp = document.getElementById(optimisticId);
+        if (temp) temp.remove();
+        if (statusEl) statusEl.textContent = 'Không gửi được nhận xét. Vui lòng thử lại.';
+        alert('Lỗi kết nối');
+    })
+    .finally(() => {
+        if (submitBtn) submitBtn.disabled = false;
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function insertFeedbackTemplate(content) {
+    const textarea = document.getElementById('teacher-comment');
+    if (!textarea) return;
+    const current = textarea.value.trim();
+    textarea.value = current ? `${current}\n\n${content}` : content;
+    textarea.focus();
+}
+</script>
+{% endblock %}

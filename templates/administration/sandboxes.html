@@ -1,0 +1,99 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Cấu hình Sandbox{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap justify-between items-end gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">Cấu hình Sandbox</h2>
+        <p class="text-neutral-500 mt-1">Quản lý giới hạn RAM, CPU, timeout cho từng ngôn ngữ.</p>
+    </div>
+    <a href="{% url 'administation:sandbox_create' %}" class="btn btn-primary">
+        <span class="material-symbols-outlined text-lg">add</span>
+        Thêm cấu hình
+    </a>
+</div>
+
+<!-- Search Bar -->
+<div class="mt-6">
+    <form method="get" class="admin-filter-form">
+        <div class="flex-1">
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo ngôn ngữ, Docker image..." class="form-input">
+        </div>
+        <button type="submit" class="btn btn-primary">Tìm</button>
+        {% if search_query %}
+        <a href="{% url 'administation:sandboxes' %}" class="btn btn-ghost">Xóa</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if sandboxes %}
+<div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <table class="w-full text-left">
+        <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-6 py-4">Ngôn ngữ</th>
+                <th class="px-6 py-4 hidden md:table-cell">Docker Image</th>
+                <th class="px-6 py-4 text-center">Timeout</th>
+                <th class="px-6 py-4 text-center hidden sm:table-cell">Memory</th>
+                <th class="px-6 py-4 text-center hidden sm:table-cell">CPU</th>
+                <th class="px-6 py-4">Trạng thái</th>
+                <th class="px-6 py-4 text-right">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for sb in sandboxes %}
+            <tr class="hover:bg-primary-50 transition-colors">
+                <td class="px-6 py-4">
+                    <p class="text-sm font-bold">{{ sb.language }}</p>
+                </td>
+                <td class="px-6 py-4 hidden md:table-cell">
+                    <p class="text-xs text-slate-600 font-mono truncate max-w-[200px]">{{ sb.docker_image }}</p>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="text-sm font-bold">{{ sb.timeout_seconds }}s</span>
+                </td>
+                <td class="px-6 py-4 text-center hidden sm:table-cell">
+                    <span class="text-sm font-bold">{{ sb.memory_limit_mb }}MB</span>
+                </td>
+                <td class="px-6 py-4 text-center hidden sm:table-cell">
+                    <span class="text-sm font-bold">{{ sb.cpu_limit }}x</span>
+                </td>
+                <td class="px-6 py-4">
+                    {% if sb.is_active %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-500 uppercase">Active</span>
+                    {% else %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-500/20 text-slate-500 uppercase">Inactive</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex gap-2 justify-end">
+                        <a href="{% url 'administation:sandbox_edit' sb.pk %}" class="text-slate-400 hover:text-primary transition-colors" title="Chỉnh sửa">
+                            <span class="material-symbols-outlined">edit</span>
+                        </a>
+                        <form method="post" action="{% url 'administation:sandbox_delete' sb.pk %}" class="inline" onsubmit="return confirm('Xóa cấu hình này?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-slate-400 hover:text-red-500 transition-colors" title="Xóa">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center mt-6">
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">deployed_code</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có cấu hình sandbox</h3>
+    {% if search_query %}
+    <p class="text-neutral-500">Không tìm thấy cấu hình nào khớp với "{{ search_query }}".</p>
+    <a href="{% url 'administation:sandboxes' %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
+    {% else %}
+    <p class="text-neutral-500">Bắt đầu bằng cách thêm cấu hình đầu tiên.</p>
+    <a href="{% url 'administation:sandbox_create' %}" class="btn btn-primary mt-4">Thêm cấu hình đầu tiên</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

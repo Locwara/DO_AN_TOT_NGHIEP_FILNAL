@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Chỉnh sửa | Thảo luận | DevLearn{% endblock %}
+
+{% block content %}
+<div class="container-md py-8">
+    <div class="flex flex-col gap-6">
+
+        <nav class="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+            <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' classroom.pk %}">{{ classroom.name }}</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <a class="hover:text-primary" href="{% url 'assignments:detail' assignment.pk %}">{{ assignment.title }}</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <a class="hover:text-primary" href="{% url 'discussions:list' assignment.pk %}">Thảo luận</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <span class="text-neutral-900 font-medium">Chỉnh sửa</span>
+        </nav>
+
+        <div>
+            <p class="eyebrow">Discussions</p>
+            <h2 class="text-2xl font-bold text-primary-900 mt-1">
+                {% if is_topic %}Chỉnh sửa chủ đề{% else %}Chỉnh sửa câu trả lời{% endif %}
+            </h2>
+        </div>
+
+        <form method="post" action="" class="card p-6 space-y-5">
+            {% csrf_token %}
+
+            {% if is_topic %}
+            <div>
+                <label class="form-label">Tiêu đề câu hỏi <span class="text-danger-600">*</span></label>
+                <input type="text" name="title" value="{{ form.title.value|default:'' }}" class="form-input" placeholder="Tiêu đề câu hỏi">
+                {% if form.title.errors %}
+                <p class="form-error">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div>
+                <label class="form-label">Nội dung <span class="text-danger-600">*</span></label>
+                <textarea name="content" rows="{% if is_topic %}8{% else %}5{% endif %}" class="form-textarea" placeholder="Nội dung...">{{ form.content.value|default:'' }}</textarea>
+                {% if form.content.errors %}
+                <p class="form-error">{{ form.content.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+                {% if is_topic %}
+                <a href="{% url 'discussions:detail' discussion.pk %}" class="btn btn-ghost">Hủy</a>
+                {% else %}
+                <a href="{% url 'discussions:detail' discussion.parent.pk %}" class="btn btn-ghost">Hủy</a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-outlined text-sm">save</span>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </form>
+
+    </div>
+</div>
+{% endblock %}

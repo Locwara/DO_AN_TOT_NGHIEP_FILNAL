@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Lịch sử nộp - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-4">
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
+        <span>/</span>
+        <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="hover:text-primary transition-colors">Bài tập</a>
+        <span>/</span>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
+        <span>/</span>
+        <span class="text-slate-300">Lịch sử nộp</span>
+    </nav>
+
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">Lịch sử nộp bài</h1>
+        {% if can_start_new_submission %}
+        <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm">code</span>
+            Làm bài tiếp
+        </a>
+        {% elif assignment.is_exam %}
+        <a href="{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}" class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm">quiz</span>
+            Xem phòng thi
+        </a>
+        {% endif %}
+    </div>
+
+    {% if submissions %}
+    <div class="space-y-3">
+        {% for sub in submissions %}
+        <a href="{% url 'submissions:detail' pk=sub.pk %}" class="block border border-primary-200 rounded-xl p-5 hover:border-primary/40 transition-all group bg-white shadow-sm">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        {% if sub.status == 'finished' and sub.passed_testcases == sub.total_testcases and sub.total_testcases > 0 %}
+                        <span class="material-symbols-outlined text-success-600">check_circle</span>
+                        {% elif sub.status == 'finished' %}
+                        <span class="material-symbols-outlined text-warning-600">warning</span>
+                        {% elif sub.status == 'running' %}
+                        <span class="material-symbols-outlined text-primary-500 animate-spin">refresh</span>
+                        {% else %}
+                        <span class="material-symbols-outlined text-slate-500">schedule</span>
+                        {% endif %}
+                        <span class="text-sm font-bold group-hover:text-primary transition-colors">Submission #{{ sub.pk }}</span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+                        {% if sub.status == 'finished' %}bg-success-100 text-success-600
+                        {% elif sub.status == 'running' %}bg-primary-100 text-primary-600
+                        {% else %}bg-slate-100 text-slate-500{% endif %}">
+                        {{ sub.status }}
+                    </span>
+                    {% if sub.is_late %}
+                    <span class="px-2 py-0.5 rounded-full bg-warning-100 text-warning-600 text-[10px] font-bold flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">schedule</span> Nộp muộn
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold">Điểm</p>
+                        <p class="text-lg font-bold text-primary">{{ sub.total_score|floatformat:1 }}/{{ sub.max_score }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold">Tests</p>
+                        <p class="text-sm font-bold">{{ sub.passed_testcases }}/{{ sub.total_testcases }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold">Ngôn ngữ</p>
+                        <p class="text-sm font-medium">{{ sub.language }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold">Thời gian</p>
+                        <p class="text-xs text-slate-400">{{ sub.submitted_at|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+        <span class="material-symbols-outlined text-6xl text-slate-600 mb-4">inbox</span>
+        <p class="text-slate-400 text-lg">Chưa có bài nộp nào.</p>
+        {% if can_start_new_submission %}
+        <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="inline-block mt-4 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90">Bắt đầu làm bài</a>
+        {% elif assignment.is_exam %}
+        <a href="{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}" class="inline-block mt-4 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90">Vào phòng thi</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Server Metrics{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">Server Metrics</h2>
+        <p class="text-neutral-500 mt-1">Theo dõi hiệu suất server và container.</p>
+    </div>
+    <a href="{% url 'administation:metrics' %}" class="inline-flex items-center gap-2 rounded-lg border border-primary-200 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-50">
+        <span class="material-symbols-outlined text-lg">refresh</span>
+        Làm mới
+    </a>
+</div>
+
+{% if latest %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+    <div class="stat-card">
+        <p class="stat-label">CPU Usage</p>
+        <p class="stat-number {% if latest.cpu_usage and latest.cpu_usage > 80 %}text-red-500{% elif latest.cpu_usage and latest.cpu_usage > 50 %}text-amber-500{% else %}text-emerald-500{% endif %}">{{ latest.cpu_usage|default:"N/A" }}%</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Memory Usage</p>
+        <p class="stat-number {% if latest.memory_usage and latest.memory_usage > 80 %}text-red-500{% elif latest.memory_usage and latest.memory_usage > 50 %}text-amber-500{% else %}text-emerald-500{% endif %}">{{ latest.memory_usage|default:"N/A" }}%</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Active Containers</p>
+        <p class="stat-number">{{ latest.active_containers|default:"0" }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Queue Length</p>
+        <p class="stat-number">{{ latest.queue_length|default:"0" }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Avg Execution</p>
+        <p class="stat-number">{{ latest.avg_execution_time|default:"0" }}ms</p>
+    </div>
+</div>
+{% endif %}
+
+{% if metrics %}
+<div class="bg-white border border-primary-200 rounded-lg shadow-sm p-5">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="text-lg font-bold text-primary-900">Xu hướng gần nhất</h3>
+            <p class="text-xs text-neutral-500">CPU, memory và queue từ 30 bản ghi mới nhất.</p>
+        </div>
+        <span class="material-symbols-outlined text-primary-500">show_chart</span>
+    </div>
+    <canvas id="metricsChart" height="110" class="w-full"></canvas>
+</div>
+
+<div class="overflow-hidden rounded-lg border border-primary-200 bg-white shadow-sm">
+    <table class="w-full text-left">
+        <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-6 py-4">Thời gian</th>
+                <th class="px-6 py-4 text-center">CPU (%)</th>
+                <th class="px-6 py-4 text-center">Memory (%)</th>
+                <th class="px-6 py-4 text-center hidden md:table-cell">Containers</th>
+                <th class="px-6 py-4 text-center hidden md:table-cell">Queue</th>
+                <th class="px-6 py-4 text-center hidden sm:table-cell">Avg Time (ms)</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for m in metrics %}
+            <tr class="hover:bg-primary-50 transition-colors">
+                <td class="px-6 py-3">
+                    <p class="text-sm text-neutral-900">{{ m.recorded_at|timesince }} trước</p>
+                </td>
+                <td class="px-6 py-3 text-center">
+                    <span class="text-sm font-bold {% if m.cpu_usage and m.cpu_usage > 80 %}text-danger-600{% elif m.cpu_usage and m.cpu_usage > 50 %}text-warning-600{% else %}text-neutral-900{% endif %}">{{ m.cpu_usage|default:"—" }}</span>
+                </td>
+                <td class="px-6 py-3 text-center">
+                    <span class="text-sm font-bold {% if m.memory_usage and m.memory_usage > 80 %}text-danger-600{% elif m.memory_usage and m.memory_usage > 50 %}text-warning-600{% else %}text-neutral-900{% endif %}">{{ m.memory_usage|default:"—" }}</span>
+                </td>
+                <td class="px-6 py-3 text-center hidden md:table-cell">
+                    <span class="text-sm text-neutral-900">{{ m.active_containers|default:"—" }}</span>
+                </td>
+                <td class="px-6 py-3 text-center hidden md:table-cell">
+                    <span class="text-sm text-neutral-900">{{ m.queue_length|default:"—" }}</span>
+                </td>
+                <td class="px-6 py-3 text-center hidden sm:table-cell">
+                    <span class="text-sm text-neutral-900">{{ m.avg_execution_time|default:"—" }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center">
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">monitoring</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có dữ liệu metrics</h3>
+    <p class="text-neutral-500">Dữ liệu sẽ được ghi lại khi server bắt đầu xử lý.</p>
+</div>
+{% endif %}
+
+{% if metrics %}
+<script>
+(() => {
+    window.setTimeout(() => window.location.reload(), 60000);
+
+    const data = {{ metrics_chart_json|safe }};
+    const canvas = document.getElementById('metricsChart');
+    if (!canvas || !data.labels.length) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = 220 * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = rect.width;
+    const height = 220;
+    const padding = { top: 16, right: 18, bottom: 26, left: 34 };
+    const plotW = width - padding.left - padding.right;
+    const plotH = height - padding.top - padding.bottom;
+    const maxQueue = Math.max(10, ...data.queue);
+
+    function point(values, index, scaleMax) {
+        const x = padding.left + (data.labels.length === 1 ? plotW : (plotW * index / (data.labels.length - 1)));
+        const y = padding.top + plotH - (Math.min(values[index], scaleMax) / scaleMax) * plotH;
+        return [x, y];
+    }
+    function line(values, color, scaleMax) {
+        ctx.beginPath();
+        values.forEach((_, index) => {
+            const [x, y] = point(values, index, scaleMax);
+            if (index === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (plotH * i / 4);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+    }
+
+    line(data.cpu, '#2563eb', 100);
+    line(data.memory, '#16a34a', 100);
+    line(data.queue, '#f59e0b', maxQueue);
+
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.fillText('CPU', padding.left, height - 6);
+    ctx.fillStyle = '#16a34a';
+    ctx.fillText('Memory', padding.left + 48, height - 6);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('Queue', padding.left + 124, height - 6);
+})();
+</script>
+{% endif %}
+{% endblock %}

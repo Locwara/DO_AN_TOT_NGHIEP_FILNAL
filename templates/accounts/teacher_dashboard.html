@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block title %}Teacher Dashboard - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-black tracking-tight">Bảng điều khiển giáo viên</h1>
+            <p class="text-slate-600 mt-1">Chào {{ user.first_name|default:user.username }}! Đây là các việc cần chú ý trong lớp học của bạn.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'classrooms:create' %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">add</span>
+                Tạo lớp
+            </a>
+            <a href="{% url 'assignments:calendar' %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">calendar_month</span>
+                Lịch
+            </a>
+            <a href="{% url 'classrooms:classroom_list' %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">school</span>
+                Lớp học
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lớp đang dạy</p>
+                <span class="material-symbols-outlined text-primary">school</span>
+            </div>
+            <p class="text-3xl font-black text-primary">{{ classrooms_count }}</p>
+            <p class="text-xs text-slate-600 mt-1">{{ members_count }} học sinh</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bài tập</p>
+                <span class="material-symbols-outlined text-indigo-500">assignment</span>
+            </div>
+            <p class="text-3xl font-black">{{ published_assignments_count }}<span class="text-base text-slate-500 font-normal">/{{ assignments_count }}</span></p>
+            <p class="text-xs text-slate-600 mt-1">Đã công bố / tổng</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bài nộp 7 ngày</p>
+                <span class="material-symbols-outlined text-emerald-500">assignment_turned_in</span>
+            </div>
+            <p class="text-3xl font-black text-emerald-500">{{ submissions_7d }}</p>
+            <p class="text-xs text-slate-600 mt-1">Bài mới nhận</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cần xử lý</p>
+                <span class="material-symbols-outlined text-amber-500">pending_actions</span>
+            </div>
+            <p class="text-3xl font-black text-amber-500">{{ pending_members_count }}</p>
+            <p class="text-xs text-slate-600 mt-1">{{ running_or_pending_count }} bài đang chấm</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <section class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">rate_review</span>
+                    Bài cần xem
+                </h2>
+                <a href="{% url 'classrooms:classroom_list' %}" class="text-xs font-bold text-primary hover:underline">Đi tới lớp</a>
+            </div>
+            {% if needs_review %}
+            <div class="divide-y divide-slate-200">
+                {% for sub in needs_review %}
+                <a href="{% url 'submissions:grade' pk=sub.pk %}" class="flex items-center gap-4 py-3 hover:bg-slate-50 transition-colors">
+                    <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-lg">code</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold truncate">{{ sub.assignment.title }}</p>
+                        <p class="text-xs text-slate-600 truncate">{{ sub.student.get_full_name|default:sub.student.username }} • {{ sub.assignment.classroom.name }}</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/10 text-amber-500 uppercase">{{ sub.status }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-slate-600">
+                <span class="material-symbols-outlined text-3xl mb-1">task_alt</span>
+                <p class="text-sm">Không có bài nào cần xử lý ngay.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-amber-500">how_to_reg</span>
+                Chờ duyệt vào lớp
+            </h2>
+            {% if pending_members %}
+            <div class="space-y-3">
+                {% for member in pending_members %}
+                <a href="{% url 'classrooms:classroom_detail' pk=member.classroom.pk %}" class="block p-3 border border-slate-200 rounded-lg hover:border-primary transition-colors">
+                    <p class="text-sm font-bold truncate">{{ member.student.get_full_name|default:member.student.username }}</p>
+                    <p class="text-xs text-slate-600 truncate">{{ member.classroom.name }} • {{ member.joined_at|timesince }} trước</p>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 text-center py-6">Không có học sinh chờ duyệt.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-red-500">schedule</span>
+                Bài sắp đến hạn
+            </h2>
+            {% if upcoming_assignments %}
+            <div class="space-y-3">
+                {% for a in upcoming_assignments %}
+                <a href="{% url 'assignments:detail' pk=a.pk %}" class="block p-3 border border-slate-200 rounded-lg hover:border-primary transition-colors">
+                    <p class="text-sm font-bold truncate">{{ a.title }}</p>
+                    <p class="text-xs text-slate-600 truncate">{{ a.classroom.name }}</p>
+                    <p class="text-xs font-bold text-amber-500 mt-1">{{ a.due_date|date:"d/m/Y H:i" }} • {{ a.due_date|timeuntil }}</p>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 text-center py-6">Không có deadline trong 7 ngày tới.</p>
+            {% endif %}
+        </section>
+
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">analytics</span>
+                Bài cần hỗ trợ
+            </h2>
+            {% if weak_assignments %}
+            <div class="space-y-3">
+                {% for stat in weak_assignments %}
+                <a href="{% url 'assignments:statistics' pk=stat.assignment.pk %}" class="block p-3 border border-slate-200 rounded-lg hover:border-primary transition-colors">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-bold truncate">{{ stat.assignment.title }}</p>
+                        <span class="text-xs font-black text-red-500">{{ stat.pass_rate|floatformat:0 }}%</span>
+                    </div>
+                    <p class="text-xs text-slate-600 truncate">{{ stat.assignment.classroom.name }} • {{ stat.unique_students }} SV nộp</p>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 text-center py-6">Chưa có dữ liệu thống kê cần chú ý.</p>
+            {% endif %}
+        </section>
+
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">history</span>
+                Bài nộp gần đây
+            </h2>
+            {% if recent_submissions %}
+            <div class="space-y-2">
+                {% for sub in recent_submissions %}
+                <a href="{% url 'submissions:detail' pk=sub.pk %}" class="block p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <p class="text-xs font-bold truncate">{{ sub.assignment.title }}</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {% if sub.status == 'finished' %}bg-emerald-500/10 text-emerald-500{% elif sub.status == 'error' %}bg-red-500/10 text-red-500{% else %}bg-amber-500/10 text-amber-500{% endif %}">{{ sub.status }}</span>
+                        <span class="text-xs text-slate-600">{{ sub.student.username }}</span>
+                        <span class="text-xs text-slate-500 ml-auto">{{ sub.submitted_at|timesince }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 text-center py-6">Chưa có bài nộp.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">meeting_room</span>
+                Lớp đang dạy
+            </h2>
+            {% if class_summaries %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {% for classroom in class_summaries %}
+                <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="p-3 border border-slate-200 rounded-lg hover:border-primary transition-colors">
+                    <p class="text-sm font-bold truncate">{{ classroom.name }}</p>
+                    <p class="text-xs text-slate-600 mt-1">{{ classroom.member_count }} SV • {{ classroom.assignment_count }} bài</p>
+                    <p class="text-[11px] text-primary font-bold mt-2">Mã: {{ classroom.invite_code }}</p>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 text-center py-6">Bạn chưa có lớp đang hoạt động.</p>
+            {% endif %}
+        </section>
+
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-amber-500">hourglass_top</span>
+                Đang chờ admin
+            </h2>
+            {% if pending_classrooms or pending_subjects %}
+            <div class="space-y-3">
+                {% for classroom in pending_classrooms %}
+                <div class="p-3 border border-amber-500/20 bg-amber-500/5 rounded-lg">
+                    <p class="text-sm font-bold truncate">{{ classroom.name }}</p>
+                    <p class="text-xs text-slate-600">Lớp học đang chờ duyệt • {{ classroom.created_at|timesince }} trước</p>
+                </div>
+                {% endfor %}
+                {% for subject in pending_subjects %}
+                <div class="p-3 border border-amber-500/20 bg-amber-500/5 rounded-lg">
+                    <p class="text-sm font-bold truncate">{{ subject.code }} - {{ subject.name }}</p>
+                    <p class="text-xs text-slate-600">Môn học đang chờ duyệt • {{ subject.created_at|timesince }} trước</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-600 text-center py-6">Không có lớp hoặc môn nào đang chờ duyệt.</p>
+            {% endif %}
+        </section>
+    </div>
+</div>
+{% endblock %}

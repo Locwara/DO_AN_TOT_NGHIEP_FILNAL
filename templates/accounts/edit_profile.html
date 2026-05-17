@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}Chỉnh sửa Profile - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[700px] flex-1">
+        <div class="flex items-center gap-3 mb-6">
+            <a href="{% url 'accounts:profile' %}" class="text-slate-500 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <h1 class="text-2xl font-bold">Chỉnh sửa Profile</h1>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span class="font-bold">Có lỗi xảy ra</span>
+                </div>
+                <ul class="list-disc list-inside">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Avatar Section -->
+            <div class="p-6 bg-white rounded-xl border border-slate-200">
+                <h3 class="text-lg font-bold mb-4">Ảnh đại diện</h3>
+                <div class="flex items-center gap-6">
+                    {% if profile.avatar_url %}
+                    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-20 h-20 border-4 border-slate-100"
+                        style="background-image: url('{{ profile.avatar_url }}');"></div>
+                    {% else %}
+                    <div class="w-20 h-20 rounded-full border-4 border-slate-100 bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold">
+                        {{ request.user.first_name|first|default:request.user.username|first|upper }}
+                    </div>
+                    {% endif %}
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium mb-2">Upload ảnh mới</label>
+                        <input type="file" name="avatar_file" accept="image/*"
+                            class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
+                        <p class="text-xs text-slate-600 mt-1">Hoặc nhập URL trực tiếp:</p>
+                        <input type="url" name="avatar_url" value="{{ form.avatar_url.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-sm mt-1"
+                            placeholder="https://..."/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Info -->
+            <div class="p-6 bg-white rounded-xl border border-slate-200">
+                <h3 class="text-lg font-bold mb-4">Thông tin cá nhân</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Họ</label>
+                        <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tên</label>
+                        <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1">Email</label>
+                        <input type="email" name="email" value="{{ form.email.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1">Số điện thoại</label>
+                        <input type="tel" name="phone" value="{{ form.phone.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="+84 xxx xxx xxx"/>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1">Giới thiệu bản thân</label>
+                        <textarea name="bio" rows="4"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm resize-none"
+                            placeholder="Giới thiệu về bản thân...">{{ form.bio.value|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'accounts:profile' %}" class="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                    Hủy
+                </a>
+                <button type="submit" class="flex items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">save</span>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

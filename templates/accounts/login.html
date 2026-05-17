@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Đăng nhập - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md bg-white p-8 rounded-xl border border-primary-200 shadow-sm">
+        <div class="flex items-center justify-center mb-6">
+            <div class="logo-icon !w-12 !h-12 !text-base">
+                &lt;/&gt;
+            </div>
+        </div>
+        <h3 class="text-2xl font-bold mb-2 text-center">Chào mừng trở lại</h3>
+        <p class="text-slate-600 text-sm text-center mb-6">Đăng nhập để tiếp tục học lập trình</p>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span class="font-bold">Đăng nhập thất bại</span>
+                </div>
+                <p>Tên đăng nhập hoặc mật khẩu không đúng.</p>
+            </div>
+            {% endif %}
+
+            <div>
+                <label class="block text-sm font-medium mb-1">Tên đăng nhập</label>
+                <input type="text" name="username" value="{{ form.username.value|default:'' }}"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                    placeholder="Username" required autofocus/>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Mật khẩu</label>
+                <input type="password" name="password"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                    placeholder="••••••••" required/>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <label class="flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" name="remember" class="rounded border-slate-300 text-primary focus:ring-primary">
+                    Ghi nhớ đăng nhập
+                </label>
+                <a href="{% url 'accounts:password_reset' %}" class="text-sm text-primary font-medium hover:underline">Quên mật khẩu?</a>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-full py-3 mt-2">
+                Đăng nhập
+            </button>
+
+            <p class="text-center text-sm text-slate-600 mt-4">
+                Chưa có tài khoản? <a href="{% url 'accounts:register' %}" class="text-primary font-bold hover:underline">Đăng ký</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

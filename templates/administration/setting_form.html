@@ -1,0 +1,150 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}{% if is_edit %}Sửa cài đặt{% else %}Thêm cài đặt{% endif %}{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="eyebrow">System Settings</p>
+        <h2 class="text-2xl font-bold text-primary-900 mt-1">
+            {% if is_edit %}Chỉnh sửa cài đặt{% else %}Thêm cài đặt mới{% endif %}
+        </h2>
+        <p class="text-neutral-500 mt-1">Quản lý các policy vận hành như bài thi, thông báo, sandbox và upload.</p>
+    </div>
+    <a href="{% url 'administation:system_settings' %}" class="btn btn-ghost">
+        <span class="material-symbols-outlined text-sm">arrow_back</span>
+        Quay lại
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+    <form method="post" action="" class="card p-6 space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="toast toast-error">
+            <span class="material-symbols-outlined text-sm">error</span>
+            <span>{{ form.non_field_errors.0 }}</span>
+        </div>
+        {% endif %}
+
+        <div>
+            <label class="form-label" for="setting-key-input">Setting key <span class="text-danger-600">*</span></label>
+            <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary-500 text-lg" aria-hidden="true">key</span>
+                <input id="setting-key-input" type="text" name="setting_key" value="{{ form.setting_key.value|default:'' }}" class="form-input font-mono pl-10" placeholder="exam.default_grace_seconds" autocomplete="off">
+            </div>
+            {% if form.setting_key.errors %}
+            <p class="form-error">{{ form.setting_key.errors.0 }}</p>
+            {% else %}
+            <p class="form-hint mt-1">Dùng dạng namespace rõ ràng, ví dụ <code>exam.default_grace_seconds</code>.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <label class="form-label" for="setting-value-input">Giá trị JSON <span class="text-danger-600">*</span></label>
+            <textarea id="setting-value-input" name="setting_value" rows="8" class="form-textarea font-mono" placeholder='30' aria-describedby="json-live-status">{{ form.setting_value.value|default:'' }}</textarea>
+            <p id="json-live-status" class="form-hint mt-1" role="status" aria-live="polite">Nhập JSON hợp lệ. Với policy key có schema, hệ thống sẽ kiểm tra kiểu dữ liệu khi lưu.</p>
+            {% if form.setting_value.errors %}
+            <p class="form-error">{{ form.setting_value.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <label class="form-label" for="setting-description-input">Mô tả</label>
+            <input id="setting-description-input" type="text" name="description" value="{{ form.description.value|default:'' }}" class="form-input" placeholder="Mô tả cài đặt này...">
+            {% if form.description.errors %}
+            <p class="form-error">{{ form.description.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+            <a href="{% url 'administation:system_settings' %}" class="btn btn-ghost">Hủy</a>
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-outlined text-sm">save</span>
+                {% if is_edit %}Cập nhật{% else %}Thêm mới{% endif %}
+            </button>
+        </div>
+    </form>
+
+    <aside class="card p-5 h-fit lg:sticky lg:top-24">
+        <div class="flex items-start gap-3">
+            <span class="btn-icon flex-shrink-0" aria-hidden="true">
+                <span class="material-symbols-outlined text-lg">schema</span>
+            </span>
+            <div>
+                <h3 class="text-lg font-bold text-primary-900">Policy schema</h3>
+                <p class="caption mt-1">Chọn key chuẩn để tự điền mô tả và giá trị mẫu.</p>
+            </div>
+        </div>
+
+        <div class="mt-5 space-y-2">
+            {% for schema in policy_schema_cards %}
+            <button type="button" class="schema-pick w-full text-left rounded-lg border border-primary-200 bg-white p-3 transition-colors hover:border-primary-500 hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                    data-key="{{ schema.key }}"
+                    data-type="{{ schema.kind }}"
+                    data-sample="{{ schema.sample_value }}"
+                    data-description="{{ schema.description }}">
+                <span class="block font-mono text-xs font-bold text-primary-600">{{ schema.key }}</span>
+                <span class="block caption mt-1">{{ schema.description }}</span>
+                {% if schema.min is not None or schema.max is not None %}
+                <span class="badge bg-primary-100 text-primary-700 mt-2">
+                    {% if schema.min is not None %}min {{ schema.min }}{% endif %}
+                    {% if schema.max is not None %} max {{ schema.max }}{% endif %}
+                </span>
+                {% endif %}
+            </button>
+            {% empty %}
+            <p class="caption">Chưa có schema policy nào.</p>
+            {% endfor %}
+        </div>
+    </aside>
+</div>
+
+<script>
+(function() {
+    const keyInput = document.querySelector('input[name="setting_key"]');
+    const valueInput = document.getElementById('setting-value-input');
+    const descInput = document.querySelector('input[name="description"]');
+    const status = document.getElementById('json-live-status');
+
+    function setStatus(message, className) {
+        if (!status) return;
+        status.textContent = message;
+        status.className = className;
+    }
+
+    function validateJson() {
+        if (!valueInput) return;
+        const raw = valueInput.value.trim();
+        if (!raw) {
+            setStatus('Giá trị JSON không được để trống.', 'form-hint mt-1 text-warning-600');
+            return;
+        }
+        try {
+            JSON.parse(raw);
+            setStatus('JSON hợp lệ.', 'form-hint mt-1 text-success-600');
+        } catch (err) {
+            setStatus('JSON chưa hợp lệ: ' + err.message, 'form-hint mt-1 text-danger-600');
+        }
+    }
+
+    document.querySelectorAll('.schema-pick').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const type = btn.dataset.type;
+            if (keyInput) keyInput.value = btn.dataset.key;
+            if (descInput) descInput.value = btn.dataset.description || '';
+            if (valueInput) {
+                valueInput.value = btn.dataset.sample || (type === 'bool' ? 'false' : '1');
+            }
+            validateJson();
+            if (valueInput) valueInput.focus();
+        });
+    });
+
+    if (valueInput) {
+        valueInput.addEventListener('input', validateJson);
+        validateJson();
+    }
+})();
+</script>
+{% endblock %}

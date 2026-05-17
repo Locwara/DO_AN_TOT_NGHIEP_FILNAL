@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Sửa testcase{% else %}Thêm testcase{% endif %} - {{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[800px] flex-1">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-6">
+            <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="text-slate-400 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold">{% if is_edit %}Sửa testcase{% else %}Thêm testcase mới{% endif %}</h1>
+                <p class="text-sm text-slate-500">{{ assignment.title }}</p>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <ul class="list-disc list-inside">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+                <div class="flex items-center gap-4 mb-2">
+                    <div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-3xl">check_circle</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">{% if is_edit %}Chỉnh sửa testcase{% else %}Testcase mới{% endif %}</h3>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm">Lớp: {{ classroom.name }}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Tên testcase</label>
+                    <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                        placeholder="vd: Test cơ bản #1"/>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Dữ liệu đầu vào (Input)</label>
+                        <textarea name="input_data" rows="6"
+                            class="w-full bg-slate-900 text-slate-300 border border-slate-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-mono resize-none"
+                            placeholder="Nhập dữ liệu đầu vào...">{{ form.input_data.value|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Kết quả mong đợi (Expected Output)</label>
+                        <textarea name="expected_output" rows="6"
+                            class="w-full bg-slate-900 text-slate-300 border border-slate-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-mono resize-none"
+                            placeholder="Nhập kết quả mong đợi...">{{ form.expected_output.value|default:'' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Trọng số</label>
+                        <input type="number" name="weight" value="{{ form.weight.value|default:'1.0' }}" min="0" step="0.1"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Thứ tự</label>
+                        <input type="number" name="order_index" value="{{ form.order_index.value|default:'0' }}" min="0"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Timeout (giây)</label>
+                        <input type="number" name="timeout_override" value="{{ form.timeout_override.value|default:'' }}" min="1"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="Mặc định"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Memory (MB)</label>
+                        <input type="number" name="memory_override" value="{{ form.memory_override.value|default:'' }}" min="1"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="Mặc định"/>
+                    </div>
+                </div>
+
+                <div class="flex gap-6">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="is_sample" {% if form.is_sample.value %}checked{% endif %}
+                            class="rounded border-slate-300 text-primary focus:ring-primary">
+                        <span class="font-medium">Testcase mẫu</span>
+                        <span class="text-slate-400">(sinh viên nhìn thấy)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="is_hidden" {% if form.is_hidden.value %}checked{% endif %}
+                            class="rounded border-slate-300 text-primary focus:ring-primary">
+                        <span class="font-medium">Testcase ẩn</span>
+                        <span class="text-slate-400">(dùng để chấm điểm)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                    Hủy
+                </a>
+                <button type="submit" class="flex items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">{% if is_edit %}save{% else %}add{% endif %}</span>
+                    {% if is_edit %}Lưu thay đổi{% else %}Thêm testcase{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

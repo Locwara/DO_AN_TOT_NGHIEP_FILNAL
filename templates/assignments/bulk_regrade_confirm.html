@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Chấm lại toàn bộ - {{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[700px] mx-auto px-6 py-12">
+    <div class="bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl p-8">
+        <div class="flex items-start gap-4 mb-6">
+            <div class="size-14 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-amber-500 text-3xl">refresh</span>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold mb-1">Chấm lại toàn bộ bài nộp</h1>
+                <p class="text-slate-500 dark:text-slate-400 text-sm">{{ assignment.title }}</p>
+            </div>
+        </div>
+
+        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-6">
+            <p class="text-sm text-amber-500 font-bold mb-2">⚠️ Cảnh báo</p>
+            <ul class="text-sm text-slate-600 dark:text-slate-300 space-y-1 list-disc list-inside">
+                <li>Hệ thống sẽ chấm lại <strong>{{ sub_count }}</strong> bài nộp với bộ Testcase hiện tại.</li>
+                <li>Toàn bộ điểm số và kết quả chi tiết (SubmissionDetails) cũ sẽ bị xóa.</li>
+                <li>Các nhận xét/comment của giáo viên trên code sẽ được <strong>giữ nguyên</strong>.</li>
+                <li>Thao tác này không thể hoàn tác.</li>
+            </ul>
+        </div>
+
+        <form method="post" class="flex gap-3">
+            {% csrf_token %}
+            <button type="submit" class="flex items-center gap-2 bg-amber-500 text-white font-bold py-2.5 px-5 rounded-lg hover:bg-amber-600 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">refresh</span> Xác nhận chấm lại
+            </button>
+            <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="flex items-center gap-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-sm">
+                Hủy
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

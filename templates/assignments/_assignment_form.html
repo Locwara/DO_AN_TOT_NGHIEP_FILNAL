@@ -1,0 +1,275 @@
+{% load assignment_extras %}
+<form method="post">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm mb-6" role="alert">
+        <p class="font-bold mb-2">Vui lòng kiểm tra lại các trường sau:</p>
+        <ul class="list-disc list-inside">
+        {% for field in form %}
+            {% for error in field.errors %}
+            <li>{{ field.label }}: {{ error }}</li>
+            {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-8">
+            <section class="bg-white p-6 rounded-xl border border-slate-200">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">description</span>
+                    Thông tin bài tập
+                </h2>
+                <div class="space-y-6">
+                    <div>
+                        <label for="assignment-title" class="block text-sm font-semibold text-slate-700 mb-2">Tên bài tập *</label>
+                        <input id="assignment-title" type="text" name="title" value="{{ form.title.value|default:'' }}"
+                            class="w-full bg-slate-50 border {% if form.title.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 outline-none"
+                            placeholder="vd: Cài đặt cây đỏ đen" required/>
+                        {% if form.title.errors %}<p class="text-xs text-red-500 mt-1">{{ form.title.errors.0 }}</p>{% endif %}
+                    </div>
+
+                    <div>
+                        <label for="assignment-classroom-subject" class="block text-sm font-semibold text-slate-700 mb-2">Môn học (trong lớp)</label>
+                        <select id="assignment-classroom-subject" name="classroom_subject" class="w-full bg-slate-50 border {% if form.classroom_subject.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm">
+                            <option value="">-- Chưa phân môn --</option>
+                            {% for cs in form.classroom_subject.field.queryset %}
+                            <option value="{{ cs.pk }}" {% if form.classroom_subject.value|stringformat:'s' == cs.pk|stringformat:'s' %}selected{% endif %}>
+                                {{ cs.subject.code }} - {{ cs.subject.name }}{% if cs.semester %} ({{ cs.semester.code }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">Gắn bài tập với môn và kỳ học đã duyệt của lớp. Có thể để trống.</p>
+                        {% if form.classroom_subject.errors %}<p class="text-xs text-red-500 mt-1">{{ form.classroom_subject.errors.0 }}</p>{% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="assignment-type" class="block text-sm font-semibold text-slate-700 mb-2">Loại bài tập</label>
+                            <select id="assignment-type" name="type" class="w-full bg-slate-50 border {% if form.type.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm">
+                                <option value="auto_grade" {% if form.type.value == 'auto_grade' %}selected{% endif %}>Chấm tự động</option>
+                                <option value="manual_grade" {% if form.type.value == 'manual_grade' %}selected{% endif %}>Chấm thủ công</option>
+                                <option value="project" {% if form.type.value == 'project' %}selected{% endif %}>Đồ án</option>
+                            </select>
+                            {% if form.type.errors %}<p class="text-xs text-red-500 mt-1">{{ form.type.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="assignment-difficulty" class="block text-sm font-semibold text-slate-700 mb-2">Độ khó</label>
+                            <select id="assignment-difficulty" name="difficulty" class="w-full bg-slate-50 border {% if form.difficulty.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm">
+                                <option value="">-- Chọn --</option>
+                                <option value="easy" {% if form.difficulty.value == 'easy' %}selected{% endif %}>Dễ</option>
+                                <option value="medium" {% if form.difficulty.value == 'medium' %}selected{% endif %}>Trung bình</option>
+                                <option value="hard" {% if form.difficulty.value == 'hard' %}selected{% endif %}>Khó</option>
+                                <option value="expert" {% if form.difficulty.value == 'expert' %}selected{% endif %}>Nâng cao</option>
+                            </select>
+                            {% if form.difficulty.errors %}<p class="text-xs text-red-500 mt-1">{{ form.difficulty.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="assignment-description" class="block text-sm font-semibold text-slate-700 mb-2">Mô tả</label>
+                        <textarea id="assignment-description" name="description" rows="4"
+                            class="w-full bg-slate-50 border {% if form.description.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg p-4 focus:ring-2 focus:ring-primary text-slate-900 outline-none resize-none"
+                            placeholder="Mô tả ngắn về bài tập...">{{ form.description.value|default:'' }}</textarea>
+                        {% if form.description.errors %}<p class="text-xs text-red-500 mt-1">{{ form.description.errors.0 }}</p>{% endif %}
+                    </div>
+
+                    <div>
+                        <label for="assignment-instructions" class="block text-sm font-semibold text-slate-700 mb-2">Hướng dẫn chi tiết</label>
+                        <textarea id="assignment-instructions" name="instructions" rows="8"
+                            class="w-full bg-slate-50 border {% if form.instructions.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg p-4 focus:ring-2 focus:ring-primary text-slate-900 outline-none resize-none"
+                            placeholder="Hướng dẫn chi tiết (hỗ trợ Markdown)...">{{ form.instructions.value|default:'' }}</textarea>
+                        {% if form.instructions.errors %}<p class="text-xs text-red-500 mt-1">{{ form.instructions.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white p-6 rounded-xl border border-slate-200">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">schedule</span>
+                    Thời gian & Chấm điểm
+                </h2>
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="assignment-start-date" class="block text-sm font-semibold text-slate-700 mb-2">Ngày bắt đầu</label>
+                            <input id="assignment-start-date" type="datetime-local" name="start_date" value="{{ form.start_date.value|datetime_local }}"
+                                class="w-full bg-slate-50 border {% if form.start_date.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm"/>
+                            {% if form.start_date.errors %}<p class="text-xs text-red-500 mt-1">{{ form.start_date.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="assignment-due-date" class="block text-sm font-semibold text-slate-700 mb-2">Hạn nộp</label>
+                            <input id="assignment-due-date" type="datetime-local" name="due_date" value="{{ form.due_date.value|datetime_local }}"
+                                class="w-full bg-slate-50 border {% if form.due_date.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm"/>
+                            {% if form.due_date.errors %}<p class="text-xs text-red-500 mt-1">{{ form.due_date.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="assignment-max-score" class="block text-sm font-semibold text-slate-700 mb-2">Điểm tối đa</label>
+                            <input id="assignment-max-score" type="number" name="max_score" value="{{ form.max_score.value|default:'100' }}" min="1"
+                                class="w-full bg-slate-50 border {% if form.max_score.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm"/>
+                            {% if form.max_score.errors %}<p class="text-xs text-red-500 mt-1">{{ form.max_score.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="assignment-max-attempts" class="block text-sm font-semibold text-slate-700 mb-2">Số lần nộp tối đa</label>
+                            <input id="assignment-max-attempts" type="number" name="max_attempts" value="{{ form.max_attempts.value|default:'' }}" min="1"
+                                class="w-full bg-slate-50 border {% if form.max_attempts.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm"
+                                placeholder="Không giới hạn"/>
+                            {% if form.max_attempts.errors %}<p class="text-xs text-red-500 mt-1">{{ form.max_attempts.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="late_submission_allowed" {% if form.late_submission_allowed.value %}checked{% endif %}
+                            class="rounded border-slate-300 text-primary focus:ring-primary" id="late-toggle" aria-controls="late-penalty-section">
+                        <span class="font-medium">Cho phép nộp muộn</span>
+                    </label>
+
+                    <div id="late-penalty-section" class="{% if not form.late_submission_allowed.value %}hidden{% endif %}">
+                        <label for="assignment-late-penalty" class="block text-sm font-semibold text-slate-700 mb-2">Phần trăm trừ điểm nộp muộn (%)</label>
+                        <input id="assignment-late-penalty" type="number" name="late_penalty_percent" value="{{ form.late_penalty_percent.value|default:'10' }}" min="0" max="100"
+                            class="w-full bg-slate-50 border {% if form.late_penalty_percent.errors %}border-red-400{% else %}border-slate-200{% endif %} rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm"/>
+                        {% if form.late_penalty_percent.errors %}<p class="text-xs text-red-500 mt-1">{{ form.late_penalty_percent.errors.0 }}</p>{% endif %}
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="show_testcase_result" {% if form.show_testcase_result.value != False %}checked{% endif %}
+                            class="rounded border-slate-300 text-primary focus:ring-primary">
+                        <span class="font-medium">Hiển thị kết quả testcase cho sinh viên</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="enable_leaderboard" {% if form.enable_leaderboard.value %}checked{% endif %}
+                            class="rounded border-slate-300 text-primary focus:ring-primary">
+                        <span class="font-medium">Bật bảng xếp hạng cho bài tập</span>
+                    </label>
+
+                    <div class="border-t border-slate-200 pt-6 space-y-4">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="is_exam" id="exam-toggle" {% if form.is_exam.value %}checked{% endif %}
+                                class="rounded border-slate-300 text-red-500 focus:ring-red-500"
+                                aria-controls="exam-section" aria-expanded="{% if form.is_exam.value %}true{% else %}false{% endif %}">
+                            <span class="font-bold text-slate-800">Bật chế độ thi</span>
+                        </label>
+                        <div id="exam-section" class="{% if not form.is_exam.value %}hidden{% endif %} rounded-xl border border-red-200 bg-red-50/60 p-4 space-y-4" aria-labelledby="exam-toggle">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="exam-start-time" class="block text-sm font-semibold text-slate-700 mb-2">Giờ mở phòng thi</label>
+                                    <input id="exam-start-time" type="datetime-local" name="exam_start_time" value="{{ form.exam_start_time.value|datetime_local }}" class="w-full bg-white border {% if form.exam_start_time.errors %}border-red-400{% else %}border-red-100{% endif %} rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-red-300"/>
+                                    {% if form.exam_start_time.errors %}<p class="text-xs text-red-500 mt-1">{{ form.exam_start_time.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div>
+                                    <label for="exam-end-time" class="block text-sm font-semibold text-slate-700 mb-2">Giờ đóng phòng thi</label>
+                                    <input id="exam-end-time" type="datetime-local" name="exam_end_time" value="{{ form.exam_end_time.value|datetime_local }}" class="w-full bg-white border {% if form.exam_end_time.errors %}border-red-400{% else %}border-red-100{% endif %} rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-red-300"/>
+                                    {% if form.exam_end_time.errors %}<p class="text-xs text-red-500 mt-1">{{ form.exam_end_time.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div>
+                                    <label for="exam-duration" class="block text-sm font-semibold text-slate-700 mb-2">Thời gian làm bài (phút)</label>
+                                    <input id="exam-duration" type="number" name="exam_duration_minutes" value="{{ form.exam_duration_minutes.value|default:'' }}" min="1" class="w-full bg-white border {% if form.exam_duration_minutes.errors %}border-red-400{% else %}border-red-100{% endif %} rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-red-300"/>
+                                    {% if form.exam_duration_minutes.errors %}<p class="text-xs text-red-500 mt-1">{{ form.exam_duration_minutes.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div>
+                                    <label for="exam-grace" class="block text-sm font-semibold text-slate-700 mb-2">Grace submit (giây)</label>
+                                    <input id="exam-grace" type="number" name="exam_grace_seconds" value="{{ form.exam_grace_seconds.value|default:'30' }}" min="0" max="600" class="w-full bg-white border {% if form.exam_grace_seconds.errors %}border-red-400{% else %}border-red-100{% endif %} rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-red-300"/>
+                                    {% if form.exam_grace_seconds.errors %}<p class="text-xs text-red-500 mt-1">{{ form.exam_grace_seconds.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div>
+                                    <label for="exam-run-count" class="block text-sm font-semibold text-slate-700 mb-2">Số lần chạy thử tối đa</label>
+                                    <input id="exam-run-count" type="number" name="exam_max_run_count" value="{{ form.exam_max_run_count.value|default:'' }}" min="1" placeholder="Không giới hạn" class="w-full bg-white border {% if form.exam_max_run_count.errors %}border-red-400{% else %}border-red-100{% endif %} rounded-lg h-11 px-3 text-sm focus:ring-2 focus:ring-red-300"/>
+                                    {% if form.exam_max_run_count.errors %}<p class="text-xs text-red-500 mt-1">{{ form.exam_max_run_count.errors.0 }}</p>{% endif %}
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="exam_require_fullscreen" {% if form.exam_require_fullscreen.value %}checked{% endif %} class="rounded border-red-200 text-red-500 focus:ring-red-500"> Yêu cầu fullscreen</label>
+                                <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="exam_allow_custom_input" {% if form.exam_allow_custom_input.value != False %}checked{% endif %} class="rounded border-red-200 text-red-500 focus:ring-red-500"> Cho custom input</label>
+                                <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="exam_allow_sample_run" {% if form.exam_allow_sample_run.value != False %}checked{% endif %} class="rounded border-red-200 text-red-500 focus:ring-red-500"> Cho chạy testcase mẫu</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-primary/5 p-6 rounded-xl border border-primary/20 lg:sticky lg:top-24">
+                <h3 class="text-lg font-bold mb-4">Ngôn ngữ lập trình</h3>
+                <p class="text-sm text-slate-600 mb-4">Chọn ngôn ngữ cho phép. Bỏ trống nghĩa là cho phép tất cả ngôn ngữ đang active.</p>
+                <div class="space-y-2 max-h-60 overflow-y-auto">
+                    {% for lang in languages %}
+                    <label class="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                        <input type="checkbox" name="allowed_languages" value="{{ lang.name }}"
+                            {% if lang.name in selected_languages %}checked{% endif %}
+                            class="rounded border-slate-300 text-primary focus:ring-primary">
+                        <span class="font-medium">{{ lang.display_name }}</span>
+                        {% if lang.version %}<span class="text-xs text-slate-500">({{ lang.version }})</span>{% endif %}
+                    </label>
+                    {% empty %}
+                    <p class="text-xs text-slate-500 italic">Chưa có ngôn ngữ nào được cấu hình.</p>
+                    {% endfor %}
+                </div>
+
+                <hr class="my-6 border-primary/20">
+
+                <div class="space-y-3">
+                    {% if is_edit %}
+                    <button type="submit" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">
+                        Lưu thay đổi
+                    </button>
+                    <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="w-full py-3 bg-white text-slate-700 font-bold rounded-lg border border-slate-200 hover:bg-slate-50 transition-all text-center block">
+                        Hủy
+                    </a>
+                    {% else %}
+                    <button type="submit" name="publish" value="1" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">
+                        Công bố bài tập
+                    </button>
+                    <button type="submit" class="w-full py-3 bg-white text-slate-700 font-bold rounded-lg border border-slate-200 hover:bg-slate-50 transition-all">
+                        Lưu nháp
+                    </button>
+                    {% endif %}
+                </div>
+
+                {% if not is_edit %}
+                <div class="mt-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <div class="flex gap-2">
+                        <span class="material-symbols-outlined text-amber-500 text-sm">info</span>
+                        <p class="text-xs text-amber-700">Sau khi tạo, bạn có thể thêm testcase và file đính kèm ở trang chi tiết bài tập.</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    (function() {
+        const lateToggle = document.getElementById('late-toggle');
+        const lateSection = document.getElementById('late-penalty-section');
+        const examToggle = document.getElementById('exam-toggle');
+        const examSection = document.getElementById('exam-section');
+
+        if (lateToggle && lateSection) {
+            lateToggle.addEventListener('change', function() {
+                lateSection.classList.toggle('hidden', !this.checked);
+            });
+        }
+        if (examToggle && examSection) {
+            examToggle.addEventListener('change', function() {
+                const enabled = this.checked;
+                examSection.classList.toggle('hidden', !enabled);
+                this.setAttribute('aria-expanded', enabled ? 'true' : 'false');
+                if (enabled) {
+                    const firstInput = examSection.querySelector('input[type="datetime-local"], input[type="number"]');
+                    if (firstInput) firstInput.focus();
+                }
+            });
+        }
+    })();
+</script>

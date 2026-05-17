@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Import học sinh - {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 font-medium">Import học sinh</span>
+    </nav>
+
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-black tracking-tight">Import học sinh</h1>
+            <p class="text-slate-600 mt-1">Thêm nhiều học sinh có tài khoản sẵn vào lớp {{ classroom.name }} bằng file CSV.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'classrooms:import_members' pk=classroom.pk %}?sample=1" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">download</span>
+                Tải CSV mẫu
+            </a>
+            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Về lớp học
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+        <div class="space-y-6">
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">upload_file</span>
+                    Upload CSV
+                </h2>
+                <form method="post" enctype="multipart/form-data" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-sm font-bold mb-2">{{ form.csv_file.label }}</label>
+                        {{ form.csv_file }}
+                        {% if form.csv_file.help_text %}
+                        <p class="text-xs text-slate-500 mt-2">{{ form.csv_file.help_text }}</p>
+                        {% endif %}
+                        {% for error in form.csv_file.errors %}
+                        <p class="text-sm text-red-500 mt-2">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined text-sm">group_add</span>
+                            Import vào lớp
+                        </button>
+                        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                            Hủy
+                        </a>
+                    </div>
+                </form>
+            </section>
+
+            {% if summary %}
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Đã thêm</p>
+                    <p class="text-3xl font-black text-emerald-500 mt-1">{{ summary.imported }}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Đã có</p>
+                    <p class="text-3xl font-black text-primary mt-1">{{ summary.already }}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Không thấy user</p>
+                    <p class="text-3xl font-black text-amber-500 mt-1">{{ summary.missing }}</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lỗi/bỏ qua</p>
+                    <p class="text-3xl font-black text-red-500 mt-1">{{ summary.skipped }}</p>
+                </div>
+            </section>
+            {% endif %}
+
+            {% if results %}
+            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">fact_check</span>
+                        Kết quả import
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Dòng</th>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Username</th>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Email</th>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Tài khoản</th>
+                                <th class="text-left px-4 py-3 font-bold text-slate-700">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for row in results %}
+                            <tr>
+                                <td class="px-4 py-3 text-slate-500">{{ row.line }}</td>
+                                <td class="px-4 py-3 font-medium">{{ row.username|default:"-" }}</td>
+                                <td class="px-4 py-3 text-slate-600">{{ row.email|default:"-" }}</td>
+                                <td class="px-4 py-3">
+                                    {% if row.user %}
+                                    <div>
+                                        <p class="font-bold">{{ row.user.get_full_name|default:row.user.username }}</p>
+                                        <p class="text-xs text-slate-500">{{ row.user.username }}</p>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-slate-400">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {% if row.status == 'added' %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">check_circle</span>
+                                        {{ row.message }}
+                                    </span>
+                                    {% elif row.status == 'already' %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">info</span>
+                                        {{ row.message }}
+                                    </span>
+                                    {% elif row.status == 'missing' %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">person_off</span>
+                                        {{ row.message }}
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-600 text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">error</span>
+                                        {{ row.message }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endif %}
+        </div>
+
+        <aside class="space-y-6">
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-500">rule</span>
+                    Quy tắc import
+                </h2>
+                <div class="space-y-3 text-sm text-slate-600">
+                    <p>File cần có header `username,email,full_name`.</p>
+                    <p>Hệ thống chỉ match tài khoản đã tồn tại theo username hoặc email.</p>
+                    <p>Không tự tạo user mới. Dòng không tìm thấy user sẽ được báo lỗi để bạn sửa file.</p>
+                    <p>User đã ở trong lớp sẽ không tạo duplicate.</p>
+                </div>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">table</span>
+                    CSV mẫu
+                </h2>
+                <pre class="text-xs bg-primary-950 text-slate-200 rounded-lg p-4 overflow-x-auto">username,email,full_name
+student01,student01@example.com,Nguyen Van A
+student02,student02@example.com,Tran Thi B</pre>
+            </section>
+        </aside>
+    </div>
+</div>
+{% endblock %}

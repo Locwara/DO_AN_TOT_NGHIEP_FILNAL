@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Thông báo - DevLearn{% endblock %}
+
+{% block content %}
+<div class="container-md py-8">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div>
+            <p class="eyebrow">Notifications</p>
+            <h2 class="text-2xl font-bold text-primary-900 mt-1">Thông báo</h2>
+            <p class="text-neutral-500 mt-1">Các cập nhật quan trọng từ lớp học, bài tập và hệ thống.</p>
+        </div>
+        {% if unread_notifications_count %}
+        <form method="post" action="{% url 'notifications:mark_all_read' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-outlined text-sm">done_all</span>
+                Đánh dấu đã đọc
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="flex items-center gap-2 mb-4">
+        <a href="{% url 'notifications:list' %}" class="btn {% if status_filter != 'unread' %}btn-primary{% else %}btn-sm{% endif %}">Tất cả</a>
+        <a href="{% url 'notifications:list' %}?status=unread" class="btn {% if status_filter == 'unread' %}btn-primary{% else %}btn-sm{% endif %}">Chưa đọc</a>
+    </div>
+
+    {% if notifications %}
+    <div class="card overflow-hidden">
+        <div class="divide-y divide-slate-200">
+            {% for notification in notifications %}
+            <div class="p-4 flex items-start gap-4 {% if not notification.is_read %}bg-primary/5{% endif %}">
+                <div class="size-10 rounded-lg {% if notification.is_read %}bg-primary-50 text-neutral-500{% else %}bg-primary/10 text-primary{% endif %} flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-xl">
+                        {% if notification.notification_type == 'submission_graded' %}fact_check
+                        {% elif notification.notification_type == 'submission_submitted' %}assignment_turned_in
+                        {% elif notification.notification_type == 'code_comment_added' %}comment
+                        {% elif notification.notification_type == 'assignment_published' %}campaign
+                        {% elif notification.notification_type == 'class_join_approved' %}how_to_reg
+                        {% else %}notifications
+                        {% endif %}
+                    </span>
+                </div>
+                <a href="{% url 'notifications:open' notification.pk %}" class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-900">{{ notification.title }}</h2>
+                            {% if notification.message %}
+                            <p class="text-sm text-slate-600 mt-1">{{ notification.message }}</p>
+                            {% endif %}
+                        </div>
+                        {% if not notification.is_read %}
+                        <span class="mt-1 size-2 rounded-full bg-primary flex-shrink-0"></span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">{{ notification.created_at|timesince }} trước</p>
+                </a>
+                {% if not notification.is_read %}
+                <form method="post" action="{% url 'notifications:mark_read' notification.pk %}" class="shrink-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-sm" title="Đánh dấu thông báo này đã đọc">
+                        <span class="material-symbols-outlined text-sm">done</span>
+                        Đã đọc
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card p-10 text-center text-neutral-500 border-dashed">
+        <span class="material-symbols-outlined text-4xl mb-2">notifications_off</span>
+        <p class="font-bold text-neutral-900">Chưa có thông báo nào</p>
+        <p class="text-sm mt-1">Khi có bài mới, bài đã chấm hoặc yêu cầu cần xử lý, chúng sẽ xuất hiện ở đây.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

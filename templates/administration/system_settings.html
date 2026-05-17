@@ -1,0 +1,133 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Cài đặt hệ thống{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap justify-between items-end gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">Cài đặt hệ thống</h2>
+        <p class="text-neutral-500 mt-1">Quản lý các tham số cấu hình hệ thống (JSON).</p>
+    </div>
+    <a href="{% url 'administation:setting_create' %}" class="btn btn-primary">
+        <span class="material-symbols-outlined text-lg">add</span>
+        Thêm cài đặt
+    </a>
+</div>
+
+<!-- Search Bar -->
+<div class="mt-6">
+    <form method="get" class="admin-filter-form">
+        <div class="flex-1">
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo key hoặc mô tả..." class="form-input">
+        </div>
+        <button type="submit" class="btn btn-ghost">
+            <span class="material-symbols-outlined">search</span>
+            Tìm
+        </button>
+        {% if search_query %}
+        <a href="{% url 'administation:system_settings' %}" class="btn btn-ghost">
+            <span class="material-symbols-outlined">clear</span>
+            Xóa
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+{% if policy_schemas %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
+    {% for key, schema in policy_schemas.items %}
+    <div class="bg-white border border-primary-200 rounded-lg p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <code class="text-xs bg-primary-50 text-primary-700 px-2 py-1 rounded">{{ key }}</code>
+                <p class="text-sm text-neutral-600 mt-3">{{ schema.description }}</p>
+                {% if schema.min != None or schema.max != None %}
+                <p class="text-xs text-neutral-500 mt-2">Khoảng hợp lệ: {{ schema.min|default:"-" }} đến {{ schema.max|default:"-" }}</p>
+                {% endif %}
+            </div>
+            <a href="{% url 'administation:setting_create' %}?key={{ key }}" class="btn btn-sm" title="Tạo nhanh setting">
+                <span class="material-symbols-outlined text-xs">tune</span>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if settings_list %}
+<div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <table class="w-full text-left">
+        <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-6 py-4">Key</th>
+                <th class="px-6 py-4">Value</th>
+                <th class="px-6 py-4 hidden md:table-cell">Mô tả</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Cập nhật</th>
+                <th class="px-6 py-4 text-right">Hành động</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for setting in settings_list %}
+            <tr class="hover:bg-primary-50 transition-colors">
+                <td class="px-6 py-4">
+                    <code class="bg-primary-50 text-primary-700 px-2 py-1 rounded text-sm">{{ setting.setting_key }}</code>
+                </td>
+                <td class="px-6 py-4 max-w-xs">
+                    {% if setting.setting_value is True or setting.setting_value is False %}
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-neutral-700">{{ setting.setting_value|yesno:"Bật,Tắt" }}</span>
+                        <form method="post" action="{% url 'administation:setting_toggle' setting.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 {% if setting.setting_value %}bg-primary-600{% else %}bg-neutral-300{% endif %}">
+                                <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {% if setting.setting_value %}translate-x-6{% else %}translate-x-1{% endif %}"></span>
+                            </button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="bg-neutral-50 border border-neutral-200 rounded p-2 overflow-x-auto">
+                        <pre class="text-xs text-neutral-700 font-mono whitespace-pre-wrap">{{ setting.setting_value|pprint|truncatechars:100 }}</pre>
+                    </div>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 hidden md:table-cell">
+                    <p class="text-sm text-neutral-600">{{ setting.description|default:"—" }}</p>
+                </td>
+                <td class="px-6 py-4 hidden lg:table-cell">
+                    {% if setting.updated_by %}
+                    <p class="text-xs text-neutral-500">{{ setting.updated_by.username }}</p>
+                    <p class="text-xs text-neutral-400">{{ setting.updated_at|timesince }} trước</p>
+                    {% else %}
+                    <p class="text-xs text-neutral-400">—</p>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex gap-2 justify-end">
+                        <a href="{% url 'administation:setting_edit' setting.pk %}" class="btn btn-sm" title="Chỉnh sửa">
+                            <span class="material-symbols-outlined text-xs">edit</span>
+                        </a>
+                        <form method="post" action="{% url 'administation:setting_delete' setting.pk %}" class="inline" onsubmit="return confirm('Xóa cài đặt này?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200" title="Xóa">
+                                <span class="material-symbols-outlined text-xs">delete</span>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center mt-6">
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">settings</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có cài đặt nào</h3>
+    {% if search_query %}
+    <p class="text-neutral-500 mb-4">Không tìm thấy cài đặt nào khớp với "{{ search_query }}".</p>
+    <a href="{% url 'administation:setting_create' %}" class="btn btn-primary">Thêm cài đặt</a>
+    {% else %}
+    <p class="text-neutral-500 mb-4">Bắt đầu bằng cách thêm cài đặt đầu tiên.</p>
+    <a href="{% url 'administation:setting_create' %}" class="btn btn-primary">Thêm cài đặt đầu tiên</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

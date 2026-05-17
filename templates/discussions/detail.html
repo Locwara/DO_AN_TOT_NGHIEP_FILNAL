@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} | Thảo luận | DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex justify-center py-8">
+    <div class="flex flex-col max-w-[900px] w-full px-6 gap-6">
+
+        <nav class="flex items-center gap-2 text-sm text-slate-500">
+            <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' classroom.pk %}">{{ classroom.name }}</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <a class="hover:text-primary" href="{% url 'assignments:detail' assignment.pk %}">{{ assignment.title }}</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <a class="hover:text-primary" href="{% url 'discussions:list' assignment.pk %}">Thảo luận</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <span class="text-slate-900 font-medium">{{ title|truncatechars:40 }}</span>
+        </nav>
+
+        <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div class="flex gap-4 p-6">
+                <div class="flex flex-col items-center gap-1 min-w-[50px]">
+                    <button onclick="voteDiscussion({{ discussion.pk }}, 1)" class="vote-up-{{ discussion.pk }} flex items-center justify-center w-8 h-8 rounded-lg {% if user_vote_topic == 1 %}bg-primary text-white{% else %}hover:bg-slate-200 text-slate-500{% endif %} transition-colors">
+                        <span class="material-symbols-outlined text-lg">expand_less</span>
+                    </button>
+                    <span id="vote-count-{{ discussion.pk }}" class="text-lg font-bold text-slate-900">{{ discussion.upvotes }}</span>
+                    <button onclick="voteDiscussion({{ discussion.pk }}, -1)" class="vote-down-{{ discussion.pk }} flex items-center justify-center w-8 h-8 rounded-lg {% if user_vote_topic == -1 %}bg-red-500 text-white{% else %}hover:bg-slate-200 text-slate-500{% endif %} transition-colors">
+                        <span class="material-symbols-outlined text-lg">expand_more</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="flex items-center gap-2">
+                            {% if discussion.is_pinned %}
+                            <span class="material-symbols-outlined text-amber-500 text-sm">push_pin</span>
+                            {% endif %}
+                            <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100 leading-tight">{{ title }}</h1>
+                        </div>
+                        {% if is_teacher or discussion.user == request.user %}
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            {% if is_teacher %}
+                            <button onclick="pinDiscussion({{ discussion.pk }})" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-amber-500 transition-colors" title="Ghim/Bỏ ghim">
+                                <span class="material-symbols-outlined text-lg">push_pin</span>
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'discussions:edit' discussion.pk %}" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-primary transition-colors" title="Chỉnh sửa">
+                                <span class="material-symbols-outlined text-lg">edit</span>
+                            </a>
+                            <form method="post" action="{% url 'discussions:delete' discussion.pk %}" class="inline" onsubmit="return confirm('Bạn có chắc muốn xóa chủ đề này?')">
+                                {% csrf_token %}
+                                <button type="submit" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-red-500 transition-colors" title="Xóa">
+                                    <span class="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="prose max-w-none text-slate-700 text-[15px] leading-relaxed mb-4">
+                        {{ body|linebreaksbr }}
+                    </div>
+
+                    <div class="flex items-center gap-4 text-sm text-slate-600">
+                        <div class="flex items-center gap-2">
+                            <div class="flex items-center justify-center rounded-full size-7 bg-primary/10 text-primary font-bold text-xs">
+                                {{ discussion.user.username|make_list|first|upper }}
+                            </div>
+                            <span class="font-medium">{{ discussion.user.get_full_name|default:discussion.user.username }}</span>
+                        </div>
+                        <span>{{ discussion.created_at|timesince }} trước</span>
+                        {% if discussion.updated_at != discussion.created_at %}
+                        <span class="italic">(đã chỉnh sửa)</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-slate-900">{{ replies|length }} Câu trả lời</h2>
+            <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        {% for item in replies %}
+        <div id="reply-{{ item.reply.pk }}" class="rounded-xl border {% if item.reply.is_answer %}border-green-500/30 bg-green-500/5{% else %}border-slate-200 bg-white{% endif %} overflow-hidden transition-colors">
+            {% if item.reply.is_answer %}
+            <div class="flex items-center gap-2 px-6 py-2 bg-green-500/10 border-b border-green-500/20">
+                <span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                <span class="text-green-600 text-xs font-bold uppercase tracking-wide">Câu trả lời được chấp nhận</span>
+            </div>
+            {% endif %}
+            <div class="flex gap-4 p-6">
+                <div class="flex flex-col items-center gap-1 min-w-[50px]">
+                    <button onclick="voteDiscussion({{ item.reply.pk }}, 1)" class="vote-up-{{ item.reply.pk }} flex items-center justify-center w-8 h-8 rounded-lg {% if item.user_vote == 1 %}bg-primary text-white{% else %}hover:bg-slate-200 text-slate-500{% endif %} transition-colors">
+                        <span class="material-symbols-outlined text-lg">expand_less</span>
+                    </button>
+                    <span id="vote-count-{{ item.reply.pk }}" class="text-lg font-bold text-slate-900">{{ item.reply.upvotes }}</span>
+                    <button onclick="voteDiscussion({{ item.reply.pk }}, -1)" class="vote-down-{{ item.reply.pk }} flex items-center justify-center w-8 h-8 rounded-lg {% if item.user_vote == -1 %}bg-red-500 text-white{% else %}hover:bg-slate-200 text-slate-500{% endif %} transition-colors">
+                        <span class="material-symbols-outlined text-lg">expand_more</span>
+                    </button>
+                    {% if is_teacher %}
+                    <button onclick="markAnswer({{ item.reply.pk }})" class="mark-answer-{{ item.reply.pk }} flex items-center justify-center w-8 h-8 rounded-lg {% if item.reply.is_answer %}bg-green-500 text-white{% else %}hover:bg-green-500/10 text-slate-500 hover:text-green-500{% endif %} transition-colors mt-2" title="Đánh dấu câu trả lời">
+                        <span class="material-symbols-outlined text-lg">check_circle</span>
+                    </button>
+                    {% endif %}
+                </div>
+
+                <div class="flex-1 min-w-0">
+                    <div class="prose max-w-none text-slate-700 text-[15px] leading-relaxed mb-4">
+                        {{ item.reply.content|linebreaksbr }}
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4 text-sm text-slate-600">
+                            <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-center rounded-full size-7 bg-primary/10 text-primary font-bold text-xs">
+                                    {{ item.reply.user.username|make_list|first|upper }}
+                                </div>
+                                <span class="font-medium">{{ item.reply.user.get_full_name|default:item.reply.user.username }}</span>
+                            </div>
+                            <span>{{ item.reply.created_at|timesince }} trước</span>
+                            {% if item.reply.updated_at != item.reply.created_at %}
+                            <span class="italic">(đã chỉnh sửa)</span>
+                            {% endif %}
+                        </div>
+                        {% if is_teacher or item.reply.user == request.user %}
+                        <div class="flex items-center gap-2">
+                            <a href="{% url 'discussions:edit' item.reply.pk %}" class="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-primary transition-colors" title="Chỉnh sửa">
+                                <span class="material-symbols-outlined text-base">edit</span>
+                            </a>
+                            <form method="post" action="{% url 'discussions:delete' item.reply.pk %}" class="inline" onsubmit="return confirm('Bạn có chắc muốn xóa câu trả lời này?')">
+                                {% csrf_token %}
+                                <button type="submit" class="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-red-500 transition-colors" title="Xóa">
+                                    <span class="material-symbols-outlined text-base">delete</span>
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+            <span class="material-symbols-outlined text-5xl text-slate-400 mb-3">chat_bubble_outline</span>
+            <p class="text-slate-600">Chưa có câu trả lời nào. Hãy là người đầu tiên!</p>
+        </div>
+        {% endfor %}
+
+        <div class="rounded-xl border border-slate-200 bg-white p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-4">Viết câu trả lời</h3>
+            <form method="post" action="">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <textarea name="content" rows="5" class="w-full rounded-lg border border-slate-200 bg-slate-100 text-slate-900 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-slate-500" placeholder="Viết câu trả lời của bạn...">{{ reply_form.content.value|default:'' }}</textarea>
+                    {% if reply_form.content.errors %}
+                    <p class="text-red-400 text-xs mt-1">{{ reply_form.content.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="flex items-center justify-center rounded-lg h-10 px-6 bg-primary text-white text-sm font-bold hover:brightness-110 transition-all">
+                        <span class="material-symbols-outlined mr-2 text-sm">send</span>
+                        Gửi câu trả lời
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+function voteDiscussion(pk, voteType) {
+    fetch(`/discussions/${pk}/vote/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ vote_type: voteType }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            location.reload();
+        }
+    });
+}
+
+function markAnswer(pk) {
+    fetch(`/discussions/${pk}/mark-answer/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            location.reload();
+        }
+    });
+}
+
+function pinDiscussion(pk) {
+    fetch(`/discussions/${pk}/pin/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

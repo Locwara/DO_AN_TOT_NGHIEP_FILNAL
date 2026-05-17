@@ -1,0 +1,226 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Sandbox Monitor{% endblock %}
+
+{% block admin_content %}
+<div class="flex items-center justify-between">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">Sandbox Monitor</h2>
+        <p class="text-neutral-500 mt-1">Giám sát Docker containers, hàng đợi chấm bài và xử lý Zombie tasks.</p>
+    </div>
+    <button onclick="window.location.reload()" class="btn btn-ghost">
+        <span class="material-symbols-outlined text-sm">refresh</span>
+        Làm mới
+    </button>
+</div>
+
+<!-- Docker Daemon Status -->
+<div class="bg-white border border-primary-200 rounded-lg shadow-sm p-6 mt-6">
+    <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-primary-900">
+        <span class="material-symbols-outlined text-primary-500">dns</span>
+        Docker Daemon
+    </h3>
+    {% if docker_ok %}
+    <div class="toast toast-success">
+        <span class="material-symbols-outlined">check_circle</span>
+        <div>
+            <p class="font-bold text-sm">Docker đang hoạt động</p>
+            <p class="text-xs text-neutral-500">{{ docker_containers|length }} container đang chạy</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="toast toast-error">
+        <span class="material-symbols-outlined">error</span>
+        <div>
+            <p class="font-bold text-sm">Docker không khả dụng</p>
+            <p class="text-xs text-neutral-500">Hệ thống đang fallback sang subprocess. Cài Docker để tăng cường bảo mật sandbox.</p>
+            {% if docker_error %}<p class="text-xs text-danger-600 mt-1 font-mono">{{ docker_error }}</p>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+    <div class="stat-card">
+        <p class="stat-label">Containers</p>
+        <p class="stat-number">{{ docker_containers|length }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Queue đang chờ</p>
+        <p class="stat-number {% if queue_count > 10 %}text-warning-600{% else %}text-neutral-900{% endif %}">{{ queue_count }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Zombie (&gt;{{ zombie_threshold_min }}m)</p>
+        <p class="stat-number {% if zombie_count > 0 %}text-danger-600{% else %}text-success-600{% endif %}">{{ zombie_count }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Submit 24h</p>
+        <p class="stat-number text-neutral-900">{{ stats_24h.total }}</p>
+        <p class="text-xs text-neutral-500 mt-1">
+            <span class="text-success-600">{{ stats_24h.finished }} done</span> •
+            <span class="text-danger-600">{{ stats_24h.failed }} fail</span>
+        </p>
+    </div>
+</div>
+
+<!-- Zombie Tasks -->
+{% if zombies %}
+<div class="bg-danger-100 border border-danger-200 rounded-lg overflow-hidden mt-6">
+    <div class="flex items-center justify-between p-4 border-b border-danger-200 bg-danger-50">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-danger-600">bug_report</span>
+            <h3 class="text-lg font-bold text-danger-900">Zombie Tasks ({{ zombie_count }})</h3>
+        </div>
+        <p class="text-xs text-neutral-600">Bài nộp bị treo ở trạng thái pending/running quá {{ zombie_threshold_min }} phút</p>
+    </div>
+    <table class="w-full text-left text-sm">
+        <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-4 py-3">#ID</th>
+                <th class="px-4 py-3">Sinh viên</th>
+                <th class="px-4 py-3">Bài tập</th>
+                <th class="px-4 py-3">Ngôn ngữ</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Nộp lúc</th>
+                <th class="px-4 py-3 text-right">Hành động</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for s in zombies %}
+            <tr class="hover:bg-primary-50">
+                <td class="px-4 py-3 font-mono text-xs">#{{ s.pk }}</td>
+                <td class="px-4 py-3 text-neutral-900">
+                    {% if s.student %}{{ s.student.get_full_name|default:s.student.username }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3 text-xs text-neutral-900">
+                    {% if s.assignment %}{{ s.assignment.title|truncatechars:40 }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3 text-xs"><code class="">{{ s.language }}</code></td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-warning-100 text-warning-700">{{ s.status }}</span>
+                </td>
+                <td class="px-4 py-3 text-xs text-neutral-500">{{ s.submitted_at|timesince }} trước</td>
+                <td class="px-4 py-3 text-right">
+                    <div class="flex gap-2 justify-end">
+                        <form method="post" action="{% url 'administation:requeue_zombie' submission_pk=s.pk %}" onsubmit="return confirm('Đưa bài này vào lại hàng đợi?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm">
+                                <span class="material-symbols-outlined text-xs align-middle">replay</span> Requeue
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'administation:kill_zombie' submission_pk=s.pk %}" onsubmit="return confirm('Đánh dấu bài này là error?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200">
+                                <span class="material-symbols-outlined text-xs align-middle">close</span> Kill
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Docker Containers -->
+<div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <div class="p-4 border-b border-primary-200">
+        <h3 class="text-lg font-bold flex items-center gap-2 text-primary-900">
+            <span class="material-symbols-outlined text-primary-500">deployed_code</span>
+            Docker Containers đang chạy
+        </h3>
+    </div>
+    {% if docker_containers %}
+    <table class="w-full text-left text-sm">
+        <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-4 py-3">Container ID</th>
+                <th class="px-4 py-3">Image</th>
+                <th class="px-4 py-3">Name</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Running for</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for c in docker_containers %}
+            <tr class="hover:bg-primary-50">
+                <td class="px-4 py-3 font-mono text-xs text-neutral-900">{{ c.id }}</td>
+                <td class="px-4 py-3 text-xs"><code class="">{{ c.image }}</code></td>
+                <td class="px-4 py-3 text-xs text-neutral-500">{{ c.name }}</td>
+                <td class="px-4 py-3 text-xs">
+                    <span class="text-success-600">● {{ c.status }}</span>
+                </td>
+                <td class="px-4 py-3 text-xs text-neutral-500">{{ c.running_for }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="p-8 text-center text-sm text-neutral-500">
+        {% if docker_ok %}
+            Không có container nào đang chạy.
+        {% else %}
+            Docker không khả dụng. Không thể list containers.
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Queue -->
+<div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <div class="p-4 border-b border-primary-200 flex items-center justify-between">
+        <h3 class="text-lg font-bold flex items-center gap-2 text-primary-900">
+            <span class="material-symbols-outlined text-primary-500">queue</span>
+            Hàng đợi chấm bài
+        </h3>
+        <span class="text-xs text-neutral-500">{{ queue_count }} bài đang chờ / đang chấm</span>
+    </div>
+    {% if queue_subs %}
+    <table class="w-full text-left text-sm">
+        <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-4 py-3">#ID</th>
+                <th class="px-4 py-3">Sinh viên</th>
+                <th class="px-4 py-3">Bài tập</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Nộp lúc</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-primary-200">
+            {% for s in queue_subs %}
+            <tr class="hover:bg-primary-50">
+                <td class="px-4 py-3 font-mono text-xs text-neutral-900">#{{ s.pk }}</td>
+                <td class="px-4 py-3 text-xs text-neutral-900">
+                    {% if s.student %}{{ s.student.get_full_name|default:s.student.username }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3 text-xs text-neutral-900">
+                    {% if s.assignment %}{{ s.assignment.title|truncatechars:40 }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
+                        {% if s.status == 'running' %}bg-primary-100 text-primary-700
+                        {% else %}bg-warning-100 text-warning-700{% endif %}">
+                        {{ s.status }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-xs text-neutral-500">{{ s.submitted_at|timesince }} trước</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="p-8 text-center text-sm text-neutral-500">
+        <span class="material-symbols-outlined text-4xl text-success-600 mb-2 block">check_circle</span>
+        Hàng đợi trống. Tất cả bài nộp đã được chấm xong.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Auto refresh mỗi 30 giây nếu có queue/zombies
+    {% if queue_count > 0 or zombie_count > 0 %}
+    setTimeout(() => window.location.reload(), 30000);
+    {% endif %}
+</script>
+{% endblock %}

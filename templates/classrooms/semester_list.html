@@ -1,0 +1,76 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Kỳ học{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap justify-between items-end gap-4">
+    <div>
+        <h1 class="text-slate-900 text-3xl font-black leading-tight tracking-tight">Quản lý kỳ học</h1>
+        <p class="text-slate-600 mt-1">Tạo và quản lý các kỳ học dùng chung cho toàn hệ thống.</p>
+    </div>
+    <a href="{% url 'classrooms:semester_create' %}" class="flex items-center gap-2 bg-primary text-white font-bold py-3 px-6 rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+        <span class="material-symbols-outlined text-sm">add_circle</span>
+        Tạo kỳ học mới
+    </a>
+</div>
+
+{% if semesters %}
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <table class="w-full text-left">
+        <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold tracking-wider">
+            <tr>
+                <th class="px-6 py-4">Mã kỳ học</th>
+                <th class="px-6 py-4">Tên</th>
+                <th class="px-6 py-4 hidden md:table-cell">Bắt đầu</th>
+                <th class="px-6 py-4 hidden md:table-cell">Kết thúc</th>
+                <th class="px-6 py-4">Trạng thái</th>
+                <th class="px-6 py-4 text-right">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+            {% for sem in semesters %}
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-4 font-mono font-bold text-sm">{{ sem.code }}</td>
+                <td class="px-6 py-4">
+                    <p class="text-sm font-bold">{{ sem.name }}</p>
+                </td>
+                <td class="px-6 py-4 hidden md:table-cell text-sm text-slate-600">{{ sem.start_date|date:"d/m/Y"|default:"—" }}</td>
+                <td class="px-6 py-4 hidden md:table-cell text-sm text-slate-600">{{ sem.end_date|date:"d/m/Y"|default:"—" }}</td>
+                <td class="px-6 py-4">
+                    <div class="flex flex-col gap-1">
+                        {% if sem.is_current %}
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-primary/10 text-primary uppercase w-fit">Đang diễn ra</span>
+                        {% endif %}
+                        {% if sem.is_active %}
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-success-100 text-success-600 uppercase w-fit">Hoạt động</span>
+                        {% else %}
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-600 uppercase w-fit">Ngừng</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex gap-2 justify-end">
+                        <a href="{% url 'classrooms:semester_edit' sem.pk %}" class="h-8 w-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-primary hover:text-white transition-all" title="Sửa">
+                            <span class="material-symbols-outlined text-lg">edit</span>
+                        </a>
+                        <a href="{% url 'classrooms:semester_delete' sem.pk %}" class="h-8 w-8 rounded-lg bg-danger-100 text-danger-600 flex items-center justify-center hover:bg-danger-500 hover:text-white transition-all" title="Xóa">
+                            <span class="material-symbols-outlined text-lg">delete</span>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center">
+    <span class="material-symbols-outlined text-6xl text-slate-400 mb-4">event_note</span>
+    <h3 class="text-xl font-bold text-slate-700 mb-2">Chưa có kỳ học nào</h3>
+    <p class="text-slate-600 mb-6">Tạo kỳ học đầu tiên để phân loại môn học theo học kỳ.</p>
+    <a href="{% url 'classrooms:semester_create' %}" class="inline-flex items-center gap-2 bg-primary text-white font-bold py-3 px-6 rounded-lg hover:bg-primary/90 transition-colors">
+        <span class="material-symbols-outlined text-sm">add_circle</span>
+        Tạo kỳ học
+    </a>
+</div>
+{% endif %}
+{% endblock %}

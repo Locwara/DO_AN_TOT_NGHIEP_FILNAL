@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Admin - {% block admin_title %}Dashboard{% endblock %} | DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex min-h-[calc(100vh-120px)]">
+    <aside class="w-64 border-r border-primary/10 p-4 flex flex-col gap-6 bg-background-light flex-shrink-0 hidden lg:flex">
+        <div class="flex flex-col gap-1">
+            <p class="px-3 text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Quản lý</p>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'dashboard' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:dashboard' %}">
+                <span class="material-symbols-outlined text-xl">dashboard</span>
+                <span class="text-sm font-medium">Tổng quan</span>
+            </a>
+
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'user_management' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:user_management' %}">
+                <span class="material-symbols-outlined text-xl">group</span>
+                <span class="text-sm font-medium">Quản lý người dùng</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'teacher_management' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:teacher_management' %}">
+                <span class="material-symbols-outlined text-xl">school</span>
+                <span class="text-sm font-medium">Quản lý giáo viên</span>
+            </a>
+
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'classroom_management' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:classroom_management' %}">
+                <span class="material-symbols-outlined text-xl">meeting_room</span>
+                <span class="text-sm font-medium">Quản lý lớp học</span>
+                {% if pending_classrooms_count %}
+                <span class="ml-auto bg-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ pending_classrooms_count }}</span>
+                {% endif %}
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'teacher_approvals' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:teacher_approvals' %}">
+                <span class="material-symbols-outlined text-xl">person_check</span>
+                <span class="text-sm font-medium">Duyệt giáo viên</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'subject_approvals' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:subject_approvals' %}">
+                <span class="material-symbols-outlined text-xl">menu_book</span>
+                <span class="text-sm font-medium">Quản lý môn học</span>
+                {% if pending_subjects_count %}
+                <span class="ml-auto bg-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ pending_subjects_count }}</span>
+                {% endif %}
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'semesters' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'classrooms:semester_list' %}">
+                <span class="material-symbols-outlined text-xl">event_note</span>
+                <span class="text-sm font-medium">Kỳ học</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'languages' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:languages' %}">
+                <span class="material-symbols-outlined text-xl">code</span>
+                <span class="text-sm font-medium">Ngôn ngữ</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'sandboxes' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:sandboxes' %}">
+                <span class="material-symbols-outlined text-xl">deployed_code</span>
+                <span class="text-sm font-medium">Cấu hình Sandbox</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'analytics' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:analytics' %}">
+                <span class="material-symbols-outlined text-xl">analytics</span>
+                <span class="text-sm font-medium">Analytics</span>
+            </a>
+        </div>
+        <div class="flex flex-col gap-1">
+            <p class="px-3 text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Hệ thống</p>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'metrics' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:metrics' %}">
+                <span class="material-symbols-outlined text-xl">monitoring</span>
+                <span class="text-sm font-medium">Server Metrics</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'sandbox_monitor' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:sandbox_monitor' %}">
+                <span class="material-symbols-outlined text-xl">dns</span>
+                <span class="text-sm font-medium">Sandbox Monitor</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'exam_events' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:exam_events' %}">
+                <span class="material-symbols-outlined text-xl">policy_alert</span>
+                <span class="text-sm font-medium">Sự kiện thi</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'settings' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:system_settings' %}">
+                <span class="material-symbols-outlined text-xl">settings</span>
+                <span class="text-sm font-medium">Cài đặt hệ thống</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg {% if current_page == 'logs' %}bg-primary text-white{% else %}text-slate-600 hover:bg-primary/5{% endif %} transition-colors" href="{% url 'administation:activity_logs' %}">
+                <span class="material-symbols-outlined text-xl">history</span>
+                <span class="text-sm font-medium">Nhật ký hoạt động</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-6 lg:p-8">
+        <div class="max-w-6xl mx-auto flex flex-col gap-6">
+            {% block admin_content %}{% endblock %}
+        </div>
+    </main>
+</div>
+{% endblock %}

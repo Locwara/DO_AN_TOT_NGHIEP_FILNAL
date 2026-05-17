@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Chỉnh sửa {{ classroom.name }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[700px] flex-1">
+        <div class="flex items-center gap-3 mb-6">
+            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="text-slate-500 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <h1 class="text-2xl font-bold">Chỉnh sửa lớp học</h1>
+        </div>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <ul class="list-disc list-inside">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="p-6 bg-white rounded-xl border border-slate-200">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-3xl">edit</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">{{ classroom.name }}</h3>
+                        <p class="text-slate-600 text-sm">Mã mời: <span class="text-primary font-bold">{{ classroom.invite_code }}</span></p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tên lớp học</label>
+                        <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            required/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Mô tả</label>
+                        <textarea name="description" rows="4"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm resize-none">{{ form.description.value|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Số sinh viên tối đa</label>
+                        <input type="number" name="max_students" value="{{ form.max_students.value|default:'100' }}" min="1" max="500"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>
+                    </div>
+                    <div class="rounded-lg border border-primary-100 bg-primary-50/60 p-4">
+                        <label class="flex items-start gap-3 text-sm">
+                            <input type="checkbox" name="join_requires_approval" {% if form.join_requires_approval.value %}checked{% endif %} class="mt-1 rounded border-slate-300 text-primary focus:ring-primary">
+                            <span>
+                                <span class="font-bold text-slate-800 block">Học sinh tham gia cần giáo viên duyệt</span>
+                                <span class="text-xs text-slate-600">Khi bật, học sinh dùng mã mời sẽ nằm ở danh sách Chờ duyệt. Khi tắt, học sinh dùng mã mời sẽ được thêm vào lớp ngay.</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="p-6 bg-white rounded-xl border border-red-200">
+                <h3 class="text-lg font-bold text-red-500 mb-2">Vùng nguy hiểm</h3>
+                <p class="text-sm text-slate-600 mb-4">Đổi mã mời sẽ làm mã cũ không dùng được. Xóa lớp học sẽ ẩn lớp khỏi danh sách, dữ liệu vẫn được giữ lại.</p>
+                <div class="flex flex-wrap gap-3">
+                    <button type="submit" name="action" value="reset_invite_code" onclick="return confirm('Đổi mã mời lớp học? Mã cũ sẽ không còn dùng được.')" class="inline-flex items-center gap-2 bg-amber-500/10 text-amber-600 font-bold py-2 px-4 rounded-lg hover:bg-amber-500/20 transition-colors text-sm">
+                        <span class="material-symbols-outlined text-sm">sync_lock</span> Đổi mã mời
+                    </button>
+                    <a href="{% url 'classrooms:delete' pk=classroom.pk %}" class="inline-flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2 px-4 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
+                        <span class="material-symbols-outlined text-sm">delete</span> Xóa lớp học
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                    Hủy
+                </a>
+                <button type="submit" class="flex items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">save</span>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}{{ target_user.get_full_name|default:target_user.username }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 justify-center py-10 px-4">
+    <div class="flex flex-col max-w-[960px] flex-1">
+        <!-- Profile Header -->
+        <div class="flex p-6 @container bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex w-full flex-col gap-6 @[520px]:flex-row @[520px]:justify-between @[520px]:items-center">
+                <div class="flex gap-6 items-center">
+                    <div class="relative">
+                        {% if profile.avatar_url %}
+                        <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full min-h-32 w-32 border-4 border-slate-100"
+                            style="background-image: url('{{ profile.avatar_url }}');"></div>
+                        {% else %}
+                        <div class="min-h-32 w-32 rounded-full border-4 border-slate-100 bg-primary/10 flex items-center justify-center text-primary text-4xl font-bold">
+                            {{ target_user.first_name|first|default:target_user.username|first|upper }}
+                        </div>
+                        {% endif %}
+                        <div class="absolute bottom-1 right-1 bg-success size-5 rounded-full border-4 border-white"></div>
+                    </div>
+                    <div class="flex flex-col justify-center">
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-2xl lg:text-[28px] font-bold leading-tight tracking-[-0.015em]">
+                                {{ target_user.get_full_name|default:target_user.username }}
+                            </h1>
+                            <span class="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                                {{ profile.role|default:"Student" }}
+                            </span>
+                        </div>
+                        <p class="text-slate-600 text-base">{{ profile.bio|default:"Chưa có bio" }}</p>
+                        <div class="flex items-center gap-2 mt-1 text-slate-500 text-sm">
+                            <span class="material-symbols-outlined text-sm">calendar_today</span>
+                            <span>Tham gia {{ target_user.date_joined|date:"F Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% if is_own_profile %}
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <a href="{% url 'accounts:edit_profile' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-sm">edit</span>
+                        Chỉnh sửa
+                    </a>
+                    {% if profile.role == 'student' %}
+                    <a href="{% url 'accounts:teacher_register' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                        <span class="material-symbols-outlined text-sm">school</span>
+                        Đăng ký GV
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Details Section -->
+        <div class="mt-6 p-6 bg-white rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold mb-4">Thông tin</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% if can_view_private_info %}
+                <div class="flex flex-col gap-1">
+                    <p class="text-slate-500 text-sm font-medium uppercase tracking-wider">Email</p>
+                    <p class="text-sm">{{ target_user.email|default:"Chưa cập nhật" }}</p>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <p class="text-slate-500 text-sm font-medium uppercase tracking-wider">Số điện thoại</p>
+                    <p class="text-sm">{{ profile.phone|default:"Chưa cập nhật" }}</p>
+                </div>
+                {% endif %}
+                <div class="flex flex-col gap-1 md:col-span-2">
+                    <p class="text-slate-500 text-sm font-medium uppercase tracking-wider">Bio</p>
+                    <p class="text-sm leading-relaxed">{{ profile.bio|default:"Chưa có thông tin giới thiệu." }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="mt-10">
+            <div class="flex items-center justify-between px-4 pb-4">
+                <h2 class="text-[22px] font-bold leading-tight tracking-[-0.015em]">Thống kê</h2>
+            </div>
+            <div class="flex flex-wrap gap-4 px-4">
+                <div class="flex min-w-[200px] flex-1 flex-col gap-3 rounded-xl p-6 bg-white border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <p class="text-slate-600 text-sm font-medium">Bài đã nộp</p>
+                        <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+                    </div>
+                    <p class="tracking-tight text-3xl font-bold">{{ total_submissions }}</p>
+                </div>
+                <div class="flex min-w-[200px] flex-1 flex-col gap-3 rounded-xl p-6 bg-white border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <p class="text-slate-600 text-sm font-medium">Điểm trung bình</p>
+                        <span class="material-symbols-outlined text-amber-500 text-xl">workspace_premium</span>
+                    </div>
+                    <p class="tracking-tight text-3xl font-bold">{{ avg_score }}</p>
+                </div>
+                <div class="flex min-w-[200px] flex-1 flex-col gap-3 rounded-xl p-6 bg-white border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <p class="text-slate-600 text-sm font-medium">Lớp học</p>
+                        <span class="material-symbols-outlined text-orange-500 text-xl">school</span>
+                    </div>
+                    <p class="tracking-tight text-3xl font-bold">{{ classrooms_count }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Classes Section -->
+        {% if classrooms %}
+        <div class="mt-10 mb-10">
+            <h2 class="text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-4">
+                {% if profile.role == 'teacher' %}Lớp đang dạy{% else %}Lớp đang học{% endif %}
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 px-4">
+                {% for classroom in classrooms %}
+                <div class="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200 hover:border-primary transition-all cursor-pointer group shadow-sm">
+                    <div class="size-14 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors">
+                        <span class="material-symbols-outlined text-primary group-hover:text-white">code</span>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-base">{{ classroom.name }}</h4>
+                        <p class="text-slate-600 text-sm">{{ classroom.description|truncatechars:50 }}</p>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-400">chevron_right</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

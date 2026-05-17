@@ -1,0 +1,75 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Chi tiết user{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-wrap justify-between items-end gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-primary-900">{{ target_user.get_full_name|default:target_user.username }}</h2>
+        <p class="text-neutral-500 mt-1">@{{ target_user.username }} · {{ target_user.email|default:"Chưa có email" }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'administation:user_edit' target_user.pk %}" class="btn btn-primary">
+            <span class="material-symbols-outlined text-sm">edit</span>
+            Sửa
+        </a>
+        <a href="{% url 'administation:user_reset_password' target_user.pk %}" class="btn btn-ghost">
+            <span class="material-symbols-outlined text-sm">lock_reset</span>
+            Đặt lại mật khẩu
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="stat-card">
+        <p class="stat-label">Vai trò</p>
+        <p class="stat-number text-base">{{ profile.role|default:"—" }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Trạng thái</p>
+        <p class="stat-number text-base">{{ target_user.is_active|yesno:"Hoạt động,Vô hiệu" }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Ngày tham gia</p>
+        <p class="stat-number text-base">{{ target_user.date_joined|date:"d/m/Y" }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Lần đăng nhập cuối</p>
+        <p class="stat-number text-base">{{ target_user.last_login|date:"d/m/Y H:i"|default:"—" }}</p>
+    </div>
+</div>
+
+<section class="bg-white border border-primary-200 rounded-lg p-6">
+    <h3 class="font-bold text-lg mb-4">Bài nộp gần đây</h3>
+    {% if submissions %}
+    <div class="divide-y divide-primary-200">
+        {% for submission in submissions %}
+        <a href="{% url 'submissions:detail' submission.pk %}" class="flex items-center justify-between py-3 hover:bg-primary-50 px-2 rounded">
+            <div>
+                <p class="font-medium text-sm">{{ submission.assignment.title }}</p>
+                <p class="text-xs text-neutral-500">{{ submission.assignment.classroom.name }} · {{ submission.submitted_at|date:"d/m/Y H:i" }}</p>
+            </div>
+            <span class="text-xs font-bold uppercase">{{ submission.status }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-neutral-500">Chưa có bài nộp.</p>
+    {% endif %}
+</section>
+
+<section class="bg-white border border-primary-200 rounded-lg p-6">
+    <h3 class="font-bold text-lg mb-4">Lịch sử hoạt động</h3>
+    {% if logs %}
+    <div class="divide-y divide-primary-200">
+        {% for log in logs %}
+        <div class="py-3">
+            <p class="text-sm font-mono">{{ log.action }}</p>
+            <p class="text-xs text-neutral-500">{{ log.created_at|date:"d/m/Y H:i" }}{% if log.user %} · actor: {{ log.user.username }}{% endif %}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-neutral-500">Chưa có log.</p>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}{% if is_edit %}Sửa user{% else %}Tạo user{% endif %}{% endblock %}
+
+{% block admin_content %}
+<div>
+    <h2 class="text-2xl font-bold text-primary-900">{% if is_edit %}Sửa user{% else %}Tạo user mới{% endif %}</h2>
+    <p class="text-neutral-500 mt-1">Quản lý thông tin tài khoản, trạng thái và phân quyền.</p>
+</div>
+
+<form method="post" class="bg-white border border-primary-200 rounded-lg p-6 max-w-3xl space-y-5">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="toast toast-error">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label class="form-label">Username</label>
+            <input type="text" name="username" value="{{ form.username.value|default:'' }}" class="form-input" required>
+            {% if form.username.errors %}<p class="text-danger-600 text-xs mt-1">{{ form.username.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Email</label>
+            <input type="email" name="email" value="{{ form.email.value|default:'' }}" class="form-input">
+            {% if form.email.errors %}<p class="text-danger-600 text-xs mt-1">{{ form.email.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Tên</label>
+            <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" class="form-input">
+        </div>
+        <div>
+            <label class="form-label">Họ</label>
+            <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" class="form-input">
+        </div>
+        <div>
+            <label class="form-label">Vai trò</label>
+            <select name="role" class="form-select">
+                <option value="student" {% if form.role.value == 'student' %}selected{% endif %}>Học sinh</option>
+                <option value="teacher" {% if form.role.value == 'teacher' %}selected{% endif %}>Giáo viên</option>
+                <option value="admin" {% if form.role.value == 'admin' %}selected{% endif %}>Admin</option>
+            </select>
+            {% if form.role.errors %}<p class="text-danger-600 text-xs mt-1">{{ form.role.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="form-label">Mật khẩu{% if not is_edit %} *{% endif %}</label>
+            <input type="password" name="password" class="form-input" {% if not is_edit %}required{% endif %}>
+            {% if is_edit %}<p class="text-xs text-neutral-500 mt-1">Để trống nếu không đổi mật khẩu.</p>{% endif %}
+            {% if form.password.errors %}<p class="text-danger-600 text-xs mt-1">{{ form.password.errors.0 }}</p>{% endif %}
+        </div>
+    </div>
+
+    <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="is_active" {% if form.is_active.value %}checked{% endif %} class="rounded border-slate-300 text-primary focus:ring-primary">
+        <span class="font-medium">Tài khoản hoạt động</span>
+    </label>
+    {% if form.is_active.errors %}<p class="text-danger-600 text-xs mt-1">{{ form.is_active.errors.0 }}</p>{% endif %}
+
+    <div class="flex justify-end gap-3 pt-2">
+        <a href="{% if is_edit %}{% url 'administation:user_detail' target_user.pk %}{% else %}{% url 'administation:user_management' %}{% endif %}" class="btn btn-ghost">Hủy</a>
+        <button type="submit" class="btn btn-primary">
+            <span class="material-symbols-outlined text-sm">save</span>
+            {% if is_edit %}Lưu thay đổi{% else %}Tạo user{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}

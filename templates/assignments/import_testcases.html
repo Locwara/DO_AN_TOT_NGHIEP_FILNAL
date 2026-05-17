@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Import Testcases - {{ assignment.title }} - DevLearn{% endblock %}
+
+{% block content %}
+<div class="max-w-[1000px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:25 }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-slate-900 dark:text-slate-100 font-medium">Import Testcases</span>
+    </nav>
+
+    <div class="flex items-center gap-3 mb-8">
+        <div class="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-2xl">upload_file</span>
+        </div>
+        <div>
+            <h1 class="text-2xl font-bold">Import Testcases hàng loạt</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Tiết kiệm thời gian bằng cách import từ file JSON/CSV.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2">
+            <form method="post" enctype="multipart/form-data" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-4 text-sm">
+                    {% for field, errors in form.errors.items %}
+                    {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="mb-6">
+                    <label class="block text-sm font-bold mb-3">Định dạng</label>
+                    <div class="flex gap-3">
+                        {% for radio in form.import_format %}
+                        <label class="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:border-primary transition-colors">
+                            {{ radio.tag }}
+                            <span class="text-sm font-medium">{{ radio.choice_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-bold mb-2">Upload file (tùy chọn)</label>
+                    <input type="file" name="file" accept=".json,.csv,.txt" class="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+                    <p class="text-xs text-slate-500 mt-1">Chấp nhận .json, .csv, .txt (UTF-8)</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-bold mb-2">Hoặc dán nội dung</label>
+                    <textarea name="content" rows="14" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono focus:ring-2 focus:ring-primary focus:border-primary" placeholder='[
+  {"name": "Test 1", "input": "1 2", "expected_output": "3", "is_sample": true, "weight": 1.0},
+  {"name": "Test 2", "input": "5 7", "expected_output": "12", "is_hidden": true, "weight": 2.0}
+]'></textarea>
+                </div>
+
+                <div class="mb-6 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" name="clear_existing" class="mt-1 size-4 rounded text-primary focus:ring-primary">
+                        <div>
+                            <span class="text-sm font-bold text-amber-500">Xóa toàn bộ testcase hiện có trước khi import</span>
+                            <p class="text-xs text-slate-500 mt-1">Nếu không bật, testcase mới sẽ được thêm vào cuối.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="submit" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-sm">upload</span> Import
+                    </button>
+                    <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="flex items-center gap-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-sm">
+                        Hủy
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div class="space-y-4">
+            <section class="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl p-5">
+                <h3 class="font-bold mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-lg">info</span>
+                    Định dạng JSON
+                </h3>
+                <pre class="bg-slate-900 text-slate-300 p-3 rounded-lg text-[10px] overflow-x-auto">[
+  {
+    "name": "Test 1",
+    "input": "1 2",
+    "expected_output": "3",
+    "is_sample": true,
+    "weight": 1.0
+  }
+]</pre>
+                <p class="text-xs text-slate-500 mt-2">Các field: name, input, expected_output, is_sample, is_hidden, weight.</p>
+            </section>
+
+            <section class="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl p-5">
+                <h3 class="font-bold mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-lg">info</span>
+                    Định dạng CSV
+                </h3>
+                <pre class="bg-slate-900 text-slate-300 p-3 rounded-lg text-[10px] overflow-x-auto">name,input,expected_output,is_sample,is_hidden,weight
+Test 1,"1 2",3,true,false,1.0
+Test 2,"5 7",12,false,true,2.0</pre>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

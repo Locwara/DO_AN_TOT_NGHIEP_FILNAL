@@ -1,0 +1,183 @@
+{% extends 'administration/base_admin.html' %}
+{% block admin_title %}Analytics{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block admin_content %}
+<div class="flex flex-col gap-2">
+    <h1 class="text-slate-900 dark:text-slate-100 text-3xl font-black leading-tight tracking-tight">Analytics & Báo cáo</h1>
+    <p class="text-slate-500 text-base">Phân tích lưu lượng hệ thống, tăng trưởng người dùng và hoạt động của lớp học.</p>
+</div>
+
+<!-- Summary cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-500 text-sm font-medium">Bài nộp 24h</p>
+            <span class="material-symbols-outlined text-primary">send</span>
+        </div>
+        <p class="text-slate-900 dark:text-slate-100 text-2xl font-bold">{{ total_subs_today }}</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-500 text-sm font-medium">Bài nộp 30 ngày</p>
+            <span class="material-symbols-outlined text-emerald-500">trending_up</span>
+        </div>
+        <p class="text-slate-900 dark:text-slate-100 text-2xl font-bold">{{ total_subs_month }}</p>
+    </div>
+    <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <div class="flex items-center justify-between">
+            <p class="text-slate-500 text-sm font-medium">User mới (12 tháng)</p>
+            <span class="material-symbols-outlined text-amber-500">group_add</span>
+        </div>
+        <p class="text-slate-900 dark:text-slate-100 text-2xl font-bold">{{ total_users_year }}</p>
+    </div>
+</div>
+
+<!-- Charts row 1 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <h3 class="font-bold mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">schedule</span>
+            Lưu lượng nộp bài theo giờ (24h)
+        </h3>
+        <canvas id="hourlyChart" height="100"></canvas>
+    </div>
+    <div class="rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <h3 class="font-bold mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">calendar_month</span>
+            Lưu lượng nộp bài theo ngày (30 ngày)
+        </h3>
+        <canvas id="dailyChart" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Charts row 2 -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <h3 class="font-bold mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-500">trending_up</span>
+            Tăng trưởng người dùng (12 tháng)
+        </h3>
+        <canvas id="growthChart" height="100"></canvas>
+    </div>
+    <div class="rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+        <h3 class="font-bold mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">pie_chart</span>
+            Phân bố vai trò
+        </h3>
+        <canvas id="roleChart"></canvas>
+    </div>
+</div>
+
+<!-- Top classrooms -->
+<div class="rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
+    <h3 class="font-bold mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">school</span>
+        Top lớp học có nhiều hoạt động nhất
+    </h3>
+    {% if top_classrooms %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-700 text-left">
+                    <th class="py-2 px-4 font-bold text-slate-500">#</th>
+                    <th class="py-2 px-4 font-bold text-slate-500">Lớp học</th>
+                    <th class="py-2 px-4 font-bold text-slate-500 text-right">Tổng bài nộp</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                {% for c in top_classrooms %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td class="py-3 px-4 font-bold text-slate-400">{{ forloop.counter }}</td>
+                    <td class="py-3 px-4 font-medium">{{ c.assignment__classroom__name|default:"(Không rõ)" }}</td>
+                    <td class="py-3 px-4 text-right font-bold text-primary">{{ c.sub_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-500 text-center py-6">Chưa có dữ liệu.</p>
+    {% endif %}
+</div>
+
+<script>
+const hourly = {{ hourly_data_json|safe }};
+const daily = {{ daily_data_json|safe }};
+const growth = {{ growth_data_json|safe }};
+const roles = {{ role_distribution_json|safe }};
+
+const palette = {
+    primary: '#137fec',
+    emerald: '#16a34a',
+    amber: '#ea580c',
+    purple: '#7c3aed',
+    rose: '#dc2626',
+    slate: '#64748b',
+};
+
+const commonOpts = (color) => ({
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+        y: { beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: 'rgba(184, 217, 253, 0.12)' } },
+        x: { ticks: { color: '#64748b' }, grid: { display: false } },
+    },
+});
+
+new Chart(document.getElementById('hourlyChart'), {
+    type: 'bar',
+    data: {
+        labels: hourly.labels,
+        datasets: [{ label: 'Bài nộp', data: hourly.data, backgroundColor: palette.primary, borderRadius: 4 }],
+    },
+    options: commonOpts(palette.primary),
+});
+
+new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+        labels: daily.labels,
+        datasets: [{
+            label: 'Bài nộp',
+            data: daily.data,
+            borderColor: palette.emerald,
+            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+        }],
+    },
+    options: commonOpts(palette.emerald),
+});
+
+new Chart(document.getElementById('growthChart'), {
+    type: 'bar',
+    data: {
+        labels: growth.labels,
+        datasets: [{ label: 'User mới', data: growth.data, backgroundColor: palette.amber, borderRadius: 4 }],
+    },
+    options: commonOpts(palette.amber),
+});
+
+new Chart(document.getElementById('roleChart'), {
+    type: 'doughnut',
+    data: {
+        labels: roles.labels,
+        datasets: [{
+            data: roles.data,
+            backgroundColor: [palette.primary, palette.emerald, palette.amber, palette.purple, palette.rose],
+        }],
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#64748b', font: { size: 11 } } },
+        },
+    },
+});
+</script>
+{% endblock %}
