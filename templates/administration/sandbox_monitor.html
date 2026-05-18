@@ -39,6 +39,86 @@
     {% endif %}
 </div>
 
+<form method="get" class="admin-filter-panel mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div>
+            <label class="form-label">Trạng thái bài nộp</label>
+            <select name="submission_status" class="form-select w-full">
+                <option value="all" {% if submission_status_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                <option value="pending" {% if submission_status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="running" {% if submission_status_filter == 'running' %}selected{% endif %}>Running</option>
+                <option value="error" {% if submission_status_filter == 'error' %}selected{% endif %}>Error</option>
+                <option value="finished" {% if submission_status_filter == 'finished' %}selected{% endif %}>Finished</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Ngôn ngữ</label>
+            <select name="language" class="form-select w-full">
+                <option value="">Tất cả ngôn ngữ</option>
+                {% for language in sandbox_monitor_languages %}
+                <option value="{{ language }}" {% if language_filter == language %}selected{% endif %}>{{ language }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Lớp học</label>
+            <select name="classroom_id" class="form-select w-full">
+                <option value="">Tất cả lớp</option>
+                {% for classroom in filter_options.classrooms %}
+                <option value="{{ classroom.pk }}" {% if classroom_filter == classroom.pk %}selected{% endif %}>{{ classroom.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                Lọc
+            </button>
+            <a href="{% url 'administation:sandbox_monitor' %}" class="btn btn-ghost">
+                <span class="material-symbols-outlined text-sm">clear</span>
+                Xóa
+            </a>
+        </div>
+    </div>
+    <details class="admin-filter-section mt-3">
+        <summary>Bộ lọc nâng cao</summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+            <div>
+                <label class="form-label">Bài tập</label>
+                <select name="assignment_id" class="form-select w-full">
+                    <option value="">Tất cả bài</option>
+                    {% for assignment in sandbox_monitor_assignments %}
+                    <option value="{{ assignment.pk }}" {% if assignment_filter == assignment.pk %}selected{% endif %}>{{ assignment.title|truncatechars:46 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Môn học</label>
+                <select name="subject_id" class="form-select w-full">
+                    <option value="">Tất cả môn</option>
+                    {% for subject in filter_options.subjects %}
+                    <option value="{{ subject.pk }}" {% if subject_filter == subject.pk %}selected{% endif %}>{{ subject.code }} - {{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Học sinh</label>
+                <select name="student_id" class="form-select w-full">
+                    <option value="">Tất cả học sinh</option>
+                    {% for student in filter_options.students %}
+                    <option value="{{ student.pk }}" {% if student_filter == student.pk %}selected{% endif %}>{{ student.get_full_name|default:student.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Treo quá N phút</label>
+                <input type="number" min="0" name="age_min_minutes" value="{{ age_min_minutes }}" class="form-input w-full" placeholder="{{ zombie_threshold_min }}">
+            </div>
+        </div>
+    </details>
+</form>
+{% include 'administration/partials/filter_status.html' %}
+
 <!-- Summary Cards -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
     <div class="stat-card">
@@ -104,12 +184,14 @@
                     <div class="flex gap-2 justify-end">
                         <form method="post" action="{% url 'administation:requeue_zombie' submission_pk=s.pk %}" onsubmit="return confirm('Đưa bài này vào lại hàng đợi?')">
                             {% csrf_token %}
+                            <input type="hidden" name="query_string" value="{{ monitor_query_string }}">
                             <button type="submit" class="btn btn-sm">
                                 <span class="material-symbols-outlined text-xs align-middle">replay</span> Requeue
                             </button>
                         </form>
                         <form method="post" action="{% url 'administation:kill_zombie' submission_pk=s.pk %}" onsubmit="return confirm('Đánh dấu bài này là error?')">
                             {% csrf_token %}
+                            <input type="hidden" name="query_string" value="{{ monitor_query_string }}">
                             <button type="submit" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200">
                                 <span class="material-symbols-outlined text-xs align-middle">close</span> Kill
                             </button>
@@ -172,9 +254,9 @@
     <div class="p-4 border-b border-primary-200 flex items-center justify-between">
         <h3 class="text-lg font-bold flex items-center gap-2 text-primary-900">
             <span class="material-symbols-outlined text-primary-500">queue</span>
-            Hàng đợi chấm bài
+            Bài nộp theo bộ lọc
         </h3>
-        <span class="text-xs text-neutral-500">{{ queue_count }} bài đang chờ / đang chấm</span>
+        <span class="text-xs text-neutral-500">{{ filtered_submission_count }} bài khớp lọc · {{ queue_count }} đang chờ / đang chấm</span>
     </div>
     {% if queue_subs %}
     <table class="w-full text-left text-sm">

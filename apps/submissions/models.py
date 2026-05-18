@@ -29,6 +29,10 @@ class Submissions(models.Model):
                 fields=['assignment', 'student', 'status', '-submitted_at'],
                 name='sub_asg_st_status_at_idx',
             ),
+            models.Index(fields=['status', '-submitted_at'], name='sub_status_at_idx'),
+            models.Index(fields=['language', 'status', '-submitted_at'], name='sub_lang_status_at_idx'),
+            models.Index(fields=['student', 'status', '-submitted_at'], name='sub_student_status_at_idx'),
+            models.Index(fields=['assignment', 'status', '-submitted_at'], name='sub_asg_status_at_idx'),
         ]
 
 class SubmissionDetails(models.Model):
@@ -149,6 +153,9 @@ class ExamSessions(models.Model):
         indexes = [
             models.Index(fields=['assignment', 'status'], name='exam_asg_status_idx'),
             models.Index(fields=['student', 'status'], name='exam_st_status_idx'),
+            models.Index(fields=['status', '-updated_at'], name='exam_status_updated_idx'),
+            models.Index(fields=['status', 'ends_at'], name='exam_status_ends_idx'),
+            models.Index(fields=['violation_count', '-updated_at'], name='exam_warn_updated_idx'),
         ]
 
     def __str__(self):
@@ -167,6 +174,7 @@ class ExamEvents(models.Model):
         indexes = [
             models.Index(fields=['session', '-created_at']),
             models.Index(fields=['event_type', '-created_at']),
+            models.Index(fields=['-created_at'], name='exam_event_created_idx'),
         ]
 
     def __str__(self):

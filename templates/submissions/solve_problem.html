@@ -426,6 +426,7 @@ const EXAM_SESSION_ID = {% if exam_session %}{{ exam_session.pk }}{% else %}null
 const EXAM_REMAINING = {% if exam_remaining_seconds is not None %}{{ exam_remaining_seconds }}{% else %}null{% endif %};
 const EXAM_EVENT_URL = {% if exam_session %}'{% url "submissions:exam_event" assignment_pk=assignment.pk %}'{% else %}null{% endif %};
 const EXAM_PING_URL = {% if exam_session %}'{% url "submissions:exam_ping" assignment_pk=assignment.pk %}'{% else %}null{% endif %};
+const LANGUAGE_SWITCH_BASE_URL = '{% if assignment.is_exam %}{% url "submissions:exam_ide" assignment_pk=assignment.pk %}{% else %}{% url "submissions:solve" assignment_pk=assignment.pk %}{% endif %}';
 const EXAM_ALLOW_CUSTOM_INPUT = {% if assignment.exam_allow_custom_input or is_teacher %}true{% else %}false{% endif %};
 const EXAM_ALLOW_SAMPLE_RUN = {% if assignment.exam_allow_sample_run or is_teacher %}true{% else %}false{% endif %};
 const EXAM_REQUIRE_FULLSCREEN = {% if assignment.exam_require_fullscreen and not is_teacher %}true{% else %}false{% endif %};
@@ -713,7 +714,7 @@ function saveDraft() {
 }
 
 function loadDraft(language) {
-    window.location.href = `{% url 'submissions:solve' assignment_pk=assignment.pk %}?lang=${language}`;
+    window.location.href = `${LANGUAGE_SWITCH_BASE_URL}?lang=${encodeURIComponent(language)}`;
 }
 
 function runCode() {

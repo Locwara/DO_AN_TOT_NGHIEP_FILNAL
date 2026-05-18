@@ -13,6 +13,10 @@ class ProgrammingLanguages(models.Model):
 
     class Meta:
         db_table = 'programming_languages'
+        indexes = [
+            models.Index(fields=['is_active', 'name'], name='pl_active_name_idx'),
+            models.Index(fields=['file_extension'], name='pl_extension_idx'),
+        ]
 
     def __str__(self):
         label = self.display_name or self.name or f'Language #{self.pk}'
@@ -32,6 +36,9 @@ class SandboxConfigs(models.Model):
 
     class Meta:
         db_table = 'sandbox_configs'
+        indexes = [
+            models.Index(fields=['is_active', 'language'], name='sb_active_language_idx'),
+        ]
 
 class ServerMetrics(models.Model):
     cpu_usage = models.FloatField(blank=True, null=True)
@@ -43,6 +50,12 @@ class ServerMetrics(models.Model):
 
     class Meta:
         db_table = 'server_metrics'
+        indexes = [
+            models.Index(fields=['-recorded_at'], name='metrics_recorded_idx'),
+            models.Index(fields=['cpu_usage'], name='metrics_cpu_idx'),
+            models.Index(fields=['memory_usage'], name='metrics_memory_idx'),
+            models.Index(fields=['queue_length'], name='metrics_queue_idx'),
+        ]
 
 class ActivityLogs(models.Model):
     user = models.ForeignKey(User, models.SET_NULL, blank=True, null=True)
@@ -56,6 +69,12 @@ class ActivityLogs(models.Model):
 
     class Meta:
         db_table = 'activity_logs'
+        indexes = [
+            models.Index(fields=['-created_at'], name='alog_created_idx'),
+            models.Index(fields=['user', '-created_at'], name='alog_user_created_idx'),
+            models.Index(fields=['resource_type', 'resource_id'], name='alog_resource_idx'),
+            models.Index(fields=['ip_address'], name='alog_ip_idx'),
+        ]
 
 class SystemSettings(models.Model):
     setting_key = models.TextField(unique=True)
@@ -66,3 +85,7 @@ class SystemSettings(models.Model):
 
     class Meta:
         db_table = 'system_settings'
+        indexes = [
+            models.Index(fields=['updated_by', '-updated_at'], name='setting_updater_at_idx'),
+            models.Index(fields=['-updated_at'], name='setting_updated_idx'),
+        ]

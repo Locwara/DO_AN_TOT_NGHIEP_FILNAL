@@ -1,8 +1,16 @@
+import json
+import re
+import secrets
+from urllib import error as urlerror
+from urllib import parse, request as urlrequest
+
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -14,6 +22,100 @@ from .forms import RegisterForm, LoginForm, ProfileForm, TeacherRegistrationForm
 from .models import Profiles, TeacherRegistrations
 
 
+GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
+
+
+def google_oauth_enabled():
+    return bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET)
+
+
+def google_redirect_uri(request):
+    if settings.GOOGLE_OAUTH_REDIRECT_URI:
+        return settings.GOOGLE_OAUTH_REDIRECT_URI
+    return request.build_absolute_uri(reverse('accounts:google_callback'))
+
+
+def safe_next_url(request):
+    next_url = request.GET.get('next') or request.session.pop('google_oauth_next', '')
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return ''
+
+
+def ensure_profile(user):
+    try:
+        profile = user.profiles
+    except Profiles.DoesNotExist:
+        profile = Profiles.objects.create(id=user, role='student')
+    profile.last_login = timezone.now()
+    profile.save(update_fields=['last_login'])
+    return profile
+
+
+def redirect_after_login(request, user, profile=None, next_url=''):
+    if profile is None:
+        profile = ensure_profile(user)
+
+    if next_url:
+        messages.success(request, f'Chào mừng trở lại, {user.get_full_name() or user.username}!')
+        return redirect(next_url)
+
+    if user.is_superuser or user.is_staff:
+        messages.success(request, f'Chào mừng quản trị viên {user.get_full_name() or user.username}!')
+        return redirect('administation:dashboard')
+
+    if (profile.role or 'student') == 'teacher':
+        messages.success(request, f'Chào mừng giáo viên {user.get_full_name() or user.username}!')
+        return redirect('accounts:teacher_dashboard')
+
+    messages.success(request, f'Chào mừng trở lại, {user.get_full_name() or user.username}!')
+    return redirect('home')
+
+
+def unique_google_username(email):
+    base = (email.split('@', 1)[0] or 'google_user').lower()
+    base = re.sub(r'[^a-z0-9_.+-]', '', base)[:130] or 'google_user'
+    username = base
+    counter = 1
+    while User.objects.filter(username__iexact=username).exists():
+        counter += 1
+        username = f'{base}_{counter}'[:150]
+    return username
+
+
+def request_google_token(code, redirect_uri):
+    payload = parse.urlencode({
+        'code': code,
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'client_secret': settings.GOOGLE_CLIENT_SECRET,
+        'redirect_uri': redirect_uri,
+        'grant_type': 'authorization_code',
+    }).encode()
+    req = urlrequest.Request(
+        GOOGLE_TOKEN_URL,
+        data=payload,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        method='POST',
+    )
+    with urlrequest.urlopen(req, timeout=12) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+
+def request_google_userinfo(access_token):
+    req = urlrequest.Request(
+        GOOGLE_USERINFO_URL,
+        headers={'Authorization': f'Bearer {access_token}'},
+    )
+    with urlrequest.urlopen(req, timeout=12) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('home')
@@ -22,11 +124,11 @@ def register_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            messages.success(request, 'Đăng ký thành công! Chào mừng bạn đến với LH Programming.')
+            messages.success(request, 'Đăng ký thành công! Chào mừng bạn đến với DevLearn.')
             return redirect('home')
     else:
         form = RegisterForm()
-    return render(request, 'accounts/register.html', {'form': form})
+    return render(request, 'accounts/register.html', {'form': form, 'google_oauth_enabled': google_oauth_enabled()})
 
 
 def login_view(request):
@@ -37,38 +139,104 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            # Update last_login in profile
-            try:
-                profile = user.profiles
-                profile.last_login = timezone.now()
-                profile.save(update_fields=['last_login'])
-            except Profiles.DoesNotExist:
-                profile = Profiles.objects.create(id=user, role='student')
-            next_url = request.GET.get('next', '')
-            if next_url and url_has_allowed_host_and_scheme(
-                url=next_url,
-                allowed_hosts={request.get_host()},
-                require_https=request.is_secure(),
-            ):
-                messages.success(request, f'Chào mừng trở lại, {user.get_full_name() or user.username}!')
-                return redirect(next_url)
-
-            # Redirect theo role
-            if user.is_superuser or user.is_staff:
-                messages.success(request, f'Chào mừng quản trị viên {user.get_full_name() or user.username}!')
-                return redirect('administation:dashboard')
-
-            role = profile.role or 'student'
-
-            if role == 'teacher':
-                messages.success(request, f'Chào mừng giáo viên {user.get_full_name() or user.username}!')
-                return redirect('accounts:teacher_dashboard')
-
-            messages.success(request, f'Chào mừng trở lại, {user.get_full_name() or user.username}!')
-            return redirect('home')
+            profile = ensure_profile(user)
+            return redirect_after_login(request, user, profile, safe_next_url(request))
     else:
         form = LoginForm()
-    return render(request, 'accounts/login.html', {'form': form})
+    return render(request, 'accounts/login.html', {'form': form, 'google_oauth_enabled': google_oauth_enabled()})
+
+
+def google_login_view(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    if not google_oauth_enabled():
+        messages.error(request, 'Google login chưa được cấu hình.')
+        return redirect('accounts:login')
+
+    next_url = request.GET.get('next', '')
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        request.session['google_oauth_next'] = next_url
+
+    state = secrets.token_urlsafe(32)
+    request.session['google_oauth_state'] = state
+    params = {
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'redirect_uri': google_redirect_uri(request),
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'prompt': 'select_account',
+    }
+    return redirect(f'{GOOGLE_AUTH_URL}?{parse.urlencode(params)}')
+
+
+def google_callback_view(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    if request.GET.get('error'):
+        messages.error(request, 'Bạn đã hủy đăng nhập Google hoặc Google từ chối yêu cầu.')
+        return redirect('accounts:login')
+
+    expected_state = request.session.pop('google_oauth_state', '')
+    if not expected_state or request.GET.get('state') != expected_state:
+        messages.error(request, 'Phiên đăng nhập Google không hợp lệ. Vui lòng thử lại.')
+        return redirect('accounts:login')
+
+    code = request.GET.get('code')
+    if not code:
+        messages.error(request, 'Google không trả mã đăng nhập.')
+        return redirect('accounts:login')
+
+    try:
+        token_data = request_google_token(code, google_redirect_uri(request))
+        access_token = token_data.get('access_token')
+        if not access_token:
+            raise ValueError('Missing Google access token.')
+        userinfo = request_google_userinfo(access_token)
+    except (ValueError, KeyError, json.JSONDecodeError, urlerror.URLError, urlerror.HTTPError):
+        messages.error(request, 'Không thể xác thực với Google. Vui lòng thử lại.')
+        return redirect('accounts:login')
+
+    email = (userinfo.get('email') or '').strip().lower()
+    email_verified = userinfo.get('email_verified')
+    if not email or email_verified not in (True, 'true', 'True'):
+        messages.error(request, 'Google account cần có email đã xác minh.')
+        return redirect('accounts:login')
+
+    user = User.objects.filter(email__iexact=email).first()
+    if user is None:
+        user = User.objects.create_user(
+            username=unique_google_username(email),
+            email=email,
+            first_name=userinfo.get('given_name', '') or '',
+            last_name=userinfo.get('family_name', '') or '',
+        )
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+        Profiles.objects.create(id=user, role='student', avatar_url=userinfo.get('picture', ''))
+    else:
+        update_fields = []
+        if not user.first_name and userinfo.get('given_name'):
+            user.first_name = userinfo['given_name']
+            update_fields.append('first_name')
+        if not user.last_name and userinfo.get('family_name'):
+            user.last_name = userinfo['family_name']
+            update_fields.append('last_name')
+        if update_fields:
+            user.save(update_fields=update_fields)
+
+    profile = ensure_profile(user)
+    if userinfo.get('picture') and not profile.avatar_url:
+        profile.avatar_url = userinfo['picture']
+        profile.save(update_fields=['avatar_url'])
+
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    return redirect_after_login(request, user, profile, safe_next_url(request))
 
 
 def logout_view(request):

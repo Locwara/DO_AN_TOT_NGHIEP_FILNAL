@@ -1,0 +1,52 @@
+<div class="admin-filter-status mt-3">
+    <div class="admin-filter-status__summary">
+        {% if page_obj %}
+        <span class="badge bg-primary-100 text-primary-700">
+            Đang hiển thị {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ page_obj.paginator.count }}
+        </span>
+        {% elif filter_result_label %}
+        <span class="badge bg-primary-100 text-primary-700">{{ filter_result_label }}</span>
+        {% endif %}
+
+        <div class="admin-filter-status__actions">
+            <button type="button" class="btn btn-sm btn-ghost js-copy-filter-link" data-no-loading>
+                <span class="material-symbols-outlined text-xs">link</span>
+                Copy link lọc
+            </button>
+            <button type="button" class="btn btn-sm btn-ghost js-save-filter" data-no-loading>
+                <span class="material-symbols-outlined text-xs">bookmark_add</span>
+                Lưu bộ lọc
+            </button>
+            <details class="admin-saved-filters" data-no-loading>
+                <summary class="btn btn-sm btn-ghost">
+                    <span class="material-symbols-outlined text-xs">bookmarks</span>
+                    Bộ lọc đã lưu
+                    <span class="admin-saved-filter-count badge bg-neutral-100 text-neutral-600">0</span>
+                    <span class="material-symbols-outlined text-xs">expand_more</span>
+                </summary>
+                <div class="admin-saved-filter-menu">
+                    <div class="admin-saved-filter-list js-saved-filter-list">
+                        <p class="admin-saved-filter-empty">Chưa có bộ lọc nào.</p>
+                    </div>
+                </div>
+            </details>
+            {% if clear_filter_url %}
+            <a href="{{ clear_filter_url }}" class="btn btn-sm btn-ghost">
+                <span class="material-symbols-outlined text-xs">clear</span>
+                Xóa lọc
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if has_active_filters %}
+    <div class="admin-filter-status__badges">
+        <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Đang lọc</span>
+        {% for item in active_filters %}
+        <span class="badge bg-primary-100 text-primary-700">
+            {{ item.label }}: {{ item.value }}
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

@@ -17,11 +17,8 @@
             <p class="text-slate-600 mt-1">{{ classroom.name }} • Theo dõi tiến độ, điểm và bài nộp muộn của học sinh.</p>
         </div>
         <div class="flex flex-wrap gap-3">
-            <a href="{% url 'classrooms:gradebook_export' pk=classroom.pk %}{% if querystring %}?{{ querystring }}{% endif %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition-colors">
-                <span class="material-symbols-outlined text-sm">download</span>
-                Xuất CSV
-            </a>
-            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+            {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-primary' only %}
+            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="btn btn-outline">
                 <span class="material-symbols-outlined text-sm">arrow_back</span>
                 Về lớp học
             </a>

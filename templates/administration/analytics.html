@@ -11,6 +11,71 @@
     <p class="text-slate-500 text-base">Phân tích lưu lượng hệ thống, tăng trưởng người dùng và hoạt động của lớp học.</p>
 </div>
 
+<form method="get" class="admin-filter-panel">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+            <label class="form-label">Từ ngày</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-input w-full">
+        </div>
+        <div>
+            <label class="form-label">Đến ngày</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-input w-full">
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                Lọc
+            </button>
+            <a href="{% url 'administation:analytics' %}" class="btn btn-ghost">
+                <span class="material-symbols-outlined text-sm">clear</span>
+                Xóa
+            </a>
+        </div>
+    </div>
+    <details class="admin-filter-section mt-3">
+        <summary>Bộ lọc nâng cao</summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+        <div>
+            <label class="form-label">Lớp học</label>
+            <select name="classroom_id" class="form-select w-full">
+                <option value="">Tất cả lớp</option>
+                {% for classroom in filter_options.classrooms %}
+                <option value="{{ classroom.pk }}" {% if classroom_filter == classroom.pk %}selected{% endif %}>{{ classroom.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Môn học</label>
+            <select name="subject_id" class="form-select w-full">
+                <option value="">Tất cả môn</option>
+                {% for subject in filter_options.subjects %}
+                <option value="{{ subject.pk }}" {% if subject_filter == subject.pk %}selected{% endif %}>{{ subject.code }} - {{ subject.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Giáo viên</label>
+            <select name="teacher_id" class="form-select w-full">
+                <option value="">Tất cả giáo viên</option>
+                {% for teacher in filter_options.teachers %}
+                <option value="{{ teacher.pk }}" {% if teacher_filter == teacher.pk %}selected{% endif %}>{{ teacher.get_full_name|default:teacher.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Ngôn ngữ</label>
+            <select name="language" class="form-select w-full">
+                <option value="">Tất cả ngôn ngữ</option>
+                {% for language in analytics_language_options %}
+                <option value="{{ language }}" {% if language_filter == language %}selected{% endif %}>{{ language }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        </div>
+    </details>
+</form>
+{% include 'administration/partials/filter_status.html' %}
+
 <!-- Summary cards -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div class="flex flex-col gap-2 rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
@@ -37,6 +102,7 @@
 </div>
 
 <!-- Charts row 1 -->
+{% if has_analytics_data %}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
         <h3 class="font-bold mb-4 flex items-center gap-2">
@@ -71,6 +137,13 @@
         <canvas id="roleChart"></canvas>
     </div>
 </div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-primary/10 bg-white">
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">query_stats</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có dữ liệu khớp bộ lọc</h3>
+    <p class="text-neutral-500">Thử mở rộng khoảng ngày hoặc bỏ bớt lớp, môn, giáo viên, ngôn ngữ.</p>
+</div>
+{% endif %}
 
 <!-- Top classrooms -->
 <div class="rounded-xl p-6 border border-primary/10 bg-white dark:bg-background-dark shadow-sm">
@@ -104,6 +177,7 @@
     {% endif %}
 </div>
 
+{% if has_analytics_data %}
 <script>
 const hourly = {{ hourly_data_json|safe }};
 const daily = {{ daily_data_json|safe }};
@@ -180,4 +254,5 @@ new Chart(document.getElementById('roleChart'), {
     },
 });
 </script>
+{% endif %}
 {% endblock %}

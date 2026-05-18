@@ -4,45 +4,318 @@
 {% block admin_content %}
 <div class="flex flex-wrap justify-between items-end gap-4">
     <div>
-        <h2 class="text-2xl font-bold text-primary-900">Quản lý người dùng</h2>
-        <p class="text-neutral-500 mt-1">Quản lý tài khoản học sinh và giáo viên.</p>
+        <h2 class="text-2xl font-bold text-primary-900">{{ page_title|default:"Quản lý người dùng" }}</h2>
+        <p class="text-neutral-500 mt-1">{{ page_description|default:"Quản lý tài khoản học sinh, giáo viên và admin." }}</p>
     </div>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
         <a href="{% url 'administation:user_create' %}" class="btn btn-primary">
             <span class="material-symbols-outlined text-sm">person_add</span>
             Tạo user
         </a>
-        <a href="{% url 'administation:user_export' %}?role={{ role_filter }}&status={{ status_filter }}&search={{ search_query|urlencode }}" class="btn btn-ghost">
-            <span class="material-symbols-outlined text-sm">download</span>
-            Xuất CSV
-        </a>
+        {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=csv_has_active_filters csv_button_class='btn btn-ghost' only %}
     </div>
+</div>
+
+<div class="flex border-b border-primary-200 gap-6 overflow-x-auto mt-6">
+    <a class="flex items-center gap-2 border-b-2 {% if role_filter == 'all' and status_filter != 'inactive' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="{% url 'administation:user_management' %}">
+        <span class="material-symbols-outlined text-xl">groups</span>
+        Tất cả
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if current_page == 'student_management' or role_filter == 'student' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="{% url 'administation:student_management' %}">
+        <span class="material-symbols-outlined text-xl">person</span>
+        Học sinh
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if current_page == 'teacher_management' or role_filter == 'teacher' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="{% url 'administation:teacher_management' %}">
+        <span class="material-symbols-outlined text-xl">school</span>
+        Giáo viên
+        {% if pending_count %}<span class="bg-warning-100 text-warning-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ pending_count }}</span>{% endif %}
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if role_filter == 'admin' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="{% url 'administation:user_management' %}?role=admin&status={{ status_filter }}">
+        <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
+        Admin
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'inactive' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="{% url 'administation:user_management' %}?status=inactive&role={{ role_filter }}">
+        <span class="material-symbols-outlined text-xl">lock</span>
+        Bị khóa
+    </a>
 </div>
 
 <!-- Filters -->
 <div class="flex flex-wrap gap-4 mt-6">
     <form method="get" class="admin-filter-form flex-1">
+        {% for field in approval_hidden_fields %}
+        <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+        {% endfor %}
         <div class="flex-1">
+            <label class="form-label">Từ khóa</label>
             <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo tên, username, email..." class="form-input">
         </div>
-        <select name="role" class="form-select">
-            <option value="all" {% if role_filter == 'all' %}selected{% endif %}>Tất cả vai trò</option>
-            <option value="student" {% if role_filter == 'student' %}selected{% endif %}>Học sinh</option>
-            <option value="teacher" {% if role_filter == 'teacher' %}selected{% endif %}>Giáo viên</option>
-            <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
-        </select>
-        <select name="status" class="form-select">
-            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả trạng thái</option>
-            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Hoạt động</option>
-            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Vô hiệu</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Tìm</button>
+        {% if forced_role %}
+        <input type="hidden" name="role" value="{{ forced_role }}">
+        {% else %}
+        <div>
+            <label class="form-label">Vai trò</label>
+            <select name="role" class="form-select">
+                <option value="all" {% if role_filter == 'all' %}selected{% endif %}>Tất cả vai trò</option>
+                <option value="student" {% if role_filter == 'student' %}selected{% endif %}>Học sinh</option>
+                <option value="teacher" {% if role_filter == 'teacher' %}selected{% endif %}>Giáo viên</option>
+                <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
+                <option value="staff" {% if role_filter == 'staff' %}selected{% endif %}>Staff</option>
+                <option value="superuser" {% if role_filter == 'superuser' %}selected{% endif %}>Superuser</option>
+            </select>
+        </div>
+        {% endif %}
+        <div>
+            <label class="form-label">Trạng thái</label>
+            <select name="status" class="form-select">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả trạng thái</option>
+                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Hoạt động</option>
+                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Vô hiệu</option>
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="btn btn-primary">Tìm</button>
+        </div>
+        <details class="admin-filter-section">
+            <summary>
+                Bộ lọc nâng cao
+            </summary>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                <div>
+                    <label class="form-label">Trạng thái profile</label>
+                    <select name="profile_status" class="form-select w-full">
+                        <option value="all" {% if profile_status_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="approved" {% if profile_status_filter == 'approved' %}selected{% endif %}>Đã duyệt</option>
+                        <option value="pending" {% if profile_status_filter == 'pending' %}selected{% endif %}>Chờ duyệt</option>
+                        <option value="rejected" {% if profile_status_filter == 'rejected' %}selected{% endif %}>Từ chối</option>
+                        <option value="inactive" {% if profile_status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Lớp học</label>
+                    <select name="classroom_id" class="form-select w-full">
+                        <option value="">Tất cả lớp</option>
+                        {% for classroom in filter_options.classrooms %}
+                        <option value="{{ classroom.pk }}" {% if classroom_filter == classroom.pk %}selected{% endif %}>{{ classroom.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Môn học</label>
+                    <select name="subject_id" class="form-select w-full">
+                        <option value="">Tất cả môn</option>
+                        {% for subject in filter_options.subjects %}
+                        <option value="{{ subject.pk }}" {% if subject_filter == subject.pk %}selected{% endif %}>{{ subject.code }} - {{ subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Đăng nhập</label>
+                    <select name="last_login" class="form-select w-full">
+                        <option value="all" {% if last_login_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="never" {% if last_login_filter == 'never' %}selected{% endif %}>Chưa đăng nhập</option>
+                        <option value="7d" {% if last_login_filter == '7d' %}selected{% endif %}>7 ngày gần đây</option>
+                        <option value="30d" {% if last_login_filter == '30d' %}selected{% endif %}>30 ngày gần đây</option>
+                        <option value="90d" {% if last_login_filter == '90d' %}selected{% endif %}>90 ngày gần đây</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Lớp đang dạy</label>
+                    <select name="has_teaching_classes" class="form-select w-full">
+                        <option value="all" {% if has_teaching_classes_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if has_teaching_classes_filter == 'yes' %}selected{% endif %}>Có lớp dạy</option>
+                        <option value="no" {% if has_teaching_classes_filter == 'no' %}selected{% endif %}>Chưa có lớp dạy</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Lớp đang học</label>
+                    <select name="has_joined_class" class="form-select w-full">
+                        <option value="all" {% if has_joined_class_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if has_joined_class_filter == 'yes' %}selected{% endif %}>Có lớp học</option>
+                        <option value="no" {% if has_joined_class_filter == 'no' %}selected{% endif %}>Chưa tham gia lớp</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Bài nộp</label>
+                    <select name="has_submissions" class="form-select w-full">
+                        <option value="all" {% if has_submissions_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if has_submissions_filter == 'yes' %}selected{% endif %}>Có bài nộp</option>
+                        <option value="no" {% if has_submissions_filter == 'no' %}selected{% endif %}>Chưa có bài nộp</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Trạng thái bài nộp</label>
+                    <select name="submission_status" class="form-select w-full">
+                        <option value="">Tất cả</option>
+                        {% for value in filter_options.submission_statuses %}
+                        <option value="{{ value }}" {% if submission_status_filter == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Tham gia từ</label>
+                    <input type="date" name="date_joined_from" value="{{ date_joined_from }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">Tham gia đến</label>
+                    <input type="date" name="date_joined_to" value="{{ date_joined_to }}" class="form-input w-full">
+                </div>
+            </div>
+        </details>
     </form>
 </div>
+{% include 'administration/partials/filter_status.html' %}
+
+{% if show_teacher_approvals %}
+<section class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <div class="p-4 border-b border-primary-200 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h3 class="text-lg font-bold text-primary-900">Duyệt đăng ký giáo viên</h3>
+            <p class="text-sm text-neutral-500">Đơn đăng ký giáo viên được xử lý ngay trong trang quản lý giáo viên.</p>
+        </div>
+        <div class="flex gap-2 text-xs font-bold">
+            <a class="px-3 py-1 rounded-full {% if approval_status_filter == 'pending' %}bg-primary-100 text-primary-700{% else %}bg-neutral-100 text-neutral-500{% endif %}" href="?{{ approval_status_links.pending }}">Chờ duyệt {{ pending_count }}</a>
+            <a class="px-3 py-1 rounded-full {% if approval_status_filter == 'approved' %}bg-success-100 text-success-700{% else %}bg-neutral-100 text-neutral-500{% endif %}" href="?{{ approval_status_links.approved }}">Đã duyệt {{ approved_count }}</a>
+            <a class="px-3 py-1 rounded-full {% if approval_status_filter == 'rejected' %}bg-danger-100 text-danger-700{% else %}bg-neutral-100 text-neutral-500{% endif %}" href="?{{ approval_status_links.rejected }}">Từ chối {{ rejected_count }}</a>
+        </div>
+    </div>
+    <form method="get" class="p-4 border-b border-primary-200 bg-primary-50/50">
+        {% for field in approval_user_filter_hidden_fields %}
+        <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+        {% endfor %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            <div>
+                <label class="form-label">Trạng thái đơn</label>
+                <select name="approval_status" class="form-select w-full">
+                    <option value="all" {% if approval_status_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="pending" {% if approval_status_filter == 'pending' %}selected{% endif %}>Chờ duyệt</option>
+                    <option value="approved" {% if approval_status_filter == 'approved' %}selected{% endif %}>Đã duyệt</option>
+                    <option value="rejected" {% if approval_status_filter == 'rejected' %}selected{% endif %}>Từ chối</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Tìm đơn</label>
+                <input type="text" name="approval_search" value="{{ approval_search_query }}" placeholder="Tên, username, email..." class="form-input w-full">
+            </div>
+            <div>
+                <label class="form-label">Tổ chức</label>
+                <input type="text" name="approval_institution" value="{{ approval_institution_filter }}" placeholder="Trường, trung tâm, công ty..." class="form-input w-full">
+            </div>
+            <div>
+                <label class="form-label">Người duyệt</label>
+                <select name="approval_reviewed_by" class="form-select w-full">
+                    <option value="">Tất cả</option>
+                    {% for reviewer in filter_options.teacher_registration_reviewers %}
+                    <option value="{{ reviewer.pk }}" {% if approval_reviewed_by_filter == reviewer.pk %}selected{% endif %}>{{ reviewer.get_full_name|default:reviewer.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Ngày gửi từ</label>
+                <input type="date" name="approval_created_from" value="{{ approval_created_from }}" class="form-input w-full">
+            </div>
+            <div>
+                <label class="form-label">Ngày gửi đến</label>
+                <input type="date" name="approval_created_to" value="{{ approval_created_to }}" class="form-input w-full">
+            </div>
+            <div class="flex items-end gap-2 md:col-span-2">
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-outlined text-sm">filter_alt</span>
+                    Lọc đơn
+                </button>
+                <a href="{% url 'administation:teacher_management' %}{% if approval_clear_query_string %}?{{ approval_clear_query_string }}{% endif %}" class="btn btn-ghost">
+                    <span class="material-symbols-outlined text-sm">filter_alt_off</span>
+                    Xóa lọc đơn
+                </a>
+            </div>
+        </div>
+    </form>
+    {% if registrations %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+                <tr>
+                    <th class="px-4 py-3">Người đăng ký</th>
+                    <th class="px-4 py-3 hidden md:table-cell">Tổ chức</th>
+                    <th class="px-4 py-3 hidden lg:table-cell">Lý do</th>
+                    <th class="px-4 py-3 hidden sm:table-cell">Ngày gửi</th>
+                    <th class="px-4 py-3">Trạng thái</th>
+                    <th class="px-4 py-3 text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-primary-200">
+                {% for reg in registrations %}
+                <tr class="hover:bg-primary-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <p class="font-medium text-neutral-900">{{ reg.user.get_full_name|default:reg.user.username }}</p>
+                        <p class="text-sm text-neutral-500">@{{ reg.user.username }}</p>
+                        <p class="text-xs text-neutral-400">{{ reg.user.email }}</p>
+                    </td>
+                    <td class="px-4 py-3 hidden md:table-cell text-sm text-neutral-700">{{ reg.institution|default:"—" }}</td>
+                    <td class="px-4 py-3 hidden lg:table-cell text-sm text-neutral-600 max-w-xs truncate">{{ reg.reason|default:"—" }}</td>
+                    <td class="px-4 py-3 hidden sm:table-cell text-sm text-neutral-500">{{ reg.created_at|date:"d/m/Y H:i" }}</td>
+                    <td class="px-4 py-3">
+                        {% if reg.status == 'pending' %}
+                        <span class="badge bg-warning-100 text-warning-600">Chờ duyệt</span>
+                        {% elif reg.status == 'approved' %}
+                        <span class="badge bg-success-100 text-success-700">Đã duyệt</span>
+                        {% else %}
+                        <span class="badge bg-danger-100 text-danger-700">Từ chối</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if reg.status == 'pending' %}
+                        <div class="flex justify-end gap-2">
+                            <form method="post" action="{% url 'administation:approve_teacher' reg.pk %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="return_to" value="teacher_management">
+                                <button type="submit" class="btn btn-sm bg-success-100 text-success-700 hover:bg-success-200" title="Phê duyệt">
+                                    <span class="material-symbols-outlined text-xs">check</span>
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'administation:reject_teacher' reg.pk %}" class="inline" onsubmit="return confirm('Từ chối đơn này?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="return_to" value="teacher_management">
+                                <button type="submit" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200" title="Từ chối">
+                                    <span class="material-symbols-outlined text-xs">close</span>
+                                </button>
+                            </form>
+                        </div>
+                        {% elif reg.reviewed_by %}
+                        <p class="text-xs text-neutral-500">bởi {{ reg.reviewed_by.username }}</p>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if registration_page_obj.has_other_pages %}
+    <div class="p-4 border-t border-primary-200 flex items-center justify-between">
+        <p class="text-neutral-600 text-sm">Trang {{ registration_page_obj.number }} / {{ registration_page_obj.paginator.num_pages }}</p>
+        <div class="flex gap-2">
+            {% if registration_page_obj.has_previous %}
+            <a href="?{% if approval_page_query_string %}{{ approval_page_query_string }}&{% endif %}approval_page={{ registration_page_obj.previous_page_number }}" class="btn btn-sm">Trước</a>
+            {% endif %}
+            {% if registration_page_obj.has_next %}
+            <a href="?{% if approval_page_query_string %}{{ approval_page_query_string }}&{% endif %}approval_page={{ registration_page_obj.next_page_number }}" class="btn btn-sm">Sau</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="p-8 text-center text-neutral-500">
+        <span class="material-symbols-outlined text-5xl text-primary-300 block mb-2">how_to_reg</span>
+        Không có đơn đăng ký giáo viên khớp bộ lọc.
+    </div>
+    {% endif %}
+</section>
+{% endif %}
 
 {% if users %}
 <form method="post" action="{% url 'administation:user_bulk_action' %}">
     {% csrf_token %}
+    <input type="hidden" name="return_to" value="{{ return_to }}">
     <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
         <div class="p-4 border-b border-primary-200 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -66,9 +339,10 @@
                     </th>
                     <th class="px-4 py-3">Người dùng</th>
                     <th class="px-4 py-3 hidden md:table-cell">Vai trò</th>
-                    <th class="px-4 py-3 hidden lg:table-cell">Bài nộp</th>
+                    <th class="px-4 py-3 hidden lg:table-cell">Hoạt động học tập</th>
+                    <th class="px-4 py-3 hidden xl:table-cell">Lớp</th>
                     <th class="px-4 py-3 hidden lg:table-cell">Trạng thái</th>
-                    <th class="px-4 py-3">Ngày tham gia</th>
+                    <th class="px-4 py-3">Đăng nhập</th>
                     <th class="px-4 py-3 text-right">Hành động</th>
                 </tr>
             </thead>
@@ -105,7 +379,17 @@
                     </td>
 
                     <td class="px-4 py-3 hidden lg:table-cell">
-                        <span class="text-sm text-neutral-900">{{ user.assignment_count }} bài</span>
+                        {% if user.profiles.role == 'teacher' %}
+                        <p class="text-sm text-neutral-900">{{ user.created_assignment_count }} bài tạo</p>
+                        <p class="text-xs text-neutral-500">{{ user.graded_submission_count }} bài chấm</p>
+                        {% else %}
+                        <p class="text-sm text-neutral-900">{{ user.submission_count }} bài nộp</p>
+                        <p class="text-xs text-neutral-500">{{ user.assignment_count }} bài tập</p>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 hidden xl:table-cell">
+                        <p class="text-sm text-neutral-900">{{ user.teaching_class_count }} lớp dạy</p>
+                        <p class="text-xs text-neutral-500">{{ user.joined_class_count }} lớp học</p>
                     </td>
                     <td class="px-4 py-3 hidden lg:table-cell">
                         <span class="px-2 py-1 rounded-full text-xs font-bold uppercase
@@ -114,7 +398,8 @@
                         </span>
                     </td>
                     <td class="px-4 py-3 text-xs text-neutral-500">
-                        {{ user.date_joined|date:"d/m/Y" }}
+                        <p>{{ user.last_login|date:"d/m/Y H:i"|default:"Chưa đăng nhập" }}</p>
+                        <p class="text-[10px] text-neutral-400">Tham gia {{ user.date_joined|date:"d/m/Y" }}</p>
                     </td>
                     <td class="px-4 py-3 text-right">
                         <div class="flex justify-end gap-2">
@@ -138,10 +423,10 @@
     <p class="text-neutral-600 text-sm">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</p>
     <div class="flex gap-2">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&role={{ role_filter }}&status={{ status_filter }}" class="btn btn-sm">Trước</a>
+        <a href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm">Trước</a>
         {% endif %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&role={{ role_filter }}&status={{ status_filter }}" class="btn btn-sm">Sau</a>
+        <a href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm">Sau</a>
         {% endif %}
     </div>
 </div>
@@ -149,13 +434,13 @@
 
 {% else %}
 <div class="flex flex-col items-center justify-center py-16 text-center mt-6">
-    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">group</span>
-    <h3 class="text-xl font-bold text-primary-900 mb-2">Không tìm thấy người dùng</h3>
+    <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">{{ empty_icon|default:"group" }}</span>
+    <h3 class="text-xl font-bold text-primary-900 mb-2">{{ empty_title|default:"Không tìm thấy người dùng" }}</h3>
     {% if search_query %}
     <p class="text-neutral-500">Không có người dùng nào khớp với "{{ search_query }}".</p>
-    <a href="{% url 'administation:user_management' %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
+    <a href="{% url clear_url_name %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
     {% else %}
-    <p class="text-neutral-500">Chưa có người dùng nào.</p>
+    <p class="text-neutral-500">{{ empty_description|default:"Chưa có người dùng nào." }}</p>
     {% endif %}
 </div>
 {% endif %}

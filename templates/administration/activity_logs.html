@@ -9,15 +9,35 @@
 
 <!-- Filters -->
 <div class="mt-6">
-    <form method="get" class="bg-white border border-primary-200 rounded-lg p-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <form method="get" class="admin-filter-panel">
+        <div class="flex flex-wrap gap-2 mb-4">
+            <a href="?{{ preset_links.24h }}" class="btn btn-sm {% if preset_filter == '24h' %}btn-primary{% else %}btn-ghost{% endif %}">24h</a>
+            <a href="?{{ preset_links.7d }}" class="btn btn-sm {% if preset_filter == '7d' %}btn-primary{% else %}btn-ghost{% endif %}">7 ngày</a>
+            <a href="?{{ preset_links.30d }}" class="btn btn-sm {% if preset_filter == '30d' %}btn-primary{% else %}btn-ghost{% endif %}">30 ngày</a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
-                <label class="form-label">Người dùng</label>
+                <label class="form-label">Tìm người dùng</label>
                 <input type="text" name="user" value="{{ user_filter }}" class="form-input" placeholder="Username...">
             </div>
             <div>
-                <label class="form-label">Hành động</label>
-                <input type="text" name="action" value="{{ action_filter }}" class="form-input" placeholder="POST /api...">
+                <label class="form-label">User cụ thể</label>
+                <select name="user_id" class="form-select w-full">
+                    <option value="">Tất cả user</option>
+                    {% for user in activity_user_options %}
+                    <option value="{{ user.pk }}" {% if user_id_filter == user.pk %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Vai trò</label>
+                <select name="role" class="form-select w-full">
+                    <option value="all" {% if role_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
+                    <option value="teacher" {% if role_filter == 'teacher' %}selected{% endif %}>Giáo viên</option>
+                    <option value="student" {% if role_filter == 'student' %}selected{% endif %}>Học sinh</option>
+                    <option value="system" {% if role_filter == 'system' %}selected{% endif %}>System</option>
+                </select>
             </div>
             <div>
                 <label class="form-label">Từ ngày</label>
@@ -27,25 +47,70 @@
                 <label class="form-label">Đến ngày</label>
                 <input type="date" name="date_to" value="{{ date_to }}" class="form-input">
             </div>
-            <div class="flex items-end">
+            <div class="flex items-end gap-2">
+                <input type="hidden" name="preset" value="{{ preset_filter }}">
                 <button type="submit" class="btn btn-primary w-full">
                     <span class="material-symbols-outlined mr-1 text-sm">filter_list</span>
                     Lọc
                 </button>
+                <a href="{% url 'administation:activity_logs' %}" class="btn btn-ghost" title="Xóa lọc">
+                    <span class="material-symbols-outlined text-sm">clear</span>
+                </a>
             </div>
         </div>
+        <details class="admin-filter-section mt-3">
+            <summary>Bộ lọc nâng cao</summary>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                <div>
+                    <label class="form-label">Hành động</label>
+                    <input type="text" name="action" value="{{ action_filter }}" class="form-input" placeholder="POST /api...">
+                </div>
+                <div>
+                    <label class="form-label">Nhóm hành động</label>
+                    <select name="action_group" class="form-select w-full">
+                        <option value="all" {% if action_group_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="login" {% if action_group_filter == 'login' %}selected{% endif %}>Login</option>
+                        <option value="bulk" {% if action_group_filter == 'bulk' %}selected{% endif %}>Bulk</option>
+                        <option value="approve" {% if action_group_filter == 'approve' %}selected{% endif %}>Approve</option>
+                        <option value="reject" {% if action_group_filter == 'reject' %}selected{% endif %}>Reject</option>
+                        <option value="create" {% if action_group_filter == 'create' %}selected{% endif %}>Create</option>
+                        <option value="update" {% if action_group_filter == 'update' %}selected{% endif %}>Update</option>
+                        <option value="delete" {% if action_group_filter == 'delete' %}selected{% endif %}>Delete</option>
+                        <option value="export" {% if action_group_filter == 'export' %}selected{% endif %}>Export</option>
+                        <option value="sandbox" {% if action_group_filter == 'sandbox' %}selected{% endif %}>Sandbox</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Loại resource</label>
+                    <select name="resource_type" class="form-select w-full">
+                        <option value="">Tất cả resource</option>
+                        {% for resource_type in resource_type_options %}
+                        <option value="{{ resource_type }}" {% if resource_type_filter == resource_type %}selected{% endif %}>{{ resource_type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Resource ID</label>
+                    <input type="number" name="resource_id" value="{{ resource_id_filter }}" class="form-input" placeholder="123">
+                </div>
+                <div>
+                    <label class="form-label">IP</label>
+                    <input type="text" name="ip_address" value="{{ ip_address_filter }}" class="form-input" placeholder="127.0.0.1">
+                </div>
+            </div>
+        </details>
     </form>
+</div>
+{% include 'administration/partials/filter_status.html' %}
+
+<div class="flex items-center justify-between mt-6">
+    <p class="text-sm text-neutral-600">Tổng: {{ total_count }} bản ghi</p>
+    <div class="flex flex-wrap gap-2">
+        {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-sm' only %}
+    </div>
 </div>
 
 {% if logs %}
-<div class="flex items-center justify-between mt-6">
-    <p class="text-sm text-neutral-600">Tổng: {{ total_count }} bản ghi</p>
-    <a href="{% url 'administation:activity_logs_export' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-sm">
-        <span class="material-symbols-outlined mr-1 text-sm">download</span>
-        Xuất CSV
-    </a>
-</div>
-
 <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-4">
     <table class="w-full text-left">
         <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
@@ -91,12 +156,12 @@
     <p class="text-slate-600 text-sm">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</p>
     <div class="flex gap-2">
         {% if page_obj.has_previous %}
-        <a href="?user={{ user_filter }}&action={{ action_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.previous_page_number }}" class="btn btn-sm">
+        <a href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm">
             <span class="material-symbols-outlined">chevron_left</span>
         </a>
         {% endif %}
         {% if page_obj.has_next %}
-        <a href="?user={{ user_filter }}&action={{ action_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page_obj.next_page_number }}" class="btn btn-sm">
+        <a href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm">
             <span class="material-symbols-outlined">chevron_right</span>
         </a>
         {% endif %}

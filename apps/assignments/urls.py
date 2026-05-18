@@ -27,5 +27,8 @@ urlpatterns = [
     # Bulk operations
     path('<int:pk>/bulk-regrade/', views.bulk_regrade_view, name='bulk_regrade'),
     path('<int:pk>/export-late/', views.export_late_report_view, name='export_late'),
+    path('<int:pk>/export-submissions/', views.export_assignment_submissions_view, name='export_submissions'),
+    path('<int:pk>/export-scores/', views.export_assignment_scores_view, name='export_scores'),
+    path('<int:pk>/export-missing/', views.export_assignment_missing_view, name='export_missing'),
     path('<int:pk>/late-report/print/', views.late_report_print_view, name='late_report_print'),
 ]

@@ -7,11 +7,8 @@
         <h2 class="text-2xl font-bold text-primary-900">Quản lý môn học</h2>
         <p class="text-neutral-500 mt-1">Kiểm duyệt và quản lý các môn học trong hệ thống.</p>
     </div>
-    <div class="flex gap-2">
-        <a href="{% url 'administation:subject_export' %}?status={{ status_filter }}" class="btn btn-ghost">
-            <span class="material-symbols-outlined text-sm">download</span>
-            Xuất CSV
-        </a>
+    <div class="flex flex-wrap gap-2">
+        {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-ghost' only %}
     </div>
 </div>
 

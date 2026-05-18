@@ -13,6 +13,48 @@
     </a>
 </div>
 
+<form method="get" class="admin-filter-panel mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+            <label class="form-label">Khoảng thời gian</label>
+            <select name="range" class="form-select w-full">
+                <option value="1h" {% if range_filter == '1h' %}selected{% endif %}>1 giờ</option>
+                <option value="6h" {% if range_filter == '6h' %}selected{% endif %}>6 giờ</option>
+                <option value="24h" {% if range_filter == '24h' %}selected{% endif %}>24 giờ</option>
+                <option value="7d" {% if range_filter == '7d' %}selected{% endif %}>7 ngày</option>
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                Lọc
+            </button>
+            <a href="{% url 'administation:metrics' %}" class="btn btn-ghost">
+                <span class="material-symbols-outlined text-sm">clear</span>
+                Xóa
+            </a>
+        </div>
+    </div>
+    <details class="admin-filter-section mt-3">
+        <summary>Bộ lọc nâng cao</summary>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+            <div>
+                <label class="form-label">CPU từ (%)</label>
+                <input type="number" min="0" max="100" step="0.1" name="cpu_min" value="{{ cpu_min }}" class="form-input w-full">
+            </div>
+            <div>
+                <label class="form-label">Memory từ (%)</label>
+                <input type="number" min="0" max="100" step="0.1" name="memory_min" value="{{ memory_min }}" class="form-input w-full">
+            </div>
+            <div>
+                <label class="form-label">Queue từ</label>
+                <input type="number" min="0" name="queue_min" value="{{ queue_min }}" class="form-input w-full">
+            </div>
+        </div>
+    </details>
+</form>
+{% include 'administration/partials/filter_status.html' %}
+
 {% if latest %}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
     <div class="stat-card">
@@ -37,6 +79,39 @@
     </div>
 </div>
 {% endif %}
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 {% if latest %}mt-4{% else %}mt-6{% endif %}">
+    <a href="{% url 'administation:sandbox_monitor' %}" class="stat-card hover:border-warning-300 hover:bg-warning-50 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="stat-label">Bài chấm quá lâu</p>
+                <p class="stat-number {% if zombie_count %}text-warning-600{% else %}text-success-600{% endif %}">{{ zombie_count }}</p>
+            </div>
+            <span class="material-symbols-outlined text-warning-500">timer</span>
+        </div>
+        <p class="text-xs text-neutral-500 mt-2">Mở nhanh màn hình sandbox monitor.</p>
+    </a>
+    <a href="{% url 'administation:exam_events' %}" class="stat-card hover:border-warning-300 hover:bg-warning-50 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="stat-label">Phiên thi có cảnh báo</p>
+                <p class="stat-number {% if warning_sessions_count %}text-warning-600{% else %}text-success-600{% endif %}">{{ warning_sessions_count }}</p>
+            </div>
+            <span class="material-symbols-outlined text-warning-500">shield_lock</span>
+        </div>
+        <p class="text-xs text-neutral-500 mt-2">Kiểm tra chuyển tab, fullscreen, copy/paste.</p>
+    </a>
+    <a href="{% url 'administation:activity_logs' %}" class="stat-card hover:border-primary-300 hover:bg-primary-50 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="stat-label">Log quản trị 24h</p>
+                <p class="stat-number">{{ recent_log_count }}</p>
+            </div>
+            <span class="material-symbols-outlined text-primary-500">receipt_long</span>
+        </div>
+        <p class="text-xs text-neutral-500 mt-2">Theo dõi thao tác nhạy cảm gần đây.</p>
+    </a>
+</div>
 
 {% if metrics %}
 <div class="bg-white border border-primary-200 rounded-lg shadow-sm p-5">

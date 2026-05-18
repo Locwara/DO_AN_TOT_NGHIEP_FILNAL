@@ -22,6 +22,7 @@ urlpatterns = [
 
     # Teacher management
     path('teachers/', views.teacher_management_view, name='teacher_management'),
+    path('students/', views.student_management_view, name='student_management'),
 
     # Subject export
     path('subjects/export/', views.subject_export_view, name='subject_export'),
@@ -53,6 +54,7 @@ urlpatterns = [
     path('sandboxes/create/', views.sandbox_create_view, name='sandbox_create'),
     path('sandboxes/<int:pk>/edit/', views.sandbox_edit_view, name='sandbox_edit'),
     path('sandboxes/<int:pk>/delete/', views.sandbox_delete_view, name='sandbox_delete'),
+    path('sandboxes/<int:pk>/test/', views.sandbox_test_view, name='sandbox_test'),
 
     # Server metrics
     path('metrics/', views.server_metrics_view, name='metrics'),
@@ -68,6 +70,7 @@ urlpatterns = [
     path('logs/', views.activity_logs_view, name='activity_logs'),
     path('logs/export/', views.activity_logs_export_view, name='activity_logs_export'),
     path('exam-events/', views.exam_events_view, name='exam_events'),
+    path('exam-events/export/', views.exam_events_export_view, name='exam_events_export'),
 
     # Analytics (reporting)
     path('analytics/', views.analytics_view, name='analytics'),

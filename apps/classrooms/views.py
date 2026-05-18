@@ -11,10 +11,12 @@ from django.contrib import messages
 from django.db.models import Q, Count
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse, HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.decorators import teacher_required, admin_required
+from apps.administation.utils import csv_filename, csv_query_context
 from apps.notifications.services import notify_admins, notify_user, notify_users
 from .models import Classrooms, ClassroomMembers, Announcements, Leaderboard, Subjects, SubjectApprovalStatus, ClassroomSubjects, Semesters
 from .forms import ClassroomForm, JoinClassroomForm, MemberImportForm, AnnouncementForm, SubjectForm, ClassroomSubjectForm, SemesterForm
@@ -122,6 +124,13 @@ def _submission_grade_value(submission):
     if submission.manual_score is not None:
         return submission.manual_score
     return submission.total_score
+
+
+def _csv_response(filename):
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write('\ufeff')
+    return response
 
 
 def _build_gradebook_data(classroom, request):
@@ -277,6 +286,9 @@ def _build_gradebook_data(classroom, request):
     overall_completion_rate = round(submitted_cells / total_cells * 100, 1) if total_cells else 0
     semesters = Semesters.objects.filter(is_active=True).order_by('-is_current', '-start_date', 'code')
 
+    csv_context = csv_query_context(request)
+    has_filters = csv_context['has_active_filters']
+
     return {
         'classroom': classroom,
         'assignments': assignments,
@@ -292,7 +304,31 @@ def _build_gradebook_data(classroom, request):
         'submitted_cells': submitted_cells,
         'overall_completion_rate': overall_completion_rate,
         'class_avg_score': class_avg_score,
-        'querystring': request.GET.urlencode(),
+        'querystring': csv_context['csv_query_string'],
+        'csv_items': [
+            {
+                'url': reverse('classrooms:gradebook_export', kwargs={'pk': classroom.pk}),
+                'type': '',
+                'icon': 'filter_alt',
+                'label': 'Xuất sổ điểm theo lọc hiện tại' if has_filters else 'Xuất toàn bộ sổ điểm',
+                'primary': True,
+            },
+            {
+                'url': reverse('classrooms:members_export', kwargs={'pk': classroom.pk}),
+                'type': '',
+                'icon': 'groups',
+                'label': 'Xuất học sinh theo lọc hiện tại' if has_filters else 'Xuất danh sách học sinh',
+                'primary': False,
+            },
+            {
+                'url': reverse('classrooms:gradebook_missing_export', kwargs={'pk': classroom.pk}),
+                'type': '',
+                'icon': 'assignment_late',
+                'label': 'Xuất bài còn thiếu theo lọc hiện tại' if has_filters else 'Xuất bài còn thiếu',
+                'primary': False,
+            },
+        ],
+        **csv_context,
     }
 
 
@@ -451,9 +487,11 @@ def gradebook_export_view(request, pk):
 
     data = _build_gradebook_data(classroom, request)
     safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', classroom.name).strip('-') or f'classroom-{classroom.pk}'
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="gradebook-{safe_name}.csv"'
-    response.write('\ufeff')
+    response = _csv_response(csv_filename(
+        f'gradebook_{safe_name}',
+        filtered=bool(data['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
 
     writer = csv.writer(response)
     header = [
@@ -497,6 +535,85 @@ def gradebook_export_view(request, pk):
             values.append(value)
         writer.writerow(values)
 
+    return response
+
+
+@login_required
+def gradebook_missing_export_view(request, pk):
+    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất danh sách thiếu bài lớp này.')
+        return redirect('classrooms:classroom_list')
+
+    data = _build_gradebook_data(classroom, request)
+    safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', classroom.name).strip('-') or f'classroom-{classroom.pk}'
+    response = _csv_response(csv_filename(
+        f'gradebook_{safe_name}',
+        'missing',
+        filtered=bool(data['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow([
+        'Username', 'Họ tên', 'Email', 'Bài tập', 'Môn học', 'Học kỳ',
+        'Deadline', 'Công bố', 'Trạng thái ô điểm',
+    ])
+
+    for row in data['rows']:
+        student = row['student']
+        for cell in row['cells']:
+            if cell['submission']:
+                continue
+            assignment = cell['assignment']
+            subject_link = assignment.classroom_subject
+            writer.writerow([
+                student.username,
+                student.get_full_name() or student.username,
+                student.email,
+                assignment.title,
+                subject_link.subject.name if subject_link and subject_link.subject else 'Chưa gắn môn',
+                subject_link.semester.name if subject_link and subject_link.semester else '',
+                timezone.localtime(assignment.due_date).strftime('%d/%m/%Y %H:%M') if assignment.due_date else '',
+                'Có' if assignment.is_published else 'Không',
+                cell['status'],
+            ])
+    return response
+
+
+@login_required
+def classroom_members_export_view(request, pk):
+    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất danh sách học sinh lớp này.')
+        return redirect('classrooms:classroom_list')
+
+    data = _build_gradebook_data(classroom, request)
+    safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', classroom.name).strip('-') or f'classroom-{classroom.pk}'
+    response = _csv_response(csv_filename(
+        f'gradebook_{safe_name}',
+        'members',
+        filtered=bool(data['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow([
+        'Username', 'Họ tên', 'Email', 'Ngày tham gia', 'Hoàn thành',
+        'Tỉ lệ hoàn thành', 'Điểm trung bình', 'Bài nộp trễ',
+    ])
+
+    for row in data['rows']:
+        member = row['member']
+        student = row['student']
+        writer.writerow([
+            student.username,
+            student.get_full_name() or student.username,
+            student.email,
+            timezone.localtime(member.joined_at).strftime('%d/%m/%Y %H:%M') if member.joined_at else '',
+            f"{row['completed_count']}/{data['assignments_count']}",
+            f"{row['completion_rate']}%",
+            row['avg_score'] if row['avg_score'] is not None else '',
+            row['late_count'],
+        ])
     return response
 
 

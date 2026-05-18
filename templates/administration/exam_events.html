@@ -7,10 +7,13 @@
         <h2 class="text-2xl font-bold text-primary-900">Sự kiện thi</h2>
         <p class="text-neutral-500 mt-1">Theo dõi cảnh báo fullscreen, chuyển tab, copy/paste và phiên thi bất thường.</p>
     </div>
-    <a href="{% url 'administation:exam_events' %}" class="btn btn-ghost">
-        <span class="material-symbols-outlined text-sm">refresh</span>
-        Làm mới
-    </a>
+    <div class="flex flex-wrap gap-2">
+        {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-ghost' only %}
+        <a href="{% url 'administation:exam_events' %}" class="btn btn-ghost">
+            <span class="material-symbols-outlined text-sm">refresh</span>
+            Làm mới
+        </a>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
@@ -28,35 +31,124 @@
     </div>
 </div>
 
-<form method="get" class="bg-white border border-primary-200 rounded-lg p-4 mt-6">
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-        <input type="text" name="search" value="{{ search_query }}" placeholder="Học sinh, bài thi, lớp..." class="form-input md:col-span-2">
-        <select name="event_type" class="form-select">
-            <option value="">Mọi sự kiện</option>
-            {% for event_type in event_types %}
-            <option value="{{ event_type }}" {% if event_filter == event_type %}selected{% endif %}>{{ event_type }}</option>
-            {% endfor %}
-        </select>
-        <select name="status" class="form-select">
-            <option value="">Mọi trạng thái</option>
-            {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-primary">
+<form method="get" class="admin-filter-panel mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <div class="md:col-span-2">
+            <label class="form-label">Từ khóa</label>
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Học sinh, bài thi, lớp..." class="form-input">
+        </div>
+        <div>
+            <label class="form-label">Bài thi</label>
+            <select name="assignment_id" class="form-select w-full">
+                <option value="">Mọi bài thi</option>
+                {% for assignment in exam_assignment_options %}
+                <option value="{{ assignment.pk }}" {% if assignment_filter == assignment.pk %}selected{% endif %}>{{ assignment.title|truncatechars:44 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Loại sự kiện</label>
+            <select name="event_type" class="form-select w-full">
+                <option value="">Mọi sự kiện</option>
+                {% for event_type in event_types %}
+                <option value="{{ event_type }}" {% if event_filter == event_type %}selected{% endif %}>{{ event_type }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Trạng thái phiên</label>
+            <select name="status" class="form-select w-full">
+                <option value="">Mọi trạng thái</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Cảnh báo từ</label>
+            <input type="number" name="min_warnings" value="{{ min_warnings }}" min="0" placeholder="0" class="form-input">
+        </div>
+    </div>
+    <details class="admin-filter-section mt-3">
+        <summary>
+            Bộ lọc nâng cao
+        </summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+            <div>
+                <label class="form-label">Lớp học</label>
+                <select name="classroom_id" class="form-select w-full">
+                    <option value="">Tất cả lớp</option>
+                    {% for classroom in filter_options.classrooms %}
+                    <option value="{{ classroom.pk }}" {% if classroom_filter == classroom.pk %}selected{% endif %}>{{ classroom.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Môn học</label>
+                <select name="subject_id" class="form-select w-full">
+                    <option value="">Tất cả môn</option>
+                    {% for subject in filter_options.subjects %}
+                    <option value="{{ subject.pk }}" {% if subject_filter == subject.pk %}selected{% endif %}>{{ subject.code }} - {{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Giáo viên</label>
+                <select name="teacher_id" class="form-select w-full">
+                    <option value="">Tất cả giáo viên</option>
+                    {% for teacher in filter_options.teachers %}
+                    <option value="{{ teacher.pk }}" {% if teacher_filter == teacher.pk %}selected{% endif %}>{{ teacher.get_full_name|default:teacher.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Học sinh</label>
+                <select name="student_id" class="form-select w-full">
+                    <option value="">Tất cả học sinh</option>
+                    {% for student in filter_options.students %}
+                    <option value="{{ student.pk }}" {% if student_filter == student.pk %}selected{% endif %}>{{ student.get_full_name|default:student.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Bài nộp cuối</label>
+                <select name="has_final_submission" class="form-select w-full">
+                    <option value="all" {% if has_final_submission_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="yes" {% if has_final_submission_filter == 'yes' %}selected{% endif %}>Đã nộp</option>
+                    <option value="no" {% if has_final_submission_filter == 'no' %}selected{% endif %}>Chưa nộp</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Thời lượng phiên</label>
+                <select name="session_duration" class="form-select w-full">
+                    <option value="all" {% if session_duration_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="over_time" {% if session_duration_filter == 'over_time' %}selected{% endif %}>Quá thời gian</option>
+                    <option value="running" {% if session_duration_filter == 'running' %}selected{% endif %}>Còn đang làm</option>
+                    <option value="force_submitted" {% if session_duration_filter == 'force_submitted' %}selected{% endif %}>Force submit</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Từ ngày</label>
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-input w-full">
+            </div>
+            <div>
+                <label class="form-label">Đến ngày</label>
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-input w-full">
+            </div>
+        </div>
+    </details>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+        <button type="submit" class="btn btn-primary justify-center">
             <span class="material-symbols-outlined text-sm">filter_alt</span>
             Lọc
         </button>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-        <input type="date" name="date_from" value="{{ date_from }}" class="form-input">
-        <input type="date" name="date_to" value="{{ date_to }}" class="form-input">
         <a href="{% url 'administation:exam_events' %}" class="btn btn-ghost justify-center">
             <span class="material-symbols-outlined text-sm">clear</span>
             Xóa lọc
         </a>
     </div>
 </form>
+{% include 'administration/partials/filter_status.html' %}
 
 {% if warning_sessions %}
 <div class="bg-warning-50 border border-warning-200 rounded-lg overflow-hidden mt-6">
@@ -127,11 +219,11 @@
 {% if page_obj.has_other_pages %}
 <div class="flex items-center justify-center gap-2 mt-6">
     {% if page_obj.has_previous %}
-    <a class="btn btn-ghost" href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&event_type={{ event_filter }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Trước</a>
+    <a class="btn btn-ghost" href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Trước</a>
     {% endif %}
     <span class="text-sm text-neutral-500">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}
-    <a class="btn btn-ghost" href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&event_type={{ event_filter }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">Sau</a>
+    <a class="btn btn-ghost" href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Sau</a>
     {% endif %}
 </div>
 {% endif %}

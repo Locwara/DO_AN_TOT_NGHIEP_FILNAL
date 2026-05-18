@@ -300,6 +300,40 @@
                         <span class="font-bold">{{ assignment.start_date|date:"d/m/Y H:i" }}</span>
                     </div>
                     {% endif %}
+                    {% if assignment.is_exam %}
+                    {% if assignment.exam_duration_minutes %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Thời lượng thi</span>
+                        <span class="font-bold">{{ assignment.exam_duration_minutes }} phút</span>
+                    </div>
+                    {% endif %}
+                    {% if assignment.exam_start_time %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Mở phòng thi</span>
+                        <span class="font-bold">{{ assignment.exam_start_time|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if assignment.exam_end_time %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Đóng phòng thi</span>
+                        <span class="font-bold">{{ assignment.exam_end_time|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if exam_session %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Phiên của bạn</span>
+                        <span class="font-bold {% if exam_session.status == 'expired' or exam_session.status == 'cancelled' %}text-danger-600{% elif exam_session.status == 'running' %}text-primary{% else %}text-success-600{% endif %}">
+                            {{ exam_session.get_status_display }}
+                        </span>
+                    </div>
+                    {% if exam_session.ends_at %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Hết giờ phiên</span>
+                        <span class="font-bold">{{ exam_session.ends_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
                     {% if assignment.due_date %}
                     <div class="flex justify-between">
                         <span class="text-slate-600">Hạn nộp</span>

@@ -48,6 +48,10 @@ class Assignments(models.Model):
                 name='asg_cls_pub_due_idx',
             ),
             models.Index(fields=['classroom_subject'], name='asg_cls_subject_idx'),
+            models.Index(fields=['classroom_subject', 'is_exam', 'is_published'], name='asg_cs_exam_pub_idx'),
+            models.Index(fields=['classroom', 'is_exam', 'is_published'], name='asg_cls_exam_pub_idx'),
+            models.Index(fields=['created_by', 'is_published'], name='asg_creator_pub_idx'),
+            models.Index(fields=['is_exam', '-created_at'], name='asg_exam_created_idx'),
         ]
 
 class Testcases(models.Model):

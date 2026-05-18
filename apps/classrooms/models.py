@@ -23,6 +23,11 @@ class Classrooms(models.Model):
 
     class Meta:
         db_table = 'classrooms'
+        indexes = [
+            models.Index(fields=['status', 'is_active', '-created_at'], name='cls_status_active_at_idx'),
+            models.Index(fields=['teacher', 'status'], name='cls_teacher_status_idx'),
+            models.Index(fields=['is_active', '-created_at'], name='cls_active_created_idx'),
+        ]
 
 
 class SubjectApprovalStatus(models.TextChoices):
@@ -72,6 +77,11 @@ class Subjects(models.Model):
     class Meta:
         db_table = 'subjects'
         ordering = ('status', 'code')
+        indexes = [
+            models.Index(fields=['status', 'is_active', '-created_at'], name='subj_status_active_at_idx'),
+            models.Index(fields=['created_by', 'status'], name='subj_creator_status_idx'),
+            models.Index(fields=['is_active', '-created_at'], name='subj_active_created_idx'),
+        ]
 
     def __str__(self):
         return f'{self.code} - {self.name}'
@@ -96,6 +106,11 @@ class ClassroomSubjects(models.Model):
         # Một lớp có thể gán cùng một môn cho nhiều kỳ khác nhau (không trùng trong cùng một kỳ).
         unique_together = (('classroom', 'subject', 'semester'),)
         ordering = ('classroom_id', 'subject_id', '-semester_id')
+        indexes = [
+            models.Index(fields=['classroom', 'is_active'], name='cs_classroom_active_idx'),
+            models.Index(fields=['subject', 'is_active'], name='cs_subject_active_idx'),
+            models.Index(fields=['semester', 'is_active'], name='cs_semester_active_idx'),
+        ]
 
     def __str__(self):
         sem = f' ({self.semester})' if self.semester_id else ''

@@ -17,13 +17,14 @@ from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from core.decorators import teacher_required
 from apps.classrooms.models import Classrooms, ClassroomMembers, ClassroomSubjects, SubjectApprovalStatus, Semesters
 from apps.classrooms.views import _is_classroom_teacher, _is_classroom_member
 from apps.administation.models import ProgrammingLanguages
-from apps.administation.utils import get_bool_setting, get_int_setting
+from apps.administation.utils import csv_filename, csv_query_context, get_bool_setting, get_int_param, get_int_setting
 from apps.notifications.services import notify_users
 from .models import Assignments, Testcases, AssignmentFiles, AssignmentStatistics, Rubrics, PlagiarismReports
 from .forms import AssignmentForm, TestcaseForm, TestcaseImportForm, RubricForm
@@ -35,6 +36,9 @@ ASSIGNMENT_UPLOAD_EXTENSIONS = {
     '.png', '.jpg', '.jpeg', '.gif', '.webp',
     '.zip', '.csv', '.json',
     '.py', '.java', '.c', '.cpp', '.js', '.html', '.css',
+}
+SUBMISSION_EXPORT_STATUSES = {
+    'pending', 'running', 'finished', 'error', 'failed', 'timeout',
 }
 
 logger = logging.getLogger(__name__)
@@ -497,6 +501,8 @@ def assignment_list_view(request, classroom_pk):
 
 @login_required
 def assignment_detail_view(request, pk):
+    from apps.submissions.models import ExamSessions
+
     assignment = get_object_or_404(Assignments, pk=pk)
     classroom = assignment.classroom
     is_teacher = _is_classroom_teacher(request.user, classroom)
@@ -522,11 +528,18 @@ def assignment_detail_view(request, pk):
         testcases = all_testcases.filter(is_sample=True)
 
     total_weight = sum(tc.weight for tc in all_testcases)
+    exam_session = None
+    if assignment.is_exam and not is_teacher:
+        exam_session = ExamSessions.objects.filter(
+            assignment=assignment,
+            student=request.user,
+        ).select_related('final_submission').first()
 
     context = {
         'assignment': assignment,
         'classroom': classroom,
         'is_teacher': is_teacher,
+        'exam_session': exam_session,
         'testcases': testcases,
         'sample_count': all_testcases.filter(is_sample=True).count(),
         'hidden_count': all_testcases.filter(is_hidden=True).count(),
@@ -661,6 +674,9 @@ def create_assignment_view(request, classroom_pk):
             'exam_allow_custom_input',
             get_bool_setting('exam.allow_custom_input_default', True),
         )
+        if request.GET.get('exam') == '1':
+            initial['is_exam'] = True
+            initial['max_attempts'] = 1
         form = AssignmentForm(initial=initial, classroom=classroom)
 
     context = {
@@ -1070,6 +1086,37 @@ def statistics_view(request, pk):
         'late_count': late_count,
         'latest_plagiarism_report': PlagiarismReports.objects.filter(assignment=assignment).first(),
     }
+    context.update(csv_query_context(request))
+    context['csv_items'] = [
+        {
+            'url': reverse('assignments:export_submissions', kwargs={'pk': assignment.pk}),
+            'type': '',
+            'icon': 'filter_alt',
+            'label': 'Xuất bài nộp theo lọc hiện tại' if context['has_active_filters'] else 'Xuất tất cả bài nộp',
+            'primary': True,
+        },
+        {
+            'url': reverse('assignments:export_scores', kwargs={'pk': assignment.pk}),
+            'type': '',
+            'icon': 'grading',
+            'label': 'Xuất bảng điểm theo lọc hiện tại' if context['has_active_filters'] else 'Xuất bảng điểm sinh viên',
+            'primary': False,
+        },
+        {
+            'url': reverse('assignments:export_late', kwargs={'pk': assignment.pk}),
+            'type': '',
+            'icon': 'schedule',
+            'label': 'Xuất bài nộp trễ theo lọc hiện tại' if context['has_active_filters'] else 'Xuất bài nộp trễ',
+            'primary': False,
+        },
+        {
+            'url': reverse('assignments:export_missing', kwargs={'pk': assignment.pk}),
+            'type': '',
+            'icon': 'person_off',
+            'label': 'Xuất sinh viên chưa nộp theo lọc hiện tại' if context['has_active_filters'] else 'Xuất sinh viên chưa nộp',
+            'primary': False,
+        },
+    ]
     return render(request, 'assignments/statistics.html', context)
 
 
@@ -1424,6 +1471,170 @@ def bulk_regrade_view(request, pk):
 # LATE SUBMISSION REPORT EXPORT (Phần D)
 # ===================================================================
 
+def _report_deadline_for_assignment(assignment):
+    if assignment.due_date:
+        return assignment.due_date, 'Hạn nộp'
+    if assignment.is_exam and assignment.exam_end_time:
+        return assignment.exam_end_time, 'Kết thúc thi'
+    return None, 'Mốc hạn'
+
+
+def _csv_response(filename):
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write('\ufeff')
+    return response
+
+
+def _late_minutes_for_submission(submission, deadline):
+    if not deadline or not submission.submitted_at:
+        return None
+    minutes = round((submission.submitted_at - deadline).total_seconds() / 60)
+    return max(minutes, 0)
+
+
+def _submission_is_late_for_report(submission, deadline):
+    if submission.is_late:
+        return True
+    if not deadline or not submission.submitted_at:
+        return False
+    return submission.submitted_at > deadline
+
+
+def _get_float_export_param(params, *names):
+    for name in names:
+        value = params.get(name)
+        if value in (None, ''):
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _format_minutes_vi(minutes):
+    if minutes is None:
+        return '—'
+    if minutes < 60:
+        return f'{minutes} phút'
+    if minutes < 1440:
+        hours = minutes // 60
+        mins = minutes % 60
+        return f'{hours} giờ {mins} phút' if mins else f'{hours} giờ'
+    days = minutes // 1440
+    hours = (minutes % 1440) // 60
+    return f'{days} ngày {hours} giờ' if hours else f'{days} ngày'
+
+
+def _assignment_report_filename_prefix(assignment):
+    title_slug = slugify(assignment.title or '')[:48].strip('-')
+    parts = ['bao_cao_nop_bai', str(assignment.pk)]
+    if title_slug:
+        parts.append(title_slug)
+    return '_'.join(parts)
+
+
+def _assignment_approved_members(classroom, request=None):
+    members = ClassroomMembers.objects.filter(
+        classroom=classroom,
+        status='approved',
+    ).select_related('student')
+    if request:
+        student_id = get_int_param(request.GET, 'student_id', minimum=1)
+        if student_id:
+            members = members.filter(student_id=student_id)
+    return list(members.order_by(
+        'student__last_name', 'student__first_name', 'student__username'
+    ))
+
+
+def _assignment_submissions(assignment, request=None):
+    from apps.submissions.models import Submissions
+
+    submissions = Submissions.objects.filter(
+        assignment=assignment
+    ).select_related('student').order_by('-submitted_at')
+
+    if request:
+        status = request.GET.get('status', '').strip()
+        language = request.GET.get('language', '').strip()
+        student_id = get_int_param(request.GET, 'student_id', minimum=1)
+        if status in SUBMISSION_EXPORT_STATUSES:
+            submissions = submissions.filter(status=status)
+        if language:
+            submissions = submissions.filter(language__iexact=language)
+        if student_id:
+            submissions = submissions.filter(student_id=student_id)
+
+    submissions = list(submissions)
+
+    if request:
+        late_filter = request.GET.get('late', 'all')
+        if late_filter in ('yes', 'no'):
+            deadline, _deadline_label = _report_deadline_for_assignment(assignment)
+            expected_late = late_filter == 'yes'
+            submissions = [
+                submission for submission in submissions
+                if _submission_is_late_for_report(submission, deadline) == expected_late
+            ]
+        score_min = _get_float_export_param(request.GET, 'score_min', 'min_score')
+        score_max = _get_float_export_param(request.GET, 'score_max', 'max_score')
+        if score_min is not None or score_max is not None:
+            filtered_submissions = []
+            for submission in submissions:
+                score = submission.manual_score if submission.manual_score is not None else submission.total_score
+                if score_min is not None and score < score_min:
+                    continue
+                if score_max is not None and score > score_max:
+                    continue
+                filtered_submissions.append(submission)
+            submissions = filtered_submissions
+
+    return submissions
+
+
+def _best_and_latest_submission_rows(assignment, members, submissions):
+    grouped = {}
+    for submission in submissions:
+        if not submission.student_id:
+            continue
+        bucket = grouped.setdefault(submission.student_id, {
+            'best': None,
+            'latest': None,
+            'attempts': 0,
+            'has_late': False,
+        })
+        bucket['attempts'] += 1
+        bucket['has_late'] = bucket['has_late'] or _submission_is_late_for_report(
+            submission,
+            _report_deadline_for_assignment(assignment)[0],
+        )
+        if bucket['latest'] is None or submission.submitted_at > bucket['latest'].submitted_at:
+            bucket['latest'] = submission
+        if submission.status == 'finished':
+            best = bucket['best']
+            best_score = best.manual_score if best and best.manual_score is not None else (best.total_score if best else 0)
+            current_score = submission.manual_score if submission.manual_score is not None else submission.total_score
+            if best is None or current_score > best_score:
+                bucket['best'] = submission
+
+    rows = []
+    for member in members:
+        bucket = grouped.get(member.student_id, {})
+        best = bucket.get('best')
+        latest = bucket.get('latest')
+        rows.append({
+            'member': member,
+            'student': member.student,
+            'best': best,
+            'latest': latest,
+            'attempts': bucket.get('attempts', 0),
+            'has_late': bucket.get('has_late', False),
+        })
+    return rows
+
+
 @teacher_required
 def late_report_print_view(request, pk):
     """Trang in/xuất PDF báo cáo nộp trễ (dùng window.print() để xuất PDF)."""
@@ -1434,27 +1645,74 @@ def late_report_print_view(request, pk):
         return redirect('assignments:detail', pk=pk)
 
     from apps.submissions.models import Submissions
-    late_subs = Submissions.objects.filter(
-        assignment=assignment, is_late=True
-    ).select_related('student').order_by('-submitted_at')
+    deadline, deadline_label = _report_deadline_for_assignment(assignment)
 
-    # Tính phút trễ cho từng bài
-    due = assignment.due_date
+    submissions = _assignment_submissions(assignment, request)
+    members = _assignment_approved_members(classroom, request)
+
+    latest_by_student = {}
+    for submission in submissions:
+        if not submission.student_id:
+            continue
+        if submission.student_id not in latest_by_student:
+            latest_by_student[submission.student_id] = submission
+
+    submitted_student_ids = set(latest_by_student)
+    member_student_ids = {member.student_id for member in members if member.student_id}
+    missing_members = [
+        member for member in members
+        if member.student_id and member.student_id not in submitted_student_ids
+    ]
+
     rows = []
-    for s in late_subs:
-        delta_minutes = None
-        if due and s.submitted_at:
-            delta_minutes = round((s.submitted_at - due).total_seconds() / 60)
-        rows.append({'sub': s, 'delta_minutes': delta_minutes})
+    for submission in latest_by_student.values():
+        delta_minutes = _late_minutes_for_submission(submission, deadline)
+        is_late = _submission_is_late_for_report(submission, deadline)
+        rows.append({
+            'sub': submission,
+            'delta_minutes': delta_minutes if is_late else 0,
+            'delta_label': _format_minutes_vi(delta_minutes) if is_late else 'Đúng hạn',
+            'is_late': is_late,
+            'is_passed': submission.total_testcases > 0 and submission.passed_testcases >= submission.total_testcases,
+        })
+
+    late_rows = [row for row in rows if row['is_late']]
+    finished_rows = [row for row in rows if row['sub'].status == 'finished']
+    avg_score = round(
+        sum(row['sub'].total_score for row in rows) / len(rows),
+        2,
+    ) if rows else 0
+    pass_count = sum(1 for row in rows if row['is_passed'])
+
+    submitted_member_count = len(submitted_student_ids & member_student_ids) if member_student_ids else len(submitted_student_ids)
+    report_summary = {
+        'total_students': len(members),
+        'submitted_students': submitted_member_count,
+        'missing_students': len(missing_members),
+        'total_submissions': len(submissions),
+        'latest_submissions': len(rows),
+        'on_time_students': max(len(rows) - len(late_rows), 0),
+        'late_students': len(late_rows),
+        'finished_students': len(finished_rows),
+        'pass_count': pass_count,
+        'avg_score': avg_score,
+    }
 
     context = {
         'assignment': assignment,
         'classroom': classroom,
         'rows': rows,
-        'total_late': late_subs.count(),
-        'due_date': due,
+        'late_rows': late_rows,
+        'missing_members': missing_members,
+        'report_summary': report_summary,
+        'total_late': len(late_rows),
+        'deadline': deadline,
+        'deadline_label': deadline_label,
+        'due_date': deadline,
         'generated_at': timezone.now(),
+        'report_filename_prefix': _assignment_report_filename_prefix(assignment),
     }
+    context.update(csv_query_context(request))
     return render(request, 'assignments/late_report_print.html', context)
 
 
@@ -1466,16 +1724,19 @@ def export_late_report_view(request, pk):
         messages.error(request, 'Bạn không có quyền xuất báo cáo.')
         return redirect('assignments:detail', pk=pk)
 
-    from apps.submissions.models import Submissions
-    late_subs = Submissions.objects.filter(
-        assignment=assignment, is_late=True
-    ).select_related('student').order_by('-submitted_at')
+    deadline, _deadline_label = _report_deadline_for_assignment(assignment)
+    late_subs = _assignment_submissions(assignment, request)
+    late_subs = [
+        submission for submission in late_subs
+        if _submission_is_late_for_report(submission, deadline)
+    ]
 
-    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-    filename = f'late_report_{assignment.pk}_{timezone.now().strftime("%Y%m%d_%H%M")}.csv'
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    # BOM để Excel mở đúng tiếng Việt
-    response.write('\ufeff')
+    filename = csv_filename(
+        _assignment_report_filename_prefix(assignment),
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    )
+    response = _csv_response(filename)
 
     writer = csv.writer(response)
     writer.writerow([
@@ -1485,18 +1746,17 @@ def export_late_report_view(request, pk):
         'Ngôn ngữ', 'Trạng thái'
     ])
 
-    due = assignment.due_date
     for s in late_subs:
         delta_minutes = ''
-        if due and s.submitted_at:
-            delta = (s.submitted_at - due).total_seconds() / 60
+        if deadline and s.submitted_at:
+            delta = (s.submitted_at - deadline).total_seconds() / 60
             delta_minutes = f'{delta:.0f}'
         writer.writerow([
             s.student.username if s.student else '',
             s.student.get_full_name() if s.student else '',
             s.student.email if s.student else '',
             s.submitted_at.strftime('%d/%m/%Y %H:%M') if s.submitted_at else '',
-            due.strftime('%d/%m/%Y %H:%M') if due else '',
+            deadline.strftime('%d/%m/%Y %H:%M') if deadline else '',
             delta_minutes,
             f'{s.penalty_applied:.1f}',
             f'{s.total_score:.2f}',
@@ -1505,4 +1765,146 @@ def export_late_report_view(request, pk):
             s.status,
         ])
 
+    return response
+
+
+@teacher_required
+def export_assignment_submissions_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất bài nộp.')
+        return redirect('assignments:detail', pk=pk)
+
+    deadline, deadline_label = _report_deadline_for_assignment(assignment)
+    submissions = _assignment_submissions(assignment, request)
+    response = _csv_response(csv_filename(
+        f'assignment_{assignment.pk}',
+        'submissions',
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow([
+        'Submission ID', 'Username', 'Họ tên', 'Email', 'Ngôn ngữ',
+        'Trạng thái', 'Thời gian nộp', deadline_label, 'Trễ', 'Trễ (phút)',
+        '% Phạt', 'Điểm', 'Điểm tối đa', 'Testcase pass', 'Tổng testcase',
+        'Thời gian chạy (ms)', 'Bộ nhớ', 'Chấm tay', 'Giáo viên nhận xét',
+    ])
+
+    for submission in submissions:
+        is_late = _submission_is_late_for_report(submission, deadline)
+        late_minutes = _late_minutes_for_submission(submission, deadline) if is_late else 0
+        writer.writerow([
+            submission.pk,
+            submission.student.username if submission.student else '',
+            submission.student.get_full_name() if submission.student else '',
+            submission.student.email if submission.student else '',
+            submission.language,
+            submission.status,
+            timezone.localtime(submission.submitted_at).strftime('%d/%m/%Y %H:%M:%S') if submission.submitted_at else '',
+            timezone.localtime(deadline).strftime('%d/%m/%Y %H:%M:%S') if deadline else '',
+            'Có' if is_late else 'Không',
+            late_minutes,
+            f'{submission.penalty_applied:.1f}',
+            f'{submission.total_score:.2f}',
+            f'{submission.max_score:.2f}',
+            submission.passed_testcases,
+            submission.total_testcases,
+            submission.execution_time or '',
+            submission.memory_usage or '',
+            submission.manual_score if submission.manual_score is not None else '',
+            submission.teacher_comment or '',
+        ])
+    return response
+
+
+@teacher_required
+def export_assignment_scores_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất bảng điểm.')
+        return redirect('assignments:detail', pk=pk)
+
+    members = _assignment_approved_members(classroom, request)
+    submissions = _assignment_submissions(assignment, request)
+    rows = _best_and_latest_submission_rows(assignment, members, submissions)
+    response = _csv_response(csv_filename(
+        f'assignment_{assignment.pk}',
+        'scores',
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow([
+        'Username', 'Họ tên', 'Email', 'Số lần nộp', 'Có nộp',
+        'Trạng thái mới nhất', 'Nộp lần cuối', 'Có nộp trễ',
+        'Điểm tốt nhất', 'Điểm tối đa', 'Testcase tốt nhất',
+        'Submission tốt nhất', 'Submission mới nhất',
+    ])
+
+    for row in rows:
+        student = row['student']
+        best = row['best']
+        latest = row['latest']
+        best_score = ''
+        best_testcases = ''
+        if best:
+            score = best.manual_score if best.manual_score is not None else best.total_score
+            best_score = f'{score:.2f}'
+            best_testcases = f'{best.passed_testcases}/{best.total_testcases}'
+        writer.writerow([
+            student.username,
+            student.get_full_name() or student.username,
+            student.email,
+            row['attempts'],
+            'Có' if latest else 'Không',
+            latest.status if latest else 'Chưa nộp',
+            timezone.localtime(latest.submitted_at).strftime('%d/%m/%Y %H:%M:%S') if latest and latest.submitted_at else '',
+            'Có' if row['has_late'] else 'Không',
+            best_score,
+            assignment.max_score,
+            best_testcases,
+            best.pk if best else '',
+            latest.pk if latest else '',
+        ])
+    return response
+
+
+@teacher_required
+def export_assignment_missing_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất danh sách thiếu bài.')
+        return redirect('assignments:detail', pk=pk)
+
+    members = _assignment_approved_members(classroom, request)
+    submitted_student_ids = {
+        submission.student_id for submission in _assignment_submissions(assignment, request)
+        if submission.student_id
+    }
+    response = _csv_response(csv_filename(
+        f'assignment_{assignment.pk}',
+        'missing',
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow(['Username', 'Họ tên', 'Email', 'Lớp', 'Bài tập', 'Deadline/Kết thúc thi'])
+    deadline, _deadline_label = _report_deadline_for_assignment(assignment)
+
+    for member in members:
+        if not member.student_id or member.student_id in submitted_student_ids:
+            continue
+        student = member.student
+        writer.writerow([
+            student.username,
+            student.get_full_name() or student.username,
+            student.email,
+            classroom.name,
+            assignment.title,
+            timezone.localtime(deadline).strftime('%d/%m/%Y %H:%M:%S') if deadline else '',
+        ])
     return response

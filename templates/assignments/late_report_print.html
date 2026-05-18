@@ -2,9 +2,9 @@
 <html lang="vi">
 <head>
     <meta charset="utf-8"/>
-    <title>Báo cáo nộp trễ - {{ assignment.title }}</title>
+    <title>{{ report_filename_prefix }} - DevLearn</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script>
         tailwind.config = {
@@ -20,91 +20,188 @@
                             500: "#137fec",
                             600: "#1260c0",
                             700: "#0f4289",
-                            800: "#0b2d60",
                             900: "#061a38",
                             950: "#020d1f",
                             DEFAULT: "#137fec",
                         },
-                        success: {
-                            100: "#f0fdf4",
-                            500: "#22c55e",
-                            600: "#16a34a",
-                            DEFAULT: "#16a34a",
-                        },
-                        warning: {
-                            100: "#fff7ed",
-                            500: "#f59e0b",
-                            600: "#ea580c",
-                            DEFAULT: "#ea580c",
-                        },
-                        danger: {
-                            100: "#fef2f2",
-                            500: "#dc2626",
-                            600: "#dc2626",
-                            DEFAULT: "#dc2626",
-                        },
-                        slate: {
-                            50: "#f0f8ff",
-                            100: "#f0f8ff",
-                            200: "#b8d9fd",
-                            300: "#cbd5e1",
-                            400: "#64748b",
-                            500: "#64748b",
-                            600: "#334155",
-                            700: "#0f172a",
-                            800: "#061a38",
-                            900: "#020d1f",
-                        },
+                        success: {100: "#f0fdf4", 600: "#16a34a", DEFAULT: "#16a34a"},
+                        warning: {100: "#fff7ed", 600: "#ea580c", DEFAULT: "#ea580c"},
+                        danger: {100: "#fef2f2", 600: "#dc2626", DEFAULT: "#dc2626"},
                     },
                     fontFamily: {
                         display: ["Be Vietnam Pro", "sans-serif"],
+                        mono: ["Fira Code", "monospace"],
                     },
                 },
             },
         }
     </script>
     <style>
-        body { font-family: 'Be Vietnam Pro', sans-serif; background: #f8fafc; }
+        :root {
+            --primary-950: #020d1f;
+            --primary-900: #061a38;
+            --primary-700: #0f4289;
+            --primary-600: #1260c0;
+            --primary-500: #137fec;
+            --primary-200: #b8d9fd;
+            --primary-100: #daeefe;
+            --primary-50: #f0f8ff;
+            --success-600: #16a34a;
+            --success-100: #f0fdf4;
+            --warning-600: #ea580c;
+            --warning-100: #fff7ed;
+            --danger-600: #dc2626;
+            --danger-100: #fef2f2;
+            --neutral-900: #0f172a;
+            --neutral-700: #334155;
+            --neutral-500: #64748b;
+            --white: #ffffff;
+            --radius-md: 9px;
+            --radius-lg: 14px;
+            --radius-full: 9999px;
+            --shadow-card: 0 1px 3px rgba(19,127,236,0.08), 0 0 0 0.5px rgba(19,127,236,0.10);
+        }
+
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background: var(--primary-50);
+            color: var(--neutral-900);
+        }
+
+        code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85em;
+            background: var(--primary-50);
+            color: var(--primary-600);
+            border: 1px solid var(--primary-200);
+            border-radius: 5px;
+            padding: 1px 5px;
+        }
+
         .page {
             width: 210mm;
             min-height: 297mm;
-            padding: 15mm 15mm;
+            padding: 14mm;
             margin: 12px auto;
-            background: #ffffff;
-            box-shadow: 0 4px 24px rgba(6,26,56,0.08);
-            color: #0f172a;
+            background: var(--white);
+            box-shadow: 0 4px 24px rgba(6,26,56,0.10);
         }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #137fec; color: white; padding: 8px 6px; text-align: left; font-weight: 600; }
-        td { padding: 6px 6px; border-bottom: 1px solid #b8d9fd; vertical-align: top; }
-        tr:nth-child(even) td { background: #f0f8ff; }
-        .stripe-red td { background: #fef2f2 !important; }
+
+        .report-card {
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-md);
+            background: var(--white);
+            box-shadow: var(--shadow-card);
+        }
+
+        .meta-card {
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-md);
+            background: var(--primary-50);
+            padding: 10px 12px;
+        }
+
+        .meta-label {
+            color: var(--neutral-500);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: var(--radius-full);
+            padding: 2px 8px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .table-wrap {
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+
+        th {
+            background: var(--primary-500);
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 7px 6px;
+            border-bottom: 1px solid var(--primary-100);
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td {
+            background: var(--primary-50);
+        }
+
+        tr.late-row td {
+            background: var(--warning-100) !important;
+        }
+
+        .section-title {
+            color: var(--primary-900);
+            font-size: 15px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .print-break-avoid {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
         @media print {
             body { background: white; }
             .no-print { display: none !important; }
-            .page { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 10mm 12mm; }
+            .page {
+                margin: 0;
+                box-shadow: none;
+                width: auto;
+                min-height: auto;
+                padding: 0;
+            }
             @page { size: A4; margin: 10mm; }
             thead { display: table-header-group; }
-            tr { page-break-inside: avoid; }
+            tr, .print-break-avoid { break-inside: avoid; page-break-inside: avoid; }
         }
     </style>
 </head>
 <body>
 
-<!-- Toolbar (chỉ hiển thị trên màn hình) -->
 <div class="no-print sticky top-0 z-10 bg-white/95 border-b border-primary-200 px-6 py-3 flex items-center justify-between shadow-sm backdrop-blur">
-    <div class="flex items-center gap-4">
-        <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="flex items-center gap-2 text-slate-600 hover:text-primary text-sm font-medium">
+    <div class="flex items-center gap-4 min-w-0">
+        <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="flex items-center gap-2 text-primary-700 hover:text-primary text-sm font-bold">
             <span class="material-symbols-outlined text-sm">arrow_back</span>
-            Quay lại Thống kê
+            Quay lại thống kê
         </a>
-        <span class="text-slate-300">|</span>
-        <span class="text-sm text-slate-500">Báo cáo nộp trễ — {{ assignment.title }}</span>
+        <span class="hidden sm:inline text-primary-200">|</span>
+        <span class="hidden sm:inline text-sm text-slate-500 truncate">Báo cáo nộp bài — {{ assignment.title }}</span>
     </div>
     <div class="flex items-center gap-2">
-        <a href="{% url 'assignments:export_late' pk=assignment.pk %}" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 text-sm font-bold transition-colors">
+        <a href="{% url 'assignments:export_late' pk=assignment.pk %}{% if csv_query_string %}?{{ csv_query_string }}{% endif %}" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 text-sm font-bold transition-colors">
             <span class="material-symbols-outlined text-sm">download</span>
-            Xuất CSV
+            Xuất CSV báo cáo hiện tại
         </a>
         <button onclick="window.print()" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500 text-white text-sm font-bold hover:bg-primary-600 transition-colors">
             <span class="material-symbols-outlined text-sm">print</span>
@@ -113,10 +210,8 @@
     </div>
 </div>
 
-<!-- Report Content -->
-<div class="page">
-    <!-- Header -->
-    <div class="flex items-start justify-between border-b-2 border-primary-500 pb-4 mb-6">
+<main class="page">
+    <header class="flex items-start justify-between border-b-2 border-primary-500 pb-4 mb-5">
         <div>
             <div class="flex items-center gap-2 text-primary-500">
                 <span class="material-symbols-outlined">school</span>
@@ -128,83 +223,222 @@
             <p class="text-[11px] text-slate-500">Xuất lúc</p>
             <p class="text-sm font-bold">{{ generated_at|date:"d/m/Y H:i" }}</p>
         </div>
-    </div>
+    </header>
 
-    <!-- Title -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-black mb-1">BÁO CÁO NỘP BÀI TRỄ</h1>
-        <p class="text-sm text-slate-600">{{ assignment.title }}</p>
-    </div>
+    <section class="mb-5">
+        <p class="text-[11px] font-bold tracking-[0.16em] uppercase text-primary-500 mb-1">Báo cáo lớp học</p>
+        <h1 class="text-2xl font-black leading-tight text-primary-950">BÁO CÁO TÌNH HÌNH NỘP BÀI</h1>
+        <p class="text-sm text-slate-600 mt-1">{{ assignment.title }}</p>
+    </section>
 
-    <!-- Metadata -->
-    <div class="grid grid-cols-2 gap-4 mb-6 text-xs">
-        <div class="p-3 bg-primary-50 rounded-lg border border-primary-200">
-            <p class="text-slate-500 font-bold uppercase tracking-wider text-[10px] mb-1">Lớp học</p>
-            <p class="font-bold text-slate-900">{% if classroom %}{{ classroom.name }}{% else %}—{% endif %}</p>
+    <section class="grid grid-cols-2 gap-3 mb-5 text-xs print-break-avoid">
+        <div class="meta-card">
+            <p class="meta-label">Lớp học</p>
+            <p class="font-bold text-primary-950">{% if classroom %}{{ classroom.name }}{% else %}—{% endif %}</p>
         </div>
-        <div class="p-3 bg-primary-50 rounded-lg border border-primary-200">
-            <p class="text-slate-500 font-bold uppercase tracking-wider text-[10px] mb-1">Deadline</p>
-            <p class="font-bold text-slate-900">{% if due_date %}{{ due_date|date:"d/m/Y H:i" }}{% else %}Không có{% endif %}</p>
+        <div class="meta-card">
+            <p class="meta-label">Môn học / kỳ</p>
+            <p class="font-bold text-primary-950">
+                {% if assignment.classroom_subject %}
+                    {{ assignment.classroom_subject.subject.name }}
+                    {% if assignment.classroom_subject.semester %} · {{ assignment.classroom_subject.semester.name }}{% endif %}
+                {% else %}
+                    Chưa gắn môn
+                {% endif %}
+            </p>
         </div>
-        <div class="p-3 bg-primary-50 rounded-lg border border-primary-200">
-            <p class="text-slate-500 font-bold uppercase tracking-wider text-[10px] mb-1">Điểm tối đa</p>
-            <p class="font-bold text-slate-900">{{ assignment.max_score }} điểm</p>
+        <div class="meta-card">
+            <p class="meta-label">{{ deadline_label }}</p>
+            <p class="font-bold text-primary-950">{% if deadline %}{{ deadline|date:"d/m/Y H:i" }}{% else %}Chưa cấu hình{% endif %}</p>
         </div>
-        <div class="p-3 bg-warning-100 rounded-lg border border-warning-600/20">
-            <p class="text-warning-600 font-bold uppercase tracking-wider text-[10px] mb-1">Tổng số bài nộp trễ</p>
-            <p class="font-black text-2xl text-warning-600">{{ total_late }}</p>
+        <div class="meta-card">
+            <p class="meta-label">Cấu hình bài</p>
+            <p class="font-bold text-primary-950">
+                {{ assignment.max_score }} điểm ·
+                {% if assignment.is_exam %}Bài thi{% else %}Bài tập{% endif %} ·
+                {% if assignment.late_submission_allowed %}Cho nộp trễ{% else %}Không cho nộp trễ{% endif %}
+                {% if assignment.late_penalty_percent %} · Phạt {{ assignment.late_penalty_percent|floatformat:0 }}%{% endif %}
+            </p>
         </div>
-    </div>
+    </section>
 
-    <!-- Table -->
-    {% if rows %}
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 30px;">#</th>
-                <th>Username</th>
-                <th>Họ tên</th>
-                <th>Email</th>
-                <th>Thời gian nộp</th>
-                <th class="text-center" style="width: 60px;">Trễ (phút)</th>
-                <th class="text-center" style="width: 50px;">% Phạt</th>
-                <th class="text-right" style="width: 60px;">Điểm</th>
-                <th class="text-center" style="width: 70px;">Trạng thái</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for r in rows %}
-            <tr {% if r.delta_minutes and r.delta_minutes > 1440 %}class="stripe-red"{% endif %}>
-                <td class="text-slate-500">{{ forloop.counter }}</td>
-                <td class="font-mono text-[10px]">{% if r.sub.student %}{{ r.sub.student.username }}{% else %}—{% endif %}</td>
-                <td>{% if r.sub.student %}{{ r.sub.student.get_full_name|default:"(chưa đặt)" }}{% else %}—{% endif %}</td>
-                <td class="text-[10px] text-slate-600">{% if r.sub.student %}{{ r.sub.student.email }}{% else %}—{% endif %}</td>
-                <td class="text-[10px]">{{ r.sub.submitted_at|date:"d/m/Y H:i" }}</td>
-                <td class="text-center {% if r.delta_minutes and r.delta_minutes > 1440 %}text-red-600 font-bold{% endif %}">
-                    {% if r.delta_minutes is not None %}{{ r.delta_minutes }}{% else %}—{% endif %}
-                </td>
-                <td class="text-center">{{ r.sub.penalty_applied|floatformat:0 }}%</td>
-                <td class="text-right font-bold">{{ r.sub.total_score|floatformat:2 }}/{{ r.sub.max_score|floatformat:0 }}</td>
-                <td class="text-center">
-                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase
-                        {% if r.sub.status == 'finished' %}bg-success-100 text-success-600
-                        {% elif r.sub.status == 'failed' %}bg-danger-100 text-danger-600
-                        {% else %}bg-warning-100 text-warning-600{% endif %}">
-                        {{ r.sub.status }}
-                    </span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-        <div class="py-12 text-center text-slate-500 text-sm border border-dashed border-primary-200 rounded-lg">
-            Không có bài nộp trễ nào.
+    <section class="grid grid-cols-4 gap-3 mb-5 print-break-avoid">
+        <div class="report-card p-3">
+            <p class="meta-label">Thành viên lớp</p>
+            <p class="text-2xl font-black text-primary-500">{{ report_summary.total_students }}</p>
         </div>
-    {% endif %}
+        <div class="report-card p-3">
+            <p class="meta-label">Đã nộp</p>
+            <p class="text-2xl font-black text-success-600">{{ report_summary.submitted_students }}</p>
+        </div>
+        <div class="report-card p-3">
+            <p class="meta-label">Chưa nộp</p>
+            <p class="text-2xl font-black text-danger-600">{{ report_summary.missing_students }}</p>
+        </div>
+        <div class="report-card p-3">
+            <p class="meta-label">Nộp trễ</p>
+            <p class="text-2xl font-black text-warning-600">{{ report_summary.late_students }}</p>
+        </div>
+        <div class="report-card p-3">
+            <p class="meta-label">Tổng lượt nộp</p>
+            <p class="text-xl font-black text-primary-900">{{ report_summary.total_submissions }}</p>
+        </div>
+        <div class="report-card p-3">
+            <p class="meta-label">Đúng hạn</p>
+            <p class="text-xl font-black text-success-600">{{ report_summary.on_time_students }}</p>
+        </div>
+        <div class="report-card p-3">
+            <p class="meta-label">Pass testcase</p>
+            <p class="text-xl font-black text-primary-900">{{ report_summary.pass_count }}</p>
+        </div>
+        <div class="report-card p-3">
+            <p class="meta-label">Điểm TB</p>
+            <p class="text-xl font-black text-primary-900">{{ report_summary.avg_score|floatformat:2 }}</p>
+        </div>
+    </section>
 
-    <!-- Footer signature -->
-    <div class="grid grid-cols-2 gap-12 mt-12 pt-6 border-t border-primary-200">
+    <section class="report-card p-4 mb-5 print-break-avoid">
+        <h2 class="section-title">
+            <span class="material-symbols-outlined text-primary">summarize</span>
+            Nhận xét nhanh
+        </h2>
+        <div class="text-xs leading-6 text-slate-700">
+            {% if not deadline %}
+                <p>• Bài này chưa có deadline/kết thúc thi nên hệ thống chỉ ghi nhận trạng thái trễ đã lưu trên bài nộp.</p>
+            {% elif report_summary.late_students == 0 %}
+                <p>• Không có sinh viên nộp trễ theo mốc {{ deadline|date:"d/m/Y H:i" }}.</p>
+            {% else %}
+                <p>• Có {{ report_summary.late_students }} sinh viên nộp trễ theo mốc {{ deadline|date:"d/m/Y H:i" }}.</p>
+            {% endif %}
+            <p>• Báo cáo chi tiết bên dưới dùng bài nộp mới nhất của mỗi sinh viên; tổng lượt nộp thực tế là {{ report_summary.total_submissions }}.</p>
+            {% if report_summary.missing_students %}
+                <p>• Cần nhắc {{ report_summary.missing_students }} sinh viên chưa có bài nộp.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="mb-5">
+        <h2 class="section-title">
+            <span class="material-symbols-outlined text-primary">fact_check</span>
+            Danh sách bài nộp mới nhất
+        </h2>
+        {% if rows %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 28px;">#</th>
+                        <th>Sinh viên</th>
+                        <th>Username</th>
+                        <th>Ngôn ngữ</th>
+                        <th>Thời gian nộp</th>
+                        <th class="text-center">Độ trễ</th>
+                        <th class="text-center">Testcase</th>
+                        <th class="text-right">Điểm</th>
+                        <th class="text-center">Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="{% if row.is_late %}late-row{% endif %}">
+                        <td class="text-slate-500">{{ forloop.counter }}</td>
+                        <td>
+                            <p class="font-bold">{% if row.sub.student %}{{ row.sub.student.get_full_name|default:"(chưa đặt)" }}{% else %}—{% endif %}</p>
+                            <p class="text-[9px] text-slate-500">{% if row.sub.student %}{{ row.sub.student.email|default:"Chưa có email" }}{% else %}—{% endif %}</p>
+                        </td>
+                        <td><code>{% if row.sub.student %}{{ row.sub.student.username }}{% else %}—{% endif %}</code></td>
+                        <td>{{ row.sub.language|default:"—" }}</td>
+                        <td>{{ row.sub.submitted_at|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center {% if row.is_late %}font-bold text-warning-600{% else %}text-success-600{% endif %}">{{ row.delta_label }}</td>
+                        <td class="text-center">{{ row.sub.passed_testcases }}/{{ row.sub.total_testcases }}</td>
+                        <td class="text-right font-bold">{{ row.sub.total_score|floatformat:2 }}/{{ row.sub.max_score|floatformat:0 }}</td>
+                        <td class="text-center">
+                            <span class="badge {% if row.sub.status == 'finished' %}bg-success-100 text-success-600{% elif row.sub.status == 'failed' or row.sub.status == 'error' %}bg-danger-100 text-danger-600{% else %}bg-warning-100 text-warning-600{% endif %}">
+                                {{ row.sub.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="py-8 text-center text-slate-500 text-sm border border-dashed border-primary-200 rounded-lg">
+            Chưa có sinh viên nào nộp bài.
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="grid grid-cols-2 gap-5 mb-5">
+        <div class="print-break-avoid">
+            <h2 class="section-title">
+                <span class="material-symbols-outlined text-warning-600">schedule</span>
+                Bài nộp trễ
+            </h2>
+            {% if late_rows %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sinh viên</th>
+                            <th class="text-center">Trễ</th>
+                            <th class="text-right">Điểm</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in late_rows %}
+                        <tr class="late-row">
+                            <td>{% if row.sub.student %}{{ row.sub.student.get_full_name|default:row.sub.student.username }}{% else %}—{% endif %}</td>
+                            <td class="text-center font-bold text-warning-600">{{ row.delta_label }}</td>
+                            <td class="text-right font-bold">{{ row.sub.total_score|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="py-8 text-center text-slate-500 text-sm border border-dashed border-primary-200 rounded-lg">
+                Không có bài nộp trễ nào.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="print-break-avoid">
+            <h2 class="section-title">
+                <span class="material-symbols-outlined text-danger-600">person_off</span>
+                Chưa nộp bài
+            </h2>
+            {% if missing_members %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sinh viên</th>
+                            <th>Username</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in missing_members %}
+                        <tr>
+                            <td>
+                                <p class="font-bold">{{ member.student.get_full_name|default:"(chưa đặt)" }}</p>
+                                <p class="text-[9px] text-slate-500">{{ member.student.email|default:"Chưa có email" }}</p>
+                            </td>
+                            <td><code>{{ member.student.username }}</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="py-8 text-center text-slate-500 text-sm border border-dashed border-primary-200 rounded-lg">
+                Không có sinh viên thiếu bài.
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <footer class="grid grid-cols-2 gap-12 mt-10 pt-6 border-t border-primary-200">
         <div class="text-center text-xs">
             <p class="text-slate-500 mb-16">Người lập báo cáo</p>
             <p class="font-bold">_______________________</p>
@@ -215,12 +449,12 @@
             <p class="font-bold">_______________________</p>
             <p class="text-slate-400 mt-1 italic">(Ký và ghi rõ họ tên)</p>
         </div>
-    </div>
+    </footer>
 
     <p class="text-center text-[10px] text-slate-400 mt-8">
         Báo cáo được tạo tự động bởi hệ thống DevLearn — {{ generated_at|date:"d/m/Y H:i:s" }}
     </p>
-</div>
+</main>
 
 </body>
 </html>

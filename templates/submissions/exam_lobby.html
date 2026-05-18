@@ -65,6 +65,26 @@
             <span class="material-symbols-outlined">visibility</span>
             Xem bài đã nộp
         </a>
+        {% elif session and session.status == 'expired' %}
+        <div class="rounded-xl border border-danger-100 bg-danger-100 p-5 text-sm text-danger-600 mb-4">
+            <p class="font-bold">Phiên thi của bạn đã hết giờ.</p>
+            <p class="mt-1 text-danger-600">
+                Đây là thời gian của phiên thi cá nhân, không phải hạn nộp chung của bài.
+                {% if session.ends_at %}Phiên của bạn kết thúc lúc {{ session.ends_at|date:"d/m/Y H:i" }}.{% endif %}
+                Nếu cần mở lại, hãy liên hệ giáo viên để được gia hạn phiên thi.
+            </p>
+        </div>
+        <button disabled class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-slate-200 text-slate-500 font-bold cursor-not-allowed">
+            Phiên thi đã hết giờ
+        </button>
+        {% elif session and session.status == 'cancelled' %}
+        <div class="rounded-xl border border-danger-100 bg-danger-100 p-5 text-sm text-danger-600 mb-4">
+            <p class="font-bold">Phiên thi đã bị hủy.</p>
+            <p class="mt-1 text-danger-600">Hãy liên hệ giáo viên nếu bạn cần được mở lại phiên thi.</p>
+        </div>
+        <button disabled class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-slate-200 text-slate-500 font-bold cursor-not-allowed">
+            Phiên thi đã bị hủy
+        </button>
         {% elif assignment.exam_end_time and now > assignment.exam_end_time %}
         <button disabled class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-slate-200 text-slate-500 font-bold cursor-not-allowed">
             Phòng thi đã đóng

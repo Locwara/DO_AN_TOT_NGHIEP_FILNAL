@@ -14,6 +14,10 @@ class Profiles(models.Model):
 
     class Meta:
         db_table = 'profiles'
+        indexes = [
+            models.Index(fields=['role', 'status'], name='profile_role_status_idx'),
+            models.Index(fields=['status', '-created_at'], name='profile_status_created_idx'),
+        ]
 
 class TeacherRegistrations(models.Model):
     user = models.ForeignKey(User, models.CASCADE, blank=True, null=True)
@@ -27,3 +31,7 @@ class TeacherRegistrations(models.Model):
 
     class Meta:
         db_table = 'teacher_registrations'
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='tr_status_created_idx'),
+            models.Index(fields=['reviewed_by', 'status'], name='tr_reviewer_status_idx'),
+        ]

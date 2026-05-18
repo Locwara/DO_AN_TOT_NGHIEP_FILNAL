@@ -3,196 +3,344 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .stats-shell {
+        max-width: 1200px;
+        margin-inline: auto;
+        width: 100%;
+    }
+
+    .stats-panel {
+        background: var(--white);
+        border: 1px solid var(--primary-200);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-card);
+    }
+
+    .stats-mini-card {
+        background: var(--white);
+        border: 1px solid var(--primary-200);
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        box-shadow: var(--shadow-card);
+    }
+
+    .stats-chart-box {
+        position: relative;
+        height: 280px;
+        min-height: 280px;
+    }
+
+    .stats-row-link {
+        border: 1px solid var(--primary-100);
+        border-radius: var(--radius-md);
+        transition: background 0.14s, border-color 0.14s, transform 0.14s;
+    }
+
+    .stats-row-link:hover {
+        background: var(--primary-50);
+        border-color: var(--primary-300);
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+
+    .stats-table {
+        min-width: 720px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .stats-table thead th {
+        background: var(--primary-50);
+        color: var(--primary-700);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.75rem 1rem;
+        white-space: nowrap;
+    }
+
+    .stats-table tbody td {
+        border-top: 1px solid var(--primary-100);
+        padding: 0.85rem 1rem;
+        vertical-align: middle;
+    }
+
+    .stats-table tbody tr {
+        transition: background 0.14s;
+    }
+
+    .stats-table tbody tr:hover {
+        background: var(--primary-50);
+    }
+
+    .stats-empty {
+        display: flex;
+        min-height: 160px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--neutral-500);
+    }
+
+    @media (max-width: 640px) {
+        .stats-shell {
+            padding-inline: 1rem;
+        }
+
+        .stats-chart-box {
+            height: 240px;
+            min-height: 240px;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto px-6 py-8">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+<div class="stats-shell px-4 sm:px-6 py-8">
+    <nav class="flex flex-wrap items-center gap-2 text-sm text-neutral-500 mb-5">
         <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
-        <span class="material-symbols-outlined text-xs">chevron_right</span>
-        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:20 }}</a>
-        <span class="material-symbols-outlined text-xs">chevron_right</span>
-        <span class="text-slate-900 dark:text-slate-100 font-medium">Thống kê</span>
+        <span class="material-symbols-outlined text-base">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:36 }}</a>
+        <span class="material-symbols-outlined text-base">chevron_right</span>
+        <span class="text-primary-900 font-semibold">Thống kê</span>
     </nav>
 
-    <!-- Header -->
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <div class="flex items-center gap-3">
-            <div class="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <span class="material-symbols-outlined text-primary text-2xl">bar_chart</span>
+    <section class="hero-light rounded-[18px] border border-primary-200 p-5 sm:p-6 mb-6">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+            <div class="flex items-start gap-4 min-w-0">
+                <div class="size-12 rounded-lg bg-primary-100 text-primary flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-2xl">analytics</span>
+                </div>
+                <div class="min-w-0">
+                    <p class="eyebrow">Phân tích bài tập</p>
+                    <h1 class="text-2xl sm:text-3xl font-black text-primary-950 leading-tight mt-1 break-words">{{ assignment.title }}</h1>
+                    <p class="caption mt-2">
+                        {{ classroom.name }} · {{ assignment.max_score }} điểm
+                        {% if assignment.due_date %} · Hạn {{ assignment.due_date|date:"d/m/Y H:i" }}{% endif %}
+                    </p>
+                </div>
             </div>
-            <div>
-                <h1 class="text-2xl font-bold">Thống kê & Phân tích</h1>
-                <p class="text-slate-500 dark:text-slate-400 text-sm">{{ assignment.title }}</p>
-            </div>
-        </div>
-        <div class="flex gap-2">
-            <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2 px-4 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">policy</span> Kiểm tra đạo văn
-                {% if latest_plagiarism_report and latest_plagiarism_report.suspicious_count %}
-                <span class="ml-1 rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5">{{ latest_plagiarism_report.suspicious_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{% url 'assignments:export_late' pk=assignment.pk %}" class="flex items-center gap-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-2 px-4 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">download</span> Xuất CSV (nộp trễ)
-            </a>
-            <a href="{% url 'assignments:late_report_print' pk=assignment.pk %}" target="_blank" class="flex items-center gap-2 bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg hover:bg-primary/20 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">print</span> In / Xuất PDF
-            </a>
-            <a href="{% url 'assignments:bulk_regrade' pk=assignment.pk %}" class="flex items-center gap-2 bg-amber-500/10 text-amber-500 font-bold py-2 px-4 rounded-lg hover:bg-amber-500/20 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">refresh</span> Chấm lại toàn bộ
-            </a>
-        </div>
-    </div>
 
-    <!-- Stats Cards -->
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="btn btn-outline">
+                    <span class="material-symbols-outlined text-base">policy</span>
+                    Đạo văn
+                    {% if latest_plagiarism_report and latest_plagiarism_report.suspicious_count %}
+                    <span class="ml-1 rounded-full bg-danger-600 text-white text-[10px] px-1.5 py-0.5">{{ latest_plagiarism_report.suspicious_count }}</span>
+                    {% endif %}
+                </a>
+                {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-ghost' only %}
+                <a href="{% url 'assignments:late_report_print' pk=assignment.pk %}" target="_blank" class="btn btn-ghost">
+                    <span class="material-symbols-outlined text-base">print</span>
+                    In/PDF
+                </a>
+                <a href="{% url 'assignments:bulk_regrade' pk=assignment.pk %}" class="btn btn-primary">
+                    <span class="material-symbols-outlined text-base">refresh</span>
+                    Chấm lại
+                </a>
+            </div>
+        </div>
+    </section>
+
     {% if statistics %}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tổng bài nộp</p>
-            <p class="text-3xl font-black text-primary">{{ statistics.total_submissions }}</p>
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="stat-card">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="stat-label">Tổng bài nộp</p>
+                    <p class="stat-number">{{ statistics.total_submissions }}</p>
+                </div>
+                <span class="material-symbols-outlined text-primary text-3xl">assignment_turned_in</span>
+            </div>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Sinh viên nộp</p>
-            <p class="text-3xl font-black">{{ statistics.unique_students }}</p>
+        <div class="stat-card">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="stat-label">Sinh viên nộp</p>
+                    <p class="stat-number">{{ statistics.unique_students }}</p>
+                </div>
+                <span class="material-symbols-outlined text-primary text-3xl">groups</span>
+            </div>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Điểm trung bình</p>
-            <p class="text-3xl font-black">{{ statistics.avg_score|floatformat:1 }}</p>
+        <div class="stat-card">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="stat-label">Điểm trung bình</p>
+                    <p class="stat-number">{{ statistics.avg_score|floatformat:1 }}</p>
+                </div>
+                <span class="material-symbols-outlined text-primary text-3xl">equalizer</span>
+            </div>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tỷ lệ pass</p>
-            <p class="text-3xl font-black text-emerald-500">{{ statistics.pass_rate|floatformat:0 }}%</p>
+        <div class="stat-card">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="stat-label">Tỷ lệ pass</p>
+                    <p class="stat-number text-success-600">{{ statistics.pass_rate|floatformat:0 }}%</p>
+                </div>
+                <span class="material-symbols-outlined text-success-600 text-3xl">task_alt</span>
+            </div>
         </div>
-    </div>
+    </section>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Điểm cao nhất</p>
-            <p class="text-2xl font-black text-emerald-500">{{ statistics.max_score|floatformat:1 }}</p>
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="stats-mini-card">
+            <p class="stat-label">Điểm cao nhất</p>
+            <p class="text-2xl font-black text-success-600 mt-1">{{ statistics.max_score|floatformat:1 }}</p>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Điểm thấp nhất</p>
-            <p class="text-2xl font-black text-red-500">{{ statistics.min_score|floatformat:1 }}</p>
+        <div class="stats-mini-card">
+            <p class="stat-label">Điểm thấp nhất</p>
+            <p class="text-2xl font-black text-danger-600 mt-1">{{ statistics.min_score|floatformat:1 }}</p>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Thời gian TB</p>
-            <p class="text-2xl font-black">{{ avg_exec_time }}<span class="text-sm text-slate-400">ms</span></p>
+        <div class="stats-mini-card">
+            <p class="stat-label">Thời gian TB</p>
+            <p class="text-2xl font-black text-primary-900 mt-1">{{ avg_exec_time }}<span class="text-sm text-neutral-500">ms</span></p>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nộp trễ</p>
-            <p class="text-2xl font-black text-amber-500">{{ late_count }}</p>
+        <div class="stats-mini-card">
+            <p class="stat-label">Nộp trễ</p>
+            <p class="text-2xl font-black text-warning-600 mt-1">{{ late_count }}</p>
         </div>
-    </div>
+    </section>
     {% else %}
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center text-slate-500 mb-8">
-        <span class="material-symbols-outlined text-4xl mb-2">bar_chart</span>
-        <p>Chưa có dữ liệu thống kê. Thống kê sẽ được cập nhật khi có bài nộp.</p>
-    </div>
+    <section class="stats-panel stats-empty mb-6 p-8">
+        <span class="material-symbols-outlined text-4xl text-primary mb-2">bar_chart</span>
+        <p class="font-bold text-primary-900">Chưa có dữ liệu thống kê.</p>
+        <p class="caption mt-1">Thống kê sẽ được cập nhật khi có bài nộp.</p>
+    </section>
     {% endif %}
 
-    <!-- Charts Row: Score distribution + Error distribution -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-            <h2 class="font-bold mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">bar_chart</span>
-                Phổ điểm
-            </h2>
-            <canvas id="scoreChart" height="140"></canvas>
-        </section>
-        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-            <h2 class="font-bold mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-red-500">error</span>
-                Phân bố lỗi phổ biến
-            </h2>
-            <canvas id="errorChart" height="140"></canvas>
-        </section>
-    </div>
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="stats-panel p-5 sm:p-6">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <p class="eyebrow">Score distribution</p>
+                    <h2 class="text-xl font-bold text-primary-900">Phổ điểm</h2>
+                </div>
+                <span class="material-symbols-outlined text-primary text-3xl">bar_chart</span>
+            </div>
+            <div class="stats-chart-box">
+                <canvas id="scoreChart"></canvas>
+                <div id="scoreChartEmpty" class="stats-empty hidden">
+                    <span class="material-symbols-outlined text-4xl text-primary mb-2">data_usage</span>
+                    <p class="caption">Chưa có bài nộp đã hoàn thành.</p>
+                </div>
+            </div>
+        </div>
 
-    <!-- Top / Weak Students -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-            <h2 class="font-bold mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-emerald-500">emoji_events</span>
-                Top 5 sinh viên xuất sắc
-            </h2>
+        <div class="stats-panel p-5 sm:p-6">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <p class="eyebrow">Error distribution</p>
+                    <h2 class="text-xl font-bold text-primary-900">Phân bố lỗi phổ biến</h2>
+                </div>
+                <span class="material-symbols-outlined text-danger-600 text-3xl">error</span>
+            </div>
+            <div class="stats-chart-box">
+                <canvas id="errorChart"></canvas>
+                <div id="errorChartEmpty" class="stats-empty hidden">
+                    <span class="material-symbols-outlined text-4xl text-success-600 mb-2">verified</span>
+                    <p class="caption">Chưa có lỗi ghi nhận.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="stats-panel p-5 sm:p-6">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-success-600">emoji_events</span>
+                <h2 class="text-xl font-bold text-primary-900">Top sinh viên xuất sắc</h2>
+            </div>
             {% if top_students %}
             <div class="space-y-2">
                 {% for s in top_students %}
-                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="size-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs">{{ forloop.counter }}</div>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium">{{ s.student.get_full_name|default:s.student.username }}</p>
-                        <p class="text-xs text-slate-500">{{ s.passed_testcases }}/{{ s.total_testcases }} passed</p>
+                <a href="{% url 'submissions:detail' pk=s.pk %}" class="stats-row-link flex items-center gap-3 p-3">
+                    <div class="size-8 rounded-full bg-success-100 text-success-600 flex items-center justify-center font-bold text-xs flex-shrink-0">{{ forloop.counter }}</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-neutral-900 truncate">{{ s.student.get_full_name|default:s.student.username }}</p>
+                        <p class="caption">{{ s.passed_testcases }}/{{ s.total_testcases }} testcase pass</p>
                     </div>
-                    <span class="font-black text-emerald-500">{{ s.total_score|floatformat:1 }}</span>
-                </div>
+                    <span class="font-black text-success-600">{{ s.total_score|floatformat:1 }}</span>
+                </a>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-sm text-slate-500 text-center py-4">Chưa có dữ liệu.</p>
+            <div class="stats-empty">
+                <span class="material-symbols-outlined text-4xl text-primary mb-2">leaderboard</span>
+                <p class="caption">Chưa có dữ liệu.</p>
+            </div>
             {% endif %}
-        </section>
-        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-            <h2 class="font-bold mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-500">priority_high</span>
-                Top 5 sinh viên cần hỗ trợ
-            </h2>
+        </div>
+
+        <div class="stats-panel p-5 sm:p-6">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-warning-600">priority_high</span>
+                <h2 class="text-xl font-bold text-primary-900">Sinh viên cần hỗ trợ</h2>
+            </div>
             {% if weak_students %}
             <div class="space-y-2">
                 {% for s in weak_students %}
-                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="size-8 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs">{{ forloop.counter }}</div>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium">{{ s.student.get_full_name|default:s.student.username }}</p>
-                        <p class="text-xs text-slate-500">{{ s.passed_testcases }}/{{ s.total_testcases }} passed</p>
+                <a href="{% url 'submissions:detail' pk=s.pk %}" class="stats-row-link flex items-center gap-3 p-3">
+                    <div class="size-8 rounded-full bg-warning-100 text-warning-600 flex items-center justify-center font-bold text-xs flex-shrink-0">{{ forloop.counter }}</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-neutral-900 truncate">{{ s.student.get_full_name|default:s.student.username }}</p>
+                        <p class="caption">{{ s.passed_testcases }}/{{ s.total_testcases }} testcase pass</p>
                     </div>
-                    <span class="font-black text-amber-500">{{ s.total_score|floatformat:1 }}</span>
-                </div>
+                    <span class="font-black text-warning-600">{{ s.total_score|floatformat:1 }}</span>
+                </a>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-sm text-slate-500 text-center py-4">Chưa có dữ liệu.</p>
+            <div class="stats-empty">
+                <span class="material-symbols-outlined text-4xl text-success-600 mb-2">task_alt</span>
+                <p class="caption">Chưa có dữ liệu.</p>
+            </div>
             {% endif %}
-        </section>
-    </div>
+        </div>
+    </section>
 
-    <!-- Testcase Fail Analysis -->
-    <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 mb-6">
-        <h2 class="font-bold mb-4 flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary">analytics</span>
-            Phân tích Testcase - Testcase bị sai nhiều nhất
-        </h2>
+    <section class="stats-panel p-5 sm:p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <p class="eyebrow">Testcase analysis</p>
+                <h2 class="text-xl font-bold text-primary-900">Testcase bị sai nhiều nhất</h2>
+            </div>
+            <span class="badge badge-general">{{ tc_fail_stats|length }} testcase</span>
+        </div>
         {% if tc_fail_stats %}
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+        <div class="overflow-x-auto rounded-lg border border-primary-100">
+            <table class="stats-table w-full text-sm">
                 <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-left">
-                        <th class="py-2 px-4 font-bold text-slate-500">Testcase</th>
-                        <th class="py-2 px-4 font-bold text-slate-500">Loại</th>
-                        <th class="py-2 px-4 font-bold text-slate-500 text-right">Tổng lượt</th>
-                        <th class="py-2 px-4 font-bold text-slate-500 text-right">Số lỗi</th>
-                        <th class="py-2 px-4 font-bold text-slate-500 text-right">Tỷ lệ sai</th>
-                        <th class="py-2 px-4 font-bold text-slate-500">Mức độ</th>
+                    <tr>
+                        <th class="text-left">Testcase</th>
+                        <th class="text-left">Loại</th>
+                        <th class="text-right">Tổng lượt</th>
+                        <th class="text-right">Số lỗi</th>
+                        <th class="text-right">Tỷ lệ sai</th>
+                        <th class="text-left min-w-[160px]">Mức độ</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody>
                     {% for item in tc_fail_stats %}
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td class="py-3 px-4 font-medium">{{ item.testcase.name|default:"Testcase" }}</td>
-                        <td class="py-3 px-4">
-                            {% if item.testcase.is_sample %}<span class="text-xs font-bold px-2 py-0.5 bg-green-500/10 text-green-500 rounded">Mẫu</span>{% endif %}
-                            {% if item.testcase.is_hidden %}<span class="text-xs font-bold px-2 py-0.5 bg-slate-500/20 text-slate-500 rounded">Ẩn</span>{% endif %}
+                    <tr>
+                        <td class="font-semibold text-primary-900">{{ item.testcase.name|default:"Testcase" }}</td>
+                        <td>
+                            <div class="flex flex-wrap gap-1">
+                                {% if item.testcase.is_sample %}<span class="badge bg-success-100 text-success-600">Mẫu</span>{% endif %}
+                                {% if item.testcase.is_hidden %}<span class="badge bg-primary-100 text-primary-700">Ẩn</span>{% endif %}
+                            </div>
                         </td>
-                        <td class="py-3 px-4 text-right">{{ item.total }}</td>
-                        <td class="py-3 px-4 text-right font-bold text-red-500">{{ item.failed }}</td>
-                        <td class="py-3 px-4 text-right font-bold">{{ item.fail_rate }}%</td>
-                        <td class="py-3 px-4">
-                            <div class="flex items-center gap-2">
-                                <div class="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden min-w-[80px]">
-                                    <div class="h-full {% if item.fail_rate > 70 %}bg-red-500{% elif item.fail_rate > 40 %}bg-amber-500{% else %}bg-emerald-500{% endif %}" style="width: {{ item.fail_rate }}%"></div>
-                                </div>
+                        <td class="text-right">{{ item.total }}</td>
+                        <td class="text-right font-bold text-danger-600">{{ item.failed }}</td>
+                        <td class="text-right font-bold">{{ item.fail_rate }}%</td>
+                        <td>
+                            <div class="progress-track">
+                                <div
+                                    class="progress-fill"
+                                    style="width: {{ item.fail_rate }}%; {% if item.fail_rate > 70 %}background: var(--danger-600);{% elif item.fail_rate > 40 %}background: var(--warning-600);{% elif item.fail_rate <= 40 %}background: var(--success-600);{% endif %}"
+                                ></div>
                             </div>
                         </td>
                     </tr>
@@ -201,59 +349,64 @@
             </table>
         </div>
         {% else %}
-        <p class="text-sm text-slate-500 text-center py-4">Chưa có dữ liệu testcase.</p>
+        <div class="stats-empty">
+            <span class="material-symbols-outlined text-4xl text-primary mb-2">rule</span>
+            <p class="caption">Chưa có dữ liệu testcase.</p>
+        </div>
         {% endif %}
     </section>
 
-    <!-- Recent Submissions -->
-    <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary">history</span>
-            Bài nộp gần đây <span class="text-sm font-normal text-slate-500">(hiển thị {{ submissions|length }}/{{ total_submissions_count }})</span>
-        </h2>
+    <section class="stats-panel p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <p class="eyebrow">Recent submissions</p>
+                <h2 class="text-xl font-bold text-primary-900">Bài nộp gần đây</h2>
+            </div>
+            <span class="badge badge-general">Hiển thị {{ submissions|length }}/{{ total_submissions_count }}</span>
+        </div>
         {% if submissions %}
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+        <div class="overflow-x-auto rounded-lg border border-primary-100">
+            <table class="stats-table w-full text-sm">
                 <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-left">
-                        <th class="py-3 px-4 font-bold text-slate-500">Sinh viên</th>
-                        <th class="py-3 px-4 font-bold text-slate-500">Ngôn ngữ</th>
-                        <th class="py-3 px-4 font-bold text-slate-500">Trạng thái</th>
-                        <th class="py-3 px-4 font-bold text-slate-500">Điểm</th>
-                        <th class="py-3 px-4 font-bold text-slate-500">Testcase</th>
-                        <th class="py-3 px-4 font-bold text-slate-500">Thời gian</th>
+                    <tr>
+                        <th class="text-left">Sinh viên</th>
+                        <th class="text-left">Ngôn ngữ</th>
+                        <th class="text-left">Trạng thái</th>
+                        <th class="text-right">Điểm</th>
+                        <th class="text-right">Testcase</th>
+                        <th class="text-left">Thời gian</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody>
                     {% for sub in submissions %}
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onclick="location.href='{% url 'submissions:detail' pk=sub.pk %}'">
-                        <td class="py-3 px-4">
-                            <div class="flex items-center gap-2">
-                                <div class="size-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                    <tr class="cursor-pointer" onclick="location.href='{% url 'submissions:detail' pk=sub.pk %}'">
+                        <td>
+                            <div class="flex items-center gap-2 min-w-[180px]">
+                                <div class="size-8 rounded-full bg-primary-100 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
                                     {{ sub.student.first_name|first|default:sub.student.username|first|upper }}
                                 </div>
-                                <span class="font-medium">{{ sub.student.get_full_name|default:sub.student.username }}</span>
+                                <span class="font-semibold text-neutral-900 truncate">{{ sub.student.get_full_name|default:sub.student.username }}</span>
                             </div>
                         </td>
-                        <td class="py-3 px-4 text-slate-500">{{ sub.language }}</td>
-                        <td class="py-3 px-4">
-                            <span class="text-xs font-bold px-2 py-0.5 rounded {% if sub.status == 'finished' %}bg-emerald-500/10 text-emerald-500{% elif sub.status == 'error' %}bg-red-500/10 text-red-500{% elif sub.status == 'pending' %}bg-amber-500/10 text-amber-500{% else %}bg-slate-500/10 text-slate-500{% endif %}">
+                        <td><code>{{ sub.language }}</code></td>
+                        <td>
+                            <span class="badge {% if sub.status == 'finished' %}bg-success-100 text-success-600{% elif sub.status == 'error' or sub.status == 'failed' %}bg-danger-100 text-danger-600{% elif sub.status == 'pending' %}bg-warning-100 text-warning-600{% else %}bg-primary-100 text-primary-700{% endif %}">
                                 {{ sub.status }}
                             </span>
-                            {% if sub.is_late %}<span class="text-xs text-red-400 ml-1">Muộn</span>{% endif %}
+                            {% if sub.is_late %}<span class="caption ml-1 text-danger-600">Muộn</span>{% endif %}
                         </td>
-                        <td class="py-3 px-4 font-bold">{{ sub.total_score|floatformat:0 }}/{{ sub.max_score|floatformat:0 }}</td>
-                        <td class="py-3 px-4 text-slate-500">{{ sub.passed_testcases }}/{{ sub.total_testcases }}</td>
-                        <td class="py-3 px-4 text-slate-500">{{ sub.submitted_at|date:"d/m H:i" }}</td>
+                        <td class="text-right font-bold text-primary-900">{{ sub.total_score|floatformat:0 }}/{{ sub.max_score|floatformat:0 }}</td>
+                        <td class="text-right text-neutral-500">{{ sub.passed_testcases }}/{{ sub.total_testcases }}</td>
+                        <td class="text-neutral-500">{{ sub.submitted_at|date:"d/m H:i" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <div class="text-center py-8 text-slate-500">
-            <span class="material-symbols-outlined text-3xl mb-2">history</span>
-            <p>Chưa có bài nộp nào.</p>
+        <div class="stats-empty">
+            <span class="material-symbols-outlined text-4xl text-primary mb-2">history</span>
+            <p class="caption">Chưa có bài nộp nào.</p>
         </div>
         {% endif %}
     </section>
@@ -262,46 +415,64 @@
 <script>
 const scoreDist = {{ score_distribution_json|safe }};
 const errorDist = {{ error_distribution_json|safe }};
+const chartTextColor = '#64748b';
+const chartGridColor = 'rgba(184, 217, 253, 0.35)';
+const palette = ['#137fec', '#16a34a', '#ea580c', '#7c3aed', '#dc2626'];
 
-const palette = ['#16a34a', '#137fec', '#ea580c', '#7c3aed', '#dc2626'];
+function hasChartData(data) {
+    return Array.isArray(data) && data.some((value) => Number(value) > 0);
+}
 
-new Chart(document.getElementById('scoreChart'), {
-    type: 'bar',
-    data: {
-        labels: scoreDist.labels,
-        datasets: [{
-            label: 'Số sinh viên',
-            data: scoreDist.data,
-            backgroundColor: ['#dc2626', '#ea580c', '#ea580c', '#137fec', '#16a34a'],
-            borderRadius: 6,
-        }],
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            y: { beginAtZero: true, ticks: { color: '#64748b', stepSize: 1 }, grid: { color: 'rgba(184, 217, 253, 0.12)' } },
-            x: { ticks: { color: '#64748b' }, grid: { display: false } },
-        },
-    },
-});
-
-if (errorDist.data.length > 0) {
-    new Chart(document.getElementById('errorChart'), {
-        type: 'doughnut',
+if (hasChartData(scoreDist.data)) {
+    new Chart(document.getElementById('scoreChart'), {
+        type: 'bar',
         data: {
-            labels: errorDist.labels,
-            datasets: [{ data: errorDist.data, backgroundColor: palette }],
+            labels: scoreDist.labels,
+            datasets: [{
+                label: 'Số sinh viên',
+                data: scoreDist.data,
+                backgroundColor: ['#dc2626', '#ea580c', '#ea580c', '#137fec', '#16a34a'],
+                borderRadius: 7,
+                maxBarThickness: 54,
+            }],
         },
         options: {
             responsive: true,
-            plugins: {
-                legend: { position: 'right', labels: { color: '#64748b', font: { size: 11 } } },
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: chartTextColor, stepSize: 1 }, grid: { color: chartGridColor } },
+                x: { ticks: { color: chartTextColor }, grid: { display: false } },
             },
         },
     });
 } else {
-    document.getElementById('errorChart').parentElement.innerHTML += '<p class="text-sm text-slate-500 text-center py-8">Chưa có lỗi ghi nhận.</p>';
+    document.getElementById('scoreChart').classList.add('hidden');
+    document.getElementById('scoreChartEmpty').classList.remove('hidden');
+}
+
+if (hasChartData(errorDist.data)) {
+    new Chart(document.getElementById('errorChart'), {
+        type: 'doughnut',
+        data: {
+            labels: errorDist.labels,
+            datasets: [{ data: errorDist.data, backgroundColor: palette, borderColor: '#ffffff', borderWidth: 2 }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '58%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: chartTextColor, font: { size: 11 }, boxWidth: 12 },
+                },
+            },
+        },
+    });
+} else {
+    document.getElementById('errorChart').classList.add('hidden');
+    document.getElementById('errorChartEmpty').classList.remove('hidden');
 }
 </script>
 {% endblock %}

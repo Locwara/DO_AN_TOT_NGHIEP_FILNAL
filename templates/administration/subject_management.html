@@ -7,47 +7,157 @@
         <h2 class="text-2xl font-bold text-primary-900">Quản lý môn học</h2>
         <p class="text-neutral-500 mt-1">Kiểm duyệt và quản lý các môn học trong hệ thống.</p>
     </div>
-    <div class="flex gap-2">
-        <a href="{% url 'administation:subject_export' %}?status={{ status_filter }}" class="btn btn-ghost">
-            <span class="material-symbols-outlined text-sm">download</span>
-            Xuất CSV
-        </a>
+    <div class="flex flex-wrap gap-2">
+        {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-ghost' only %}
     </div>
+</div>
+
+<div class="flex border-b border-primary-200 gap-6 overflow-x-auto mt-6">
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'all' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?{{ subject_status_links.all }}">
+        <span class="material-symbols-outlined text-xl">list</span>
+        Tất cả
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'pending' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?{{ subject_status_links.pending }}">
+        <span class="material-symbols-outlined text-xl">hourglass_top</span>
+        Chờ duyệt
+        {% if pending_count %}<span class="bg-warning-100 text-warning-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold">{{ pending_count }}</span>{% endif %}
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'approved' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?{{ subject_status_links.approved }}">
+        <span class="material-symbols-outlined text-xl">check_circle</span>
+        Đã duyệt
+    </a>
+    <a class="flex items-center gap-2 border-b-2 {% if status_filter == 'rejected' %}border-primary-500 text-primary-700 font-bold{% else %}border-transparent text-neutral-500 hover:text-neutral-700 font-medium{% endif %} pb-3 transition-colors" href="?{{ subject_status_links.rejected }}">
+        <span class="material-symbols-outlined text-xl">cancel</span>
+        Từ chối
+    </a>
 </div>
 
 <!-- Filters -->
 <div class="flex flex-wrap gap-4 mt-6">
     <form method="get" class="admin-filter-form flex-1">
         <div class="flex-1">
+            <label class="form-label">Từ khóa</label>
             <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo mã, tên, mô tả, giảng viên..." class="form-input">
         </div>
-        <select name="status" class="form-select">
-            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả trạng thái</option>
-            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Chờ duyệt</option>
-            <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Đã duyệt</option>
-            <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Từ chối</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Tìm</button>
+        <div>
+            <label class="form-label">Trạng thái duyệt</label>
+            <select name="status" class="form-select">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả trạng thái</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Chờ duyệt</option>
+                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Đã duyệt</option>
+                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Từ chối</option>
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="btn btn-primary">Tìm</button>
+        </div>
+        <details class="admin-filter-section">
+            <summary>
+                Bộ lọc nâng cao
+            </summary>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                <div>
+                    <label class="form-label">Lớp học</label>
+                    <select name="classroom_id" class="form-select w-full">
+                        <option value="">Tất cả lớp</option>
+                        {% for classroom in filter_options.classrooms %}
+                        <option value="{{ classroom.pk }}" {% if classroom_filter == classroom.pk %}selected{% endif %}>{{ classroom.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Giáo viên</label>
+                    <select name="teacher_id" class="form-select w-full">
+                        <option value="">Tất cả giáo viên</option>
+                        {% for teacher in filter_options.teachers %}
+                        <option value="{{ teacher.pk }}" {% if teacher_filter == teacher.pk %}selected{% endif %}>{{ teacher.get_full_name|default:teacher.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Kỳ học</label>
+                    <select name="semester_id" class="form-select w-full">
+                        <option value="">Tất cả kỳ</option>
+                        {% for semester in filter_options.semesters %}
+                        <option value="{{ semester.pk }}" {% if semester_filter == semester.pk %}selected{% endif %}>{{ semester.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Ngôn ngữ</label>
+                    <select name="language_id" class="form-select w-full">
+                        <option value="">Tất cả ngôn ngữ</option>
+                        {% for language in filter_options.languages %}
+                        <option value="{{ language.pk }}" {% if language_filter == language.pk %}selected{% endif %}>{{ language.display_name|default:language.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Hiển thị</label>
+                    <select name="is_active" class="form-select w-full">
+                        <option value="all" {% if is_active_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="active" {% if is_active_filter == 'active' %}selected{% endif %}>Đang bật</option>
+                        <option value="inactive" {% if is_active_filter == 'inactive' %}selected{% endif %}>Đã ẩn</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Bài tập</label>
+                    <select name="has_assignments" class="form-select w-full">
+                        <option value="all" {% if has_assignments_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if has_assignments_filter == 'yes' %}selected{% endif %}>Có bài tập</option>
+                        <option value="no" {% if has_assignments_filter == 'no' %}selected{% endif %}>Chưa có bài tập</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Bài thi</label>
+                    <select name="has_exams" class="form-select w-full">
+                        <option value="all" {% if has_exams_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if has_exams_filter == 'yes' %}selected{% endif %}>Có bài thi</option>
+                        <option value="no" {% if has_exams_filter == 'no' %}selected{% endif %}>Chưa có bài thi</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Sandbox</label>
+                    <select name="sandbox_status" class="form-select w-full">
+                        <option value="all" {% if sandbox_status_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="ready" {% if sandbox_status_filter == 'ready' %}selected{% endif %}>Có sandbox active</option>
+                        <option value="missing" {% if sandbox_status_filter == 'missing' %}selected{% endif %}>Thiếu sandbox</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Tạo từ</label>
+                    <input type="date" name="created_from" value="{{ created_from }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">Tạo đến</label>
+                    <input type="date" name="created_to" value="{{ created_to }}" class="form-input w-full">
+                </div>
+            </div>
+        </details>
     </form>
 </div>
+{% include 'administration/partials/filter_status.html' %}
 
 {% if subjects %}
 <form method="post" action="{% url 'administation:subject_bulk_action' %}">
     {% csrf_token %}
     <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
-        <div class="p-4 border-b border-primary-200 flex items-center justify-between">
+        <div class="p-4 border-b border-primary-200 flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <span class="text-sm text-neutral-600">{{ page_obj.paginator.count }} môn học</span>
             </div>
-            <div class="flex gap-2">
-                <button type="submit" formaction="{% url 'administation:subject_bulk_action' %}?action=approve_all" class="btn btn-sm bg-success-100 text-success-700 hover:bg-success-200">
-                    <span class="material-symbols-outlined text-xs mr-1">check_circle</span>
-                    Duyệt tất cả
-                </button>
-                <button type="submit" formaction="{% url 'administation:subject_bulk_action' %}?action=reject_all" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200">
-                    <span class="material-symbols-outlined text-xs mr-1">cancel</span>
-                    Từ chối tất cả
-                </button>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <div id="bulk-selection-toolbar" class="hidden flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2">
+                    <span class="text-xs font-bold text-primary-700">Đã chọn <span id="selected-count">0</span></span>
+                    <button type="submit" name="action" value="approve" class="btn btn-sm bg-success-100 text-success-700 hover:bg-success-200" onclick="return confirmBulkApproval('duyệt')">
+                        <span class="material-symbols-outlined text-xs">check_circle</span>
+                        Duyệt đã chọn
+                    </button>
+                    <button type="submit" name="action" value="reject" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200" onclick="return confirmBulkApproval('từ chối')">
+                        <span class="material-symbols-outlined text-xs">cancel</span>
+                        Từ chối đã chọn
+                    </button>
+                </div>
                 <select name="action" id="bulk-action-select" class="form-select text-sm">
                     <option value="">Khác...</option>
                     <option value="activate">Kích hoạt</option>
@@ -74,7 +184,7 @@
                 {% for subject in subjects %}
                 <tr class="hover:bg-primary-50 transition-colors">
                     <td class="px-4 py-3">
-                        <input type="checkbox" name="subject_ids" value="{{ subject.id }}" class="rounded">
+                        <input type="checkbox" name="subject_ids" value="{{ subject.id }}" class="rounded bulk-row-checkbox">
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-3">
@@ -96,6 +206,7 @@
                     </td>
                     <td class="px-4 py-3 hidden lg:table-cell">
                         <span class="text-sm text-neutral-900">{{ subject.classroom_count }} lớp</span>
+                        <p class="text-xs text-neutral-500">{{ subject.assignment_count }} bài tập · {{ subject.exam_count }} bài thi · {{ subject.language_count }} ngôn ngữ</p>
                     </td>
                     <td class="px-4 py-3">
                         {% if subject.status == 'pending' %}
@@ -135,10 +246,10 @@
     <p class="text-neutral-600 text-sm">Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</p>
     <div class="flex gap-2">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&status={{ status_filter }}" class="btn btn-sm">Trước</a>
+        <a href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm">Trước</a>
         {% endif %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&status={{ status_filter }}" class="btn btn-sm">Sau</a>
+        <a href="?{% if page_query_string %}{{ page_query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm">Sau</a>
         {% endif %}
     </div>
 </div>
@@ -148,8 +259,8 @@
 <div class="flex flex-col items-center justify-center py-16 text-center mt-6">
     <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">menu_book</span>
     <h3 class="text-xl font-bold text-primary-900 mb-2">Không tìm thấy môn học</h3>
-    {% if search_query %}
-    <p class="text-neutral-500">Không có môn học nào khớp với "{{ search_query }}".</p>
+    {% if has_active_filters %}
+    <p class="text-neutral-500">Không có môn học nào khớp bộ lọc hiện tại.</p>
     <a href="{% url 'administation:subject_approvals' %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
     {% else %}
     <p class="text-neutral-500">Chưa có môn học nào.</p>
@@ -160,11 +271,42 @@
 <script>
 // Select all checkbox
 const selectAll = document.getElementById('select-all');
+const bulkToolbar = document.getElementById('bulk-selection-toolbar');
+const selectedCount = document.getElementById('selected-count');
+const rowCheckboxes = Array.from(document.querySelectorAll('input[name="subject_ids"]'));
+
+function updateBulkToolbar() {
+    const checked = rowCheckboxes.filter(cb => cb.checked).length;
+    if (selectedCount) selectedCount.textContent = checked;
+    if (bulkToolbar) {
+        bulkToolbar.classList.toggle('hidden', checked === 0);
+        bulkToolbar.classList.toggle('flex', checked > 0);
+    }
+    if (selectAll) {
+        selectAll.checked = checked > 0 && checked === rowCheckboxes.length;
+        selectAll.indeterminate = checked > 0 && checked < rowCheckboxes.length;
+    }
+}
+
 if (selectAll) {
     selectAll.addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('input[name="subject_ids"]');
-        checkboxes.forEach(cb => cb.checked = this.checked);
+        rowCheckboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkToolbar();
     });
+}
+rowCheckboxes.forEach(cb => cb.addEventListener('change', updateBulkToolbar));
+updateBulkToolbar();
+
+function hasSelectedRows() {
+    return rowCheckboxes.some(cb => cb.checked);
+}
+
+function confirmBulkApproval(label) {
+    if (!hasSelectedRows()) {
+        alert('Vui lòng chọn ít nhất một môn học.');
+        return false;
+    }
+    return confirm(`Bạn chắc chắn muốn ${label} các môn học đã chọn?`);
 }
 
 // Handle bulk action submit
@@ -173,6 +315,10 @@ function submitBulkAction(button) {
     const select = form ? form.querySelector('#bulk-action-select') : null;
     if (!select || !select.value) {
         alert('Vui lòng chọn hành động.');
+        return false;
+    }
+    if (!hasSelectedRows()) {
+        alert('Vui lòng chọn ít nhất một môn học.');
         return false;
     }
     return true;

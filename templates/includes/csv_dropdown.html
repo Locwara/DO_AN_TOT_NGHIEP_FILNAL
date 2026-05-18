@@ -1,0 +1,19 @@
+{% load csv_extras %}
+{% with button_class=csv_button_class|default:"btn btn-ghost" %}
+<details class="csv-dropdown">
+    <summary class="{{ button_class }}">
+        <span class="material-symbols-outlined text-sm">download</span>
+        CSV
+        {% if csv_dropdown_has_filters %}<span class="csv-filter-badge">Đang lọc</span>{% endif %}
+        <span class="material-symbols-outlined text-sm">expand_more</span>
+    </summary>
+    <div class="csv-menu">
+        {% for item in csv_items %}
+        <a href="{% csv_export_href item.url csv_query_string item.type %}">
+            <span class="material-symbols-outlined">{{ item.icon|default:"table_rows" }}</span>
+            {{ item.label }}
+        </a>
+        {% endfor %}
+    </div>
+</details>
+{% endwith %}

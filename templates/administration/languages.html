@@ -13,28 +13,96 @@
     </a>
 </div>
 
+{% if missing_sandbox_count %}
+<div class="mt-6 rounded-lg border border-warning-100 bg-warning-100 p-4 text-sm text-warning-600">
+    <div class="flex items-center gap-2 font-bold">
+        <span class="material-symbols-outlined">warning</span>
+        {{ missing_sandbox_count }} ngôn ngữ active chưa có sandbox active tương ứng.
+    </div>
+</div>
+{% endif %}
+
 <!-- Search Bar -->
 <div class="mt-6">
     <form method="get" class="admin-filter-form">
         <div class="flex-1">
+            <label class="form-label">Từ khóa</label>
             <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo tên, display name, extension..." class="form-input">
         </div>
-        <button type="submit" class="btn btn-primary">Tìm</button>
-        {% if search_query %}
-        <a href="{% url 'administation:languages' %}" class="btn btn-ghost">Xóa</a>
-        {% endif %}
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn btn-primary">Tìm</button>
+            <a href="{% url 'administation:languages' %}" class="btn btn-ghost">Xóa</a>
+        </div>
+        <details class="admin-filter-section">
+            <summary>
+                Bộ lọc nâng cao
+            </summary>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                <div>
+                    <label class="form-label">Trạng thái</label>
+                    <select name="is_active" class="form-select w-full">
+                        <option value="all" {% if is_active_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="active" {% if is_active_filter == 'active' %}selected{% endif %}>Đang bật</option>
+                        <option value="inactive" {% if is_active_filter == 'inactive' %}selected{% endif %}>Đã tắt</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Sandbox</label>
+                    <select name="has_sandbox" class="form-select w-full">
+                        <option value="all" {% if has_sandbox_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if has_sandbox_filter == 'yes' %}selected{% endif %}>Có sandbox active</option>
+                        <option value="no" {% if has_sandbox_filter == 'no' %}selected{% endif %}>Thiếu sandbox</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Môn học</label>
+                    <select name="used_by_subject" class="form-select w-full">
+                        <option value="all" {% if used_by_subject_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if used_by_subject_filter == 'yes' %}selected{% endif %}>Có môn dùng</option>
+                        <option value="no" {% if used_by_subject_filter == 'no' %}selected{% endif %}>Chưa môn nào dùng</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Bài tập/bài thi</label>
+                    <select name="used_by_assignment" class="form-select w-full">
+                        <option value="all" {% if used_by_assignment_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if used_by_assignment_filter == 'yes' %}selected{% endif %}>Có bài dùng</option>
+                        <option value="no" {% if used_by_assignment_filter == 'no' %}selected{% endif %}>Chưa bài nào dùng</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Extension</label>
+                    <select name="extension" class="form-select w-full">
+                        <option value="">Tất cả extension</option>
+                        {% for extension in extension_options %}
+                        <option value="{{ extension }}" {% if extension_filter == extension %}selected{% endif %}>{{ extension }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Sắp xếp</label>
+                    <select name="sort" class="form-select w-full">
+                        <option value="display_name" {% if sort_filter == 'display_name' %}selected{% endif %}>Tên hiển thị</option>
+                        <option value="subject_count" {% if sort_filter == 'subject_count' %}selected{% endif %}>Số môn đang dùng</option>
+                        <option value="created_at" {% if sort_filter == 'created_at' %}selected{% endif %}>Ngày tạo mới nhất</option>
+                    </select>
+                </div>
+            </div>
+        </details>
     </form>
 </div>
+{% include 'administration/partials/filter_status.html' %}
 
 {% if languages %}
 <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <div class="overflow-x-auto">
     <table class="w-full text-left">
         <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
             <tr>
                 <th class="px-6 py-4">Ngôn ngữ</th>
                 <th class="px-6 py-4 hidden md:table-cell">Tên</th>
                 <th class="px-6 py-4 hidden lg:table-cell">Extension</th>
-                <th class="px-6 py-4 hidden lg:table-cell">Syntax</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Sandbox / Môn</th>
                 <th class="px-6 py-4">Trạng thái</th>
                 <th class="px-6 py-4 text-right">Thao tác</th>
             </tr>
@@ -62,7 +130,12 @@
                     <span class="text-sm text-neutral-600">{{ lang.file_extension|default:"—" }}</span>
                 </td>
                 <td class="px-6 py-4 hidden lg:table-cell">
-                    <span class="text-sm text-neutral-600">{{ lang.syntax_highlight_mode|default:"—" }}</span>
+                    {% if lang.has_active_sandbox %}
+                    <span class="badge bg-success-100 text-success-600">Sandbox OK</span>
+                    {% else %}
+                    <span class="badge bg-warning-100 text-warning-600">Thiếu sandbox</span>
+                    {% endif %}
+                    <p class="text-xs text-neutral-500 mt-1">{{ lang.subject_count }} môn · {{ lang.assignment_usage_count }} bài dùng</p>
                 </td>
                 <td class="px-6 py-4">
                     <form method="post" action="{% url 'administation:language_toggle' lang.pk %}" class="inline">
@@ -89,13 +162,14 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% else %}
 <div class="flex flex-col items-center justify-center py-16 text-center mt-6">
     <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">code</span>
     <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có ngôn ngữ nào</h3>
-    {% if search_query %}
-    <p class="text-neutral-500">Không tìm thấy ngôn ngữ nào khớp với "{{ search_query }}".</p>
+    {% if has_active_filters %}
+    <p class="text-neutral-500">Không tìm thấy ngôn ngữ nào khớp bộ lọc hiện tại.</p>
     <a href="{% url 'administation:languages' %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
     {% else %}
     <p class="text-neutral-500">Bắt đầu bằng cách thêm ngôn ngữ đầu tiên.</p>

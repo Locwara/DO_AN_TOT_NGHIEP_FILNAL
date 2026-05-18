@@ -17,14 +17,13 @@
             <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
             <p class="text-slate-600 mt-1">{{ assignment.exam_duration_minutes|default:"-" }} phút{% if assignment.exam_start_time %} • Mở {{ assignment.exam_start_time|date:"d/m/Y H:i" }}{% endif %}</p>
         </div>
-        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200">
-            <span class="material-symbols-outlined text-sm">arrow_back</span>
-            Về bài thi
-        </a>
-        <a href="{% url 'submissions:exam_monitor_export' assignment_pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90">
-            <span class="material-symbols-outlined text-sm">download</span>
-            Xuất CSV
-        </a>
+        <div class="flex flex-wrap gap-2">
+            {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-primary' only %}
+            <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="btn btn-outline">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Về bài thi
+            </a>
+        </div>
     </div>
 
     <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">

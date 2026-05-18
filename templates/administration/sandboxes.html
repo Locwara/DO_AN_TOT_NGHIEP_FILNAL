@@ -13,21 +13,112 @@
     </a>
 </div>
 
+{% if missing_sandbox_languages %}
+<div class="mt-6 rounded-lg border border-warning-100 bg-warning-100 p-4">
+    <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-warning-600">warning</span>
+        <div>
+            <p class="text-sm font-bold text-warning-600">Ngôn ngữ active chưa có sandbox active</p>
+            <p class="text-xs text-neutral-600 mt-1">
+                {% for lang in missing_sandbox_languages %}
+                    {{ lang.display_name|default:lang.name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Search Bar -->
 <div class="mt-6">
     <form method="get" class="admin-filter-form">
         <div class="flex-1">
+            <label class="form-label">Từ khóa</label>
             <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo ngôn ngữ, Docker image..." class="form-input">
         </div>
-        <button type="submit" class="btn btn-primary">Tìm</button>
-        {% if search_query %}
-        <a href="{% url 'administation:sandboxes' %}" class="btn btn-ghost">Xóa</a>
-        {% endif %}
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn btn-primary">Tìm</button>
+            <a href="{% url 'administation:sandboxes' %}" class="btn btn-ghost">Xóa</a>
+        </div>
+        <details class="admin-filter-section">
+            <summary>
+                Bộ lọc nâng cao
+            </summary>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                <div>
+                    <label class="form-label">Ngôn ngữ</label>
+                    <select name="language" class="form-select w-full">
+                        <option value="">Tất cả ngôn ngữ</option>
+                        {% for value, label in sandbox_language_options %}
+                        <option value="{{ value }}" {% if language_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Trạng thái</label>
+                    <select name="is_active" class="form-select w-full">
+                        <option value="all" {% if is_active_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="active" {% if is_active_filter == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if is_active_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Cấu hình</label>
+                    <select name="config_status" class="form-select w-full">
+                        <option value="all" {% if config_status_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="valid" {% if config_status_filter == 'valid' %}selected{% endif %}>Hợp lệ</option>
+                        <option value="needs_review" {% if config_status_filter == 'needs_review' %}selected{% endif %}>Cần kiểm tra</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Language đã khai báo</label>
+                    <select name="language_registered" class="form-select w-full">
+                        <option value="all" {% if language_registered_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if language_registered_filter == 'yes' %}selected{% endif %}>Đã khai báo</option>
+                        <option value="no" {% if language_registered_filter == 'no' %}selected{% endif %}>Chưa khai báo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Bài tập/bài thi</label>
+                    <select name="used_by_assignments" class="form-select w-full">
+                        <option value="all" {% if used_by_assignments_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if used_by_assignments_filter == 'yes' %}selected{% endif %}>Có bài dùng</option>
+                        <option value="no" {% if used_by_assignments_filter == 'no' %}selected{% endif %}>Chưa bài nào dùng</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Timeout từ</label>
+                    <input type="number" min="0" name="timeout_min" value="{{ timeout_min }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">Timeout đến</label>
+                    <input type="number" min="0" name="timeout_max" value="{{ timeout_max }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">Memory từ (MB)</label>
+                    <input type="number" min="0" name="memory_min" value="{{ memory_min }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">Memory đến (MB)</label>
+                    <input type="number" min="0" name="memory_max" value="{{ memory_max }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">CPU từ</label>
+                    <input type="number" min="0" step="0.1" name="cpu_min" value="{{ cpu_min }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">CPU đến</label>
+                    <input type="number" min="0" step="0.1" name="cpu_max" value="{{ cpu_max }}" class="form-input w-full">
+                </div>
+            </div>
+        </details>
     </form>
 </div>
+{% include 'administration/partials/filter_status.html' %}
 
 {% if sandboxes %}
 <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
+    <div class="overflow-x-auto">
     <table class="w-full text-left">
         <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
             <tr>
@@ -36,6 +127,7 @@
                 <th class="px-6 py-4 text-center">Timeout</th>
                 <th class="px-6 py-4 text-center hidden sm:table-cell">Memory</th>
                 <th class="px-6 py-4 text-center hidden sm:table-cell">CPU</th>
+                <th class="px-6 py-4 text-center hidden lg:table-cell">Đang dùng</th>
                 <th class="px-6 py-4">Trạng thái</th>
                 <th class="px-6 py-4 text-right">Thao tác</th>
             </tr>
@@ -58,15 +150,29 @@
                 <td class="px-6 py-4 text-center hidden sm:table-cell">
                     <span class="text-sm font-bold">{{ sb.cpu_limit }}x</span>
                 </td>
+                <td class="px-6 py-4 text-center hidden lg:table-cell">
+                    <p class="text-sm font-bold">{{ sb.assignment_usage_count }} bài</p>
+                    {% if not sb.language_is_registered %}
+                    <p class="text-[10px] text-warning-600 font-bold">Chưa có language</p>
+                    {% endif %}
+                </td>
                 <td class="px-6 py-4">
-                    {% if sb.is_active %}
+                    {% if sb.is_active and sb.config_ok and sb.language_is_registered %}
                     <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-500 uppercase">Active</span>
+                    {% elif sb.is_active %}
+                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-warning-100 text-warning-600 uppercase">Cần kiểm tra</span>
                     {% else %}
                     <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-500/20 text-slate-500 uppercase">Inactive</span>
                     {% endif %}
                 </td>
                 <td class="px-6 py-4 text-right">
                     <div class="flex gap-2 justify-end">
+                        <form method="post" action="{% url 'administation:sandbox_test' sb.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="text-slate-400 hover:text-success-600 transition-colors" title="Test nhanh cấu hình">
+                                <span class="material-symbols-outlined">science</span>
+                            </button>
+                        </form>
                         <a href="{% url 'administation:sandbox_edit' sb.pk %}" class="text-slate-400 hover:text-primary transition-colors" title="Chỉnh sửa">
                             <span class="material-symbols-outlined">edit</span>
                         </a>
@@ -82,13 +188,14 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% else %}
 <div class="flex flex-col items-center justify-center py-16 text-center mt-6">
     <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">deployed_code</span>
     <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có cấu hình sandbox</h3>
-    {% if search_query %}
-    <p class="text-neutral-500">Không tìm thấy cấu hình nào khớp với "{{ search_query }}".</p>
+    {% if has_active_filters %}
+    <p class="text-neutral-500">Không tìm thấy cấu hình nào khớp bộ lọc hiện tại.</p>
     <a href="{% url 'administation:sandboxes' %}" class="btn btn-primary mt-4">Xóa bộ lọc</a>
     {% else %}
     <p class="text-neutral-500">Bắt đầu bằng cách thêm cấu hình đầu tiên.</p>

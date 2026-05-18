@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.db import DataError, transaction, models
@@ -13,6 +14,7 @@ from datetime import timedelta
 from django.core.paginator import Paginator
 
 from core.decorators import teacher_required
+from apps.administation.utils import csv_filename, csv_query_context
 from apps.classrooms.views import _is_classroom_teacher, _is_classroom_member
 from apps.classrooms.models import ClassroomMembers
 from apps.assignments.models import Assignments, Testcases, Rubrics
@@ -35,6 +37,14 @@ logger = logging.getLogger(__name__)
 EXAM_WARNING_EVENTS = {
     'tab_hidden', 'focus_lost', 'fullscreen_exit', 'paste',
     'copy', 'context_menu', 'devtools_hint',
+}
+
+EXAM_MONITOR_FILTER_STATUSES = {
+    ExamSessions.STATUS_RUNNING,
+    ExamSessions.STATUS_SUBMITTED,
+    ExamSessions.STATUS_AUTO_SUBMITTED,
+    ExamSessions.STATUS_EXPIRED,
+    ExamSessions.STATUS_CANCELLED,
 }
 
 JSON_OUTPUT_LIMIT = 10000
@@ -125,6 +135,22 @@ def _log_exam_event(session, event_type, metadata=None):
     return event
 
 
+def _filtered_exam_monitor_sessions(assignment, request):
+    sessions = ExamSessions.objects.filter(
+        assignment=assignment,
+    ).select_related('student', 'final_submission').order_by('student__username')
+    status_filter = request.GET.get('status', 'all')
+    if status_filter in EXAM_MONITOR_FILTER_STATUSES:
+        if status_filter == ExamSessions.STATUS_SUBMITTED:
+            sessions = sessions.filter(status__in=[
+                ExamSessions.STATUS_SUBMITTED,
+                ExamSessions.STATUS_AUTO_SUBMITTED,
+            ])
+        else:
+            sessions = sessions.filter(status=status_filter)
+    return sessions, status_filter
+
+
 def _expire_session_if_needed(session, now=None):
     now = now or timezone.now()
     grace = session.assignment.exam_grace_seconds or 30
@@ -158,22 +184,31 @@ def _build_ide_context(request, assignment, classroom, is_teacher=False, exam_se
         ).order_by('display_name')
 
     default_lang = languages.first()
-    selected_lang = request.GET.get(
-        'lang',
-        exam_session.current_language if exam_session and exam_session.current_language else (default_lang.name if default_lang else 'python'),
+    language_names = list(languages.values_list('name', flat=True))
+    selected_lang = (
+        request.GET.get('lang')
+        or (exam_session.current_language if exam_session and exam_session.current_language else None)
+        or (default_lang.name if default_lang else 'python')
     )
+    if language_names and selected_lang not in language_names:
+        selected_lang = default_lang.name
+    selected_language = languages.filter(name=selected_lang).first() or default_lang
 
     draft = CodeDrafts.objects.filter(
         assignment=assignment, student=request.user, language=selected_lang
     ).first()
 
     initial_code = ''
-    if exam_session and exam_session.latest_draft:
-        initial_code = exam_session.latest_draft
-    elif draft:
+    if draft:
         initial_code = draft.code_content or ''
-    elif default_lang and default_lang.default_template:
-        initial_code = default_lang.default_template
+    elif (
+        exam_session
+        and exam_session.latest_draft
+        and selected_lang == exam_session.current_language
+    ):
+        initial_code = exam_session.latest_draft
+    elif selected_language and selected_language.default_template:
+        initial_code = selected_language.default_template
 
     sample_testcases = Testcases.objects.filter(
         assignment=assignment, is_sample=True
@@ -453,24 +488,7 @@ def exam_monitor_view(request, assignment_pk):
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền xem phòng thi này.')
         return redirect('classrooms:classroom_list')
-    sessions = ExamSessions.objects.filter(
-        assignment=assignment,
-    ).select_related('student', 'final_submission').order_by('student__username')
-    status_filter = request.GET.get('status', 'all')
-    if status_filter in {
-        ExamSessions.STATUS_RUNNING,
-        ExamSessions.STATUS_SUBMITTED,
-        ExamSessions.STATUS_AUTO_SUBMITTED,
-        ExamSessions.STATUS_EXPIRED,
-        ExamSessions.STATUS_CANCELLED,
-    }:
-        if status_filter == ExamSessions.STATUS_SUBMITTED:
-            sessions = sessions.filter(status__in=[
-                ExamSessions.STATUS_SUBMITTED,
-                ExamSessions.STATUS_AUTO_SUBMITTED,
-            ])
-        else:
-            sessions = sessions.filter(status=status_filter)
+    sessions, status_filter = _filtered_exam_monitor_sessions(assignment, request)
     member_ids = set(ClassroomMembers.objects.filter(
         classroom=classroom,
         status='approved',
@@ -489,14 +507,39 @@ def exam_monitor_view(request, assignment_pk):
         'warnings': sum(all_sessions.values_list('violation_count', flat=True)),
     }
     page_obj = Paginator(sessions, 25).get_page(request.GET.get('page'))
-    return render(request, 'submissions/exam_monitor.html', {
+    context = {
         'assignment': assignment,
         'classroom': classroom,
         'sessions': page_obj,
         'page_obj': page_obj,
         'status_filter': status_filter,
         'counts': counts,
-    })
+    }
+    context.update(csv_query_context(request))
+    context['csv_items'] = [
+        {
+            'url': reverse('submissions:exam_monitor_export', kwargs={'assignment_pk': assignment.pk}),
+            'type': '',
+            'icon': 'filter_alt',
+            'label': 'Xuất phiên thi theo lọc hiện tại' if context['has_active_filters'] else 'Xuất toàn bộ phiên thi',
+            'primary': True,
+        },
+        {
+            'url': reverse('submissions:exam_monitor_export', kwargs={'assignment_pk': assignment.pk}),
+            'type': 'scores',
+            'icon': 'grading',
+            'label': 'Xuất điểm bài thi theo lọc hiện tại' if context['has_active_filters'] else 'Xuất điểm bài thi',
+            'primary': False,
+        },
+        {
+            'url': reverse('submissions:exam_monitor_export', kwargs={'assignment_pk': assignment.pk}),
+            'type': 'warnings',
+            'icon': 'warning',
+            'label': 'Xuất cảnh báo theo lọc hiện tại' if context['has_active_filters'] else 'Xuất cảnh báo thi',
+            'primary': False,
+        },
+    ]
+    return render(request, 'submissions/exam_monitor.html', context)
 
 
 @teacher_required
@@ -507,17 +550,73 @@ def exam_monitor_export_view(request, assignment_pk):
         messages.error(request, 'Bạn không có quyền xuất báo cáo phòng thi này.')
         return redirect('classrooms:classroom_list')
 
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename=\"exam-report-{assignment.pk}.csv\"'
+    export_type = request.GET.get('type', 'summary')
+    suffix = export_type if export_type in {'summary', 'warnings', 'scores'} else 'summary'
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="%s"' % csv_filename(
+        f'exam_{assignment.pk}',
+        suffix,
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    )
     response.write('\ufeff')
     writer = csv.writer(response)
+
+    sessions, _status_filter = _filtered_exam_monitor_sessions(assignment, request)
+
+    if export_type == 'warnings':
+        writer.writerow([
+            'Thời gian', 'Username', 'Họ tên', 'Email', 'Sự kiện',
+            'Số cảnh báo phiên', 'Trạng thái phiên', 'IP', 'Metadata',
+        ])
+        events = ExamEvents.objects.filter(
+            session__in=sessions,
+            event_type__in=EXAM_WARNING_EVENTS,
+        ).select_related('session', 'session__student').order_by('session__student__username', 'created_at')
+        for event in events:
+            session = event.session
+            writer.writerow([
+                timezone.localtime(event.created_at).strftime('%d/%m/%Y %H:%M:%S') if event.created_at else '',
+                session.student.username,
+                session.student.get_full_name(),
+                session.student.email,
+                event.event_type,
+                session.violation_count,
+                session.get_status_display(),
+                session.ip_address or '',
+                json.dumps(event.metadata or {}, ensure_ascii=False),
+            ])
+        return response
+
+    if export_type == 'scores':
+        writer.writerow([
+            'Username', 'Họ tên', 'Email', 'Trạng thái phiên', 'Submission ID',
+            'Ngôn ngữ', 'Nộp lúc', 'Điểm', 'Điểm tối đa', 'Testcase pass',
+            'Tổng testcase', 'Cảnh báo', 'Số lần run',
+        ])
+        for session in sessions:
+            submission = session.final_submission
+            writer.writerow([
+                session.student.username,
+                session.student.get_full_name(),
+                session.student.email,
+                session.get_status_display(),
+                submission.pk if submission else '',
+                submission.language if submission else session.current_language or '',
+                timezone.localtime(submission.submitted_at).strftime('%d/%m/%Y %H:%M:%S') if submission and submission.submitted_at else '',
+                submission.manual_score if submission and submission.manual_score is not None else (submission.total_score if submission else ''),
+                submission.max_score if submission else assignment.max_score,
+                submission.passed_testcases if submission else '',
+                submission.total_testcases if submission else '',
+                session.violation_count,
+                session.run_count,
+            ])
+        return response
+
     writer.writerow([
         'Username', 'Ho ten', 'Email', 'Trang thai', 'Bat dau',
         'Ket thuc', 'Nop luc', 'Lan run', 'Warning', 'Submission ID', 'Diem',
     ])
-    sessions = ExamSessions.objects.filter(
-        assignment=assignment,
-    ).select_related('student', 'final_submission').order_by('student__username')
     for session in sessions:
         submission = session.final_submission
         writer.writerow([

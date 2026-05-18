@@ -17,20 +17,82 @@
 <div class="mt-6">
     <form method="get" class="admin-filter-form">
         <div class="flex-1">
+            <label class="form-label">Từ khóa</label>
             <input type="text" name="search" value="{{ search_query }}" placeholder="Tìm kiếm theo key hoặc mô tả..." class="form-input">
         </div>
-        <button type="submit" class="btn btn-ghost">
-            <span class="material-symbols-outlined">search</span>
-            Tìm
-        </button>
-        {% if search_query %}
-        <a href="{% url 'administation:system_settings' %}" class="btn btn-ghost">
-            <span class="material-symbols-outlined">clear</span>
-            Xóa
-        </a>
-        {% endif %}
+        <div>
+            <label class="form-label">Nhóm cài đặt</label>
+            <select name="category" class="form-select">
+                <option value="">Tất cả nhóm</option>
+                {% for category in categories %}
+                <option value="{{ category }}" {% if category_filter == category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn btn-ghost">
+                <span class="material-symbols-outlined">search</span>
+                Tìm
+            </button>
+            <a href="{% url 'administation:system_settings' %}" class="btn btn-ghost">
+                <span class="material-symbols-outlined">clear</span>
+                Xóa
+            </a>
+        </div>
+        <details class="admin-filter-section">
+            <summary>
+                Bộ lọc nâng cao
+            </summary>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                <div>
+                    <label class="form-label">Kiểu dữ liệu</label>
+                    <select name="type" class="form-select w-full">
+                        <option value="all" {% if type_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="bool" {% if type_filter == 'bool' %}selected{% endif %}>Boolean</option>
+                        <option value="int" {% if type_filter == 'int' %}selected{% endif %}>Integer</option>
+                        <option value="float" {% if type_filter == 'float' %}selected{% endif %}>Float</option>
+                        <option value="str" {% if type_filter == 'str' %}selected{% endif %}>String</option>
+                        <option value="json" {% if type_filter == 'json' %}selected{% endif %}>JSON</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Mức độ</label>
+                    <select name="critical" class="form-select w-full">
+                        <option value="all" {% if critical_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if critical_filter == 'yes' %}selected{% endif %}>Quan trọng</option>
+                        <option value="no" {% if critical_filter == 'no' %}selected{% endif %}>Thường</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Tình trạng</label>
+                    <select name="missing" class="form-select w-full">
+                        <option value="all" {% if missing_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                        <option value="yes" {% if missing_filter == 'yes' %}selected{% endif %}>Chưa tạo trong DB</option>
+                        <option value="no" {% if missing_filter == 'no' %}selected{% endif %}>Đã tạo trong DB</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Người cập nhật</label>
+                    <select name="updated_by" class="form-select w-full">
+                        <option value="">Tất cả</option>
+                        {% for updater in setting_updaters %}
+                        <option value="{{ updater.pk }}" {% if updated_by_filter == updater.pk %}selected{% endif %}>{{ updater.get_full_name|default:updater.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Cập nhật từ</label>
+                    <input type="date" name="updated_from" value="{{ updated_from }}" class="form-input w-full">
+                </div>
+                <div>
+                    <label class="form-label">Cập nhật đến</label>
+                    <input type="date" name="updated_to" value="{{ updated_to }}" class="form-input w-full">
+                </div>
+            </div>
+        </details>
     </form>
 </div>
+{% include 'administration/partials/filter_status.html' %}
 
 {% if policy_schemas %}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
@@ -40,12 +102,42 @@
             <div>
                 <code class="text-xs bg-primary-50 text-primary-700 px-2 py-1 rounded">{{ key }}</code>
                 <p class="text-sm text-neutral-600 mt-3">{{ schema.description }}</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <span class="badge bg-neutral-100 text-neutral-600">Schema</span>
+                </div>
                 {% if schema.min != None or schema.max != None %}
                 <p class="text-xs text-neutral-500 mt-2">Khoảng hợp lệ: {{ schema.min|default:"-" }} đến {{ schema.max|default:"-" }}</p>
                 {% endif %}
             </div>
             <a href="{% url 'administation:setting_create' %}?key={{ key }}" class="btn btn-sm" title="Tạo nhanh setting">
                 <span class="material-symbols-outlined text-xs">tune</span>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if setting_warnings %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+    {% for warning in setting_warnings %}
+    <div class="rounded-lg border border-warning-100 bg-warning-100 p-4">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-bold text-warning-600">{{ warning.key }}</p>
+                <p class="text-xs text-neutral-600 mt-1">{{ warning.message }}</p>
+                <p class="text-xs text-neutral-500 mt-1">{{ warning.description }}</p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    <span class="badge bg-primary-100 text-primary-700">{{ warning.value_type|upper }}</span>
+                    {% if warning.is_critical %}
+                    <span class="badge bg-danger-100 text-danger-700">Quan trọng</span>
+                    {% else %}
+                    <span class="badge bg-neutral-100 text-neutral-600">Thường</span>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{% url 'administation:setting_create' %}?key={{ warning.key }}" class="btn btn-sm">
+                <span class="material-symbols-outlined text-xs">add</span>
             </a>
         </div>
     </div>
@@ -66,10 +158,26 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-primary-200">
-            {% for setting in settings_list %}
+            {% for group in grouped_settings %}
+            {% if group.settings %}
+            <tr class="bg-primary-50/70">
+                <td colspan="5" class="px-6 py-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-primary-700">{{ group.category }}</span>
+                </td>
+            </tr>
+            {% endif %}
+            {% for setting in group.settings %}
             <tr class="hover:bg-primary-50 transition-colors">
                 <td class="px-6 py-4">
                     <code class="bg-primary-50 text-primary-700 px-2 py-1 rounded text-sm">{{ setting.setting_key }}</code>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="badge bg-neutral-100 text-neutral-600">{{ setting.value_type|upper }}</span>
+                        {% if setting.is_critical %}
+                        <span class="badge bg-danger-100 text-danger-700">Quan trọng</span>
+                        {% else %}
+                        <span class="badge bg-neutral-100 text-neutral-600">Thường</span>
+                        {% endif %}
+                    </div>
                 </td>
                 <td class="px-6 py-4 max-w-xs">
                     {% if setting.setting_value is True or setting.setting_value is False %}
@@ -114,15 +222,16 @@
                 </td>
             </tr>
             {% endfor %}
+            {% endfor %}
         </tbody>
     </table>
 </div>
-{% else %}
+{% elif not setting_warnings %}
 <div class="flex flex-col items-center justify-center py-16 text-center mt-6">
     <span class="material-symbols-outlined text-6xl text-primary-400 mb-4">settings</span>
     <h3 class="text-xl font-bold text-primary-900 mb-2">Chưa có cài đặt nào</h3>
-    {% if search_query %}
-    <p class="text-neutral-500 mb-4">Không tìm thấy cài đặt nào khớp với "{{ search_query }}".</p>
+    {% if has_active_filters %}
+    <p class="text-neutral-500 mb-4">Không tìm thấy cài đặt nào khớp bộ lọc hiện tại.</p>
     <a href="{% url 'administation:setting_create' %}" class="btn btn-primary">Thêm cài đặt</a>
     {% else %}
     <p class="text-neutral-500 mb-4">Bắt đầu bằng cách thêm cài đặt đầu tiên.</p>
