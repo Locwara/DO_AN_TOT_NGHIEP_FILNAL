@@ -3,81 +3,169 @@
 
 {% block extra_head %}
 <style>
-    .code-container { background-color: #020d1f; font-family: 'Fira Code', monospace; }
-    .line-number { color: #64748b; text-align: right; padding-right: 1rem; user-select: none; min-width: 3rem; }
+    .code-container { background-color: #ffffff; font-family: 'Fira Code', monospace; }
+    .line-number { color: #94a3b8; text-align: right; padding-right: 1rem; user-select: none; min-width: 3rem; font-weight: 600; }
+    .code-line-text { color: #1e293b; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="max-w-[1400px] mx-auto px-6 py-8">
     <nav class="flex items-center gap-2 text-xs text-slate-500 mb-4">
+        <a href="{% url 'classrooms:classroom_list' %}" class="hover:text-primary transition-colors">Lớp học</a>
+        <span>/</span>
         <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
         <span>/</span>
         <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
         <span>/</span>
         <a href="{% url 'submissions:history' assignment_pk=assignment.pk %}" class="hover:text-primary transition-colors">Lịch sử</a>
         <span>/</span>
-        <span class="text-slate-300">Submission #{{ submission.pk }}</span>
+        <span class="text-slate-400">Submission #{{ submission.pk }}</span>
     </nav>
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-8">
         <div>
-            <h1 class="text-xl font-bold">
-                Submission #{{ submission.pk }}
-                <span class="ml-2 px-2 py-0.5 rounded text-[10px] uppercase tracking-widest
-                    {% if submission.status == 'finished' and submission.passed_testcases == submission.total_testcases and submission.total_testcases > 0 %}bg-green-500/10 text-green-500
-                    {% elif submission.status == 'finished' %}bg-amber-500/10 text-amber-500
-                    {% else %}bg-slate-500/10 text-slate-400{% endif %}">
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-black text-slate-900">Submission #{{ submission.pk }}</h1>
+                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest
+                    {% if submission.status == 'finished' and submission.passed_testcases == submission.total_testcases and submission.total_testcases > 0 %}bg-success-100 text-success-600
+                    {% elif submission.status == 'finished' %}bg-amber-100 text-amber-600
+                    {% else %}bg-slate-100 text-slate-500{% endif %}">
                     {% if submission.passed_testcases == submission.total_testcases and submission.total_testcases > 0 %}Accepted{% else %}{{ submission.status }}{% endif %}
                 </span>
                 {% if submission.is_late %}
-                <span class="ml-1 px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 text-[10px] font-bold">Nộp muộn (-{{ submission.penalty_applied }}%)</span>
+                <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-black">Nộp muộn (-{{ submission.penalty_applied }}%)</span>
                 {% endif %}
-            </h1>
-            <p class="text-xs text-slate-500 mt-1">{{ submission.submitted_at|date:"d/m/Y H:i:s" }} • {{ submission.language }}</p>
-        </div>
-        <div class="flex items-center gap-4">
-            <div class="text-right">
-                <p class="text-[10px] text-slate-500 uppercase font-bold">Điểm</p>
-                <p class="text-2xl font-bold text-primary">{{ submission.total_score|floatformat:1 }}<span class="text-sm text-slate-500">/{{ submission.max_score }}</span></p>
             </div>
-            {% if submission.manual_score is not None %}
+            <p class="text-sm font-medium text-slate-500 mt-2">{{ submission.submitted_at|date:"d/m/Y H:i:s" }} • <span class="uppercase">{{ submission.language }}</span></p>
+        </div>
+        <div class="flex items-center gap-6">
             <div class="text-right">
-                <p class="text-[10px] text-slate-500 uppercase font-bold">Điểm thủ công</p>
-                <p class="text-lg font-bold text-amber-400">{{ submission.manual_score|floatformat:1 }}</p>
+                <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest">Tổng điểm</p>
+                {% if grades_visible %}
+                <p class="text-3xl font-black text-primary">{{ final_score|floatformat:1 }}<span class="text-sm text-slate-400 font-bold">/{{ submission.max_score }}</span></p>
+                {% else %}
+                <p class="text-sm font-black text-slate-400 uppercase italic">Chờ công bố</p>
+                {% endif %}
+            </div>
+            {% if grades_visible and submission.manual_score is not None %}
+            <div class="text-right border-l border-slate-200 pl-6">
+                <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest">Chấm tay</p>
+                <p class="text-xl font-black text-amber-600">{{ submission.manual_score|floatformat:1 }}</p>
             </div>
             {% endif %}
         </div>
     </div>
 
-    <div class="flex gap-6">
-        <!-- Left: Code View -->
-        <div class="flex-1">
-            <div class="rounded-xl border border-primary-900 overflow-hidden bg-primary-950">
-                <div class="bg-primary-900 px-4 py-2 border-b border-primary-900 flex items-center justify-between">
-                    <span class="text-slate-300 text-xs">solution.{{ submission.language }}</span>
-                    <span class="text-slate-400 text-[10px]">{{ code_lines|length }} lines</span>
+    <div class="flex flex-col lg:flex-row gap-8">
+        <!-- Left: Submission View -->
+        <div class="flex-1 min-w-0">
+            {% if is_file_submission %}
+            <div class="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                <div class="bg-slate-50 px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <span class="text-slate-900 text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">folder_open</span>
+                        File đã nộp
+                    </span>
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{{ submission_files|length }} file</span>
+                </div>
+                <div class="p-6">
+                    {% if submission.submission_text %}
+                    <div class="mb-6 rounded-xl border border-primary-100 bg-primary-50/50 p-5">
+                        <p class="text-[10px] font-black uppercase text-primary tracking-widest mb-2">Ghi chú từ sinh viên</p>
+                        <p class="text-sm text-slate-700 leading-relaxed">{{ submission.submission_text }}</p>
+                    </div>
+                    {% endif %}
+                    {% if submission_files %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {% for file in submission_files %}
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 hover:border-primary transition-colors group">
+                            <div class="flex items-start gap-4">
+                                <div class="size-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-primary group-hover:border-primary transition-colors">
+                                    <span class="material-symbols-outlined">{% if file.extension == '.pdf' %}picture_as_pdf{% elif file.extension == '.png' or file.extension == '.jpg' or file.extension == '.jpeg' %}image{% elif file.extension == '.zip' or file.extension == '.rar' %}folder_zip{% else %}description{% endif %}</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-bold text-slate-900 truncate">{{ file.file_name }}</p>
+                                    <p class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-wider">
+                                        {{ file.extension|default:'file'|slice:"1:" }}
+                                        {% if file.file_size %} · {{ file.file_size|filesizeformat }}{% endif %}
+                                    </p>
+                                    <div class="flex items-center gap-2 mt-3">
+                                        <a href="{% url 'submissions:open_file' file_pk=file.pk %}" target="_blank" class="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/10">
+                                            <span class="material-symbols-outlined text-sm">visibility</span>
+                                            Xem file
+                                        </a>
+                                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{{ file.get_scan_status_display }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-16 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                        <span class="material-symbols-outlined text-5xl text-slate-300 mb-3">upload_file_off</span>
+                        <p class="font-bold text-slate-500">Không có file đính kèm.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% if feedback_files %}
+            <div class="mt-8 p-6 rounded-2xl bg-amber-50 border border-amber-100 shadow-sm">
+                <div class="flex items-center gap-2 mb-5">
+                    <span class="material-symbols-outlined text-amber-600">assignment_return</span>
+                    <span class="text-sm font-black text-amber-900 uppercase tracking-widest">Phản hồi từ giáo viên</span>
+                </div>
+                <div class="space-y-3">
+                    {% for file in feedback_files %}
+                    <a href="{% url 'submissions:open_feedback_file' file_pk=file.pk %}" target="_blank" class="flex items-center justify-between gap-4 rounded-xl bg-white border border-amber-200 p-4 hover:border-amber-500 transition-all group shadow-sm">
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-slate-900 truncate">{{ file.file_name }}</p>
+                            {% if file.note %}<p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ file.note }}</p>{% endif %}
+                        </div>
+                        <span class="material-symbols-outlined text-amber-600 group-hover:scale-110 transition-transform">open_in_new</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% elif not feedback_visible and submission.feedback_files.exists %}
+            <div class="mt-8 p-6 rounded-2xl bg-slate-100 border border-slate-200 text-sm text-slate-600 italic font-medium">
+                <p class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">visibility_off</span>
+                    Giáo viên đang xử lý nhận xét và sẽ công bố kết quả sau.
+                </p>
+            </div>
+            {% endif %}
+            {% else %}
+            <!-- Code Submission View -->
+            <div class="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                <div class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary">code</span>
+                        <span class="text-slate-900 text-sm font-black uppercase tracking-wider">solution.{{ submission.language }}</span>
+                    </div>
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{{ code_lines|length }} lines</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full border-collapse font-mono text-sm leading-relaxed">
                         <tbody>
                             {% for line in code_lines %}
                             <tr class="group hover:bg-primary/5 transition-colors">
-                                <td class="line-number w-12 text-center py-0.5 border-r border-primary-900 bg-primary-950/50 text-slate-400">{{ forloop.counter }}</td>
-                                <td class="pl-4 py-0.5 text-slate-200 whitespace-pre">{{ line }}</td>
+                                <td class="line-number w-14 text-center py-1 border-r border-slate-100 bg-slate-50 text-slate-400 font-mono text-[11px]">{{ forloop.counter }}</td>
+                                <td class="pl-5 py-1 text-slate-800 whitespace-pre font-mono">{{ line }}</td>
                             </tr>
                             {% for comment in code_comments %}
                             {% if comment.line_number == forloop.parentloop.counter %}
                             <tr>
                                 <td colspan="2" class="px-0">
-                                    <div class="bg-primary/5 border-l-4 border-primary p-3 mx-4 my-1 rounded-r-lg">
-                                        <div class="flex items-center gap-2 mb-1">
+                                    <div class="bg-primary-50 border-l-4 border-primary p-4 mx-6 my-2 rounded-r-xl shadow-sm">
+                                        <div class="flex items-center gap-2 mb-2">
                                             <span class="material-symbols-outlined text-primary text-sm">chat_bubble</span>
-                                            <span class="text-xs font-bold text-primary">{{ comment.teacher.get_full_name|default:comment.teacher.username }}</span>
-                                            <span class="text-[10px] text-slate-400">{{ comment.created_at|date:"d/m H:i" }}</span>
+                                            <span class="text-xs font-black text-primary uppercase">{{ comment.teacher.get_full_name|default:comment.teacher.username }}</span>
+                                            <span class="text-[10px] font-bold text-slate-400 ml-auto">{{ comment.created_at|date:"d/m H:i" }}</span>
                                         </div>
-                                        <p class="text-sm text-slate-300">{{ comment.comment_text }}</p>
+                                        <p class="text-sm text-slate-700 leading-relaxed">{{ comment.comment_text }}</p>
                                     </div>
                                 </td>
                             </tr>
@@ -88,73 +176,45 @@
                     </table>
                 </div>
             </div>
-
-            {% if code_comments %}
-            <div class="mt-6">
-                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-lg">chat_bubble</span>
-                    Nhận xét trên code ({{ code_comments|length }})
-                </h3>
-                <div class="space-y-2">
-                    {% for comment in code_comments %}
-                    <div id="comment-card-{{ comment.pk }}" class="bg-primary/5 border-l-4 border-primary p-4 rounded-r-lg {% if comment.is_resolved %}opacity-50{% endif %}">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-bold text-primary">Dòng {{ comment.line_number }}:</span>
-                                <span class="text-xs text-slate-400">{{ comment.teacher.get_full_name|default:comment.teacher.username }}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-slate-400">{{ comment.created_at|date:"d/m H:i" }}</span>
-                                <button type="button"
-                                        onclick="toggleResolveComment({{ comment.pk }})"
-                                        class="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/20 transition-colors"
-                                        title="{% if comment.is_resolved %}Mở lại nhận xét{% else %}Đánh dấu nhận xét đã giải quyết{% endif %}">
-                                    <span class="material-symbols-outlined text-xs">task_alt</span>
-                                    <span id="comment-action-{{ comment.pk }}">{% if comment.is_resolved %}Mở lại{% else %}Đã xử lý{% endif %}</span>
-                                </button>
-                            </div>
-                        </div>
-                        <p class="text-sm text-slate-200">{{ comment.comment_text }}</p>
-                        <span id="comment-status-{{ comment.pk }}" class="text-[10px] text-green-400 font-bold mt-1 inline-block {% if not comment.is_resolved %}hidden{% endif %}">✓ Đã giải quyết</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
             {% endif %}
 
             {% if submission.teacher_comment %}
-            <div class="mt-6 p-5 rounded-xl bg-primary/5 border border-primary/20">
-                <div class="flex items-center gap-2 mb-2">
+            <div class="mt-8 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
                     <span class="material-symbols-outlined text-primary">rate_review</span>
-                    <span class="text-sm font-bold">Nhận xét của giáo viên</span>
+                    <span class="text-sm font-black text-slate-900 uppercase tracking-widest">Nhận xét từ giáo viên</span>
                 </div>
-                <p class="text-sm text-slate-700 leading-relaxed">{{ submission.teacher_comment|linebreaksbr }}</p>
+                <div class="p-5 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed border border-slate-100">
+                    {{ submission.teacher_comment|linebreaksbr }}
+                </div>
             </div>
             {% endif %}
 
             {% if rubric_scores %}
-            <div class="mt-6 p-5 rounded-xl bg-primary/5 border border-primary/20">
-                <div class="flex items-center justify-between gap-3 mb-4">
-                    <div class="flex items-center gap-2">
+            <div class="mt-8 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <div class="flex items-center gap-3">
                         <span class="material-symbols-outlined text-primary">rubric</span>
-                        <span class="text-sm font-bold">Rubric breakdown</span>
+                        <span class="text-sm font-black text-slate-900 uppercase tracking-widest">Tiêu chí đánh giá</span>
                     </div>
-                    <span class="text-xs font-bold text-primary">{{ rubric_score_total|floatformat:1 }}/{{ rubric_max_total|floatformat:1 }}</span>
+                    <span class="badge bg-primary-500 text-white font-black px-3 py-1">{{ rubric_score_total|floatformat:1 }}/{{ rubric_max_total|floatformat:1 }}</span>
                 </div>
-                <div class="space-y-3">
+                <div class="space-y-4">
                     {% for score in rubric_scores %}
-                    <div class="p-3 rounded-lg border border-primary/20 bg-white">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="text-sm font-bold text-slate-900">{{ score.rubric.name }}</p>
+                    <div class="p-5 rounded-xl border border-slate-100 bg-slate-50/50 hover:border-primary/30 transition-colors">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <p class="text-sm font-black text-slate-900">{{ score.rubric.name }}</p>
                                 {% if score.rubric.description %}
-                                <p class="text-xs text-slate-500 mt-1">{{ score.rubric.description }}</p>
+                                <p class="text-xs text-slate-500 mt-2 leading-relaxed">{{ score.rubric.description }}</p>
                                 {% endif %}
                             </div>
-                            <span class="text-sm font-black text-primary">{{ score.score|floatformat:1 }}/{{ score.rubric.max_points|floatformat:1 }}</span>
+                            <span class="text-sm font-black text-primary whitespace-nowrap bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">{{ score.score|floatformat:1 }}/{{ score.rubric.max_points|floatformat:1 }}</span>
                         </div>
                         {% if score.comment %}
-                        <p class="text-xs text-slate-600 mt-2">{{ score.comment|linebreaksbr }}</p>
+                        <div class="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-600 italic">
+                            {{ score.comment|linebreaksbr }}
+                        </div>
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -164,90 +224,131 @@
         </div>
 
         <!-- Right: Test Results -->
-        <div class="w-[380px] space-y-6">
+        <div class="w-full lg:w-[380px] space-y-6 shrink-0">
+            {% if is_file_submission %}
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Thông tin nộp bài</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-bold text-slate-500">Hình thức</span>
+                        <span class="text-sm font-black text-slate-900">Nộp file</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-bold text-slate-500">Số lượng file</span>
+                        <span class="text-sm font-black text-slate-900">{{ submission_files|length }}</span>
+                    </div>
+                </div>
+            </div>
+            {% elif assignment.submission_mode == 'quiz' %}
+            <!-- Quiz Summary -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Kết quả trắc nghiệm</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Số câu đúng</p>
+                        <p class="text-lg font-black text-slate-900">{{ submission.passed_testcases }}/{{ submission.total_testcases }}</p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Độ chính xác</p>
+                        <p class="text-lg font-black text-primary">{{ submission.pass_rate|floatformat:0 }}%</p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
             <!-- Performance Metrics -->
-            <div class="grid grid-cols-2 gap-3">
-                <div class="stat-card">
-                    <span class="stat-label">Thời gian</span>
-                    <p class="text-xl font-bold">{{ submission.execution_time|floatformat:0|default:"--" }}ms</p>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">Bộ nhớ</span>
-                    <p class="text-xl font-bold">{{ submission.memory_usage|floatformat:1|default:"--" }}MB</p>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">Tests passed</span>
-                    <p class="text-xl font-bold {% if submission.passed_testcases == submission.total_testcases %}text-green-400{% else %}text-amber-400{% endif %}">{{ submission.passed_testcases }}/{{ submission.total_testcases }}</p>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">Ngôn ngữ</span>
-                    <p class="text-xl font-bold">{{ submission.language }}</p>
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Kết quả tự động</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Thời gian</p>
+                        <p class="text-lg font-black text-slate-900">{{ submission.execution_time|floatformat:0|default:"--" }}<span class="text-xs ml-0.5">ms</span></p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Bộ nhớ</p>
+                        <p class="text-lg font-black text-slate-900">{{ submission.memory_usage|floatformat:1|default:"--" }}<span class="text-xs ml-0.5">MB</span></p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Pass rate</p>
+                        <p class="text-lg font-black {% if submission.passed_testcases == submission.total_testcases %}text-green-600{% else %}text-amber-600{% endif %}">
+                            {{ submission.passed_testcases }}/{{ submission.total_testcases }}
+                        </p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Ngôn ngữ</p>
+                        <p class="text-lg font-black text-slate-900 uppercase">{{ submission.language }}</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Test Cases -->
-            <div>
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-bold uppercase tracking-widest text-slate-700">Test Cases</span>
-                    <span class="text-xs font-medium text-slate-400">{{ submission.passed_testcases }}/{{ submission.total_testcases }} passed</span>
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-6">
+                    <span class="text-xs font-black uppercase tracking-widest text-slate-900">Test Cases chi tiết</span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ submission.passed_testcases }}/{{ submission.total_testcases }} passed</span>
                 </div>
-                <div class="space-y-2 max-h-[400px] overflow-y-auto">
+                <div class="space-y-3 max-h-[500px] overflow-y-auto pr-1 form-scroll-area">
                     {% for d in details %}
-                    <div class="flex items-center justify-between p-3 rounded-lg
-                        {% if d.result_status == 'accepted' or d.result_status == 'passed' %}bg-green-500/5 border border-green-500/20
-                        {% elif d.result_status == 'wrong_answer' %}bg-red-500/5 border border-red-500/20
-                        {% elif d.result_status == 'time_limit_exceeded' %}bg-amber-500/5 border border-amber-500/20
-                        {% else %}bg-red-500/5 border border-red-500/20{% endif %}">
-                        <div class="flex items-center gap-3">
-                            {% if d.result_status == 'accepted' or d.result_status == 'passed' %}
-                            <span class="material-symbols-outlined text-green-500 text-lg">check_circle</span>
-                            {% elif d.result_status == 'time_limit_exceeded' %}
-                            <span class="material-symbols-outlined text-amber-500 text-lg">timer_off</span>
-                            {% else %}
-                            <span class="material-symbols-outlined text-red-400 text-lg">cancel</span>
-                            {% endif %}
-                            <div>
-                                <span class="text-sm font-medium">{{ d.testcase.name|default:"Testcase" }}</span>
-                                {% if d.testcase.is_hidden %}<span class="text-[10px] text-slate-400 ml-1">(ẩn)</span>{% endif %}
-                                <p class="text-[10px] text-slate-400">{{ d.result_status }}</p>
+                    <div class="flex flex-col rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-primary/20">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                {% if d.result_status == 'accepted' or d.result_status == 'passed' %}
+                                <span class="material-symbols-outlined text-success-600 text-lg">check_circle</span>
+                                {% elif d.result_status == 'time_limit_exceeded' %}
+                                <span class="material-symbols-outlined text-amber-500 text-lg">timer_off</span>
+                                {% else %}
+                                <span class="material-symbols-outlined text-red-500 text-lg">cancel</span>
+                                {% endif %}
+                                <div class="min-w-0">
+                                    <span class="text-sm font-bold text-slate-800 block truncate">{{ d.testcase.name|default:"Testcase" }}</span>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ d.result_status|title }}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] font-black text-primary block">+{{ d.score_earned|floatformat:1 }}</span>
+                                <span class="text-[9px] font-bold text-slate-400">{{ d.execution_time|floatformat:0 }}ms</span>
                             </div>
                         </div>
-                        <div class="flex gap-4 text-xs text-slate-400">
-                            <span>{{ d.execution_time|floatformat:0 }}ms</span>
-                            <span class="font-bold">+{{ d.score_earned|floatformat:1 }}</span>
+                        {% if d.error_message and is_teacher %}
+                        <div class="mt-3 p-3 bg-red-50 text-red-700 text-[11px] font-mono rounded-lg border border-red-100 break-words leading-relaxed">
+                            {{ d.error_message|truncatechars:500 }}
                         </div>
+                        {% endif %}
                     </div>
-                    {% if d.error_message and is_teacher %}
-                    <div class="ml-8 px-3 py-2 text-xs text-red-400 bg-red-500/5 rounded font-mono">{{ d.error_message|truncatechars:300 }}</div>
-                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
+            {% endif %}
 
             <!-- Actions -->
-            <div class="space-y-2">
+            <div class="space-y-3 sticky top-6">
                 {% if can_start_new_submission %}
-                <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="w-full py-3 bg-primary text-white font-bold rounded-xl text-center text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2">
+                <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="w-full py-4 bg-primary text-white font-black rounded-2xl text-center text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
                     <span class="material-symbols-outlined text-sm">replay</span>
-                    Làm lại / Nộp bài mới
+                    Nộp bài mới
                 </a>
                 {% elif assignment.is_exam and not is_teacher %}
-                <div class="w-full py-3 px-4 bg-slate-100 text-slate-600 font-bold rounded-xl text-center text-sm flex items-center justify-center gap-2">
+                <div class="w-full py-4 px-4 bg-slate-200 text-slate-500 font-black rounded-2xl text-center text-sm flex items-center justify-center gap-2 uppercase tracking-widest">
                     <span class="material-symbols-outlined text-sm">lock</span>
                     Bài thi đã nộp
                 </div>
                 {% elif not is_teacher %}
-                <div class="w-full py-3 px-4 bg-slate-100 text-slate-600 font-bold rounded-xl text-center text-sm flex items-center justify-center gap-2">
+                <div class="w-full py-4 px-4 bg-slate-200 text-slate-500 font-black rounded-2xl text-center text-sm flex items-center justify-center gap-2 uppercase tracking-widest">
                     <span class="material-symbols-outlined text-sm">block</span>
                     Đã hết lượt nộp
                 </div>
                 {% endif %}
+                
                 {% if is_teacher %}
-                <a href="{% url 'submissions:grade' pk=submission.pk %}" class="w-full py-3 bg-amber-500 text-white font-bold rounded-xl text-center text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2">
+                <a href="{% url 'submissions:grade' pk=submission.pk %}" class="w-full py-4 bg-amber-500 text-white font-black rounded-2xl text-center text-sm hover:bg-amber-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-200">
                     <span class="material-symbols-outlined text-sm">grading</span>
-                    Chấm bài
+                    Chấm bài & Nhận xét
                 </a>
                 {% endif %}
+
+                <a href="{% url 'submissions:history' assignment_pk=assignment.pk %}" class="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl text-center text-sm hover:border-primary hover:text-primary hover:bg-primary-50 transition-all flex items-center justify-center gap-2 shadow-sm">
+                    <span class="material-symbols-outlined text-sm">history</span>
+                    Xem lịch sử nộp bài
+                </a>
             </div>
         </div>
     </div>

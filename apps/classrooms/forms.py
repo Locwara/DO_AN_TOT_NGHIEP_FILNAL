@@ -7,14 +7,38 @@ from .models import Classrooms, Announcements, Subjects, SubjectApprovalStatus, 
 
 
 class ClassroomForm(forms.ModelForm):
+    YEAR_CHOICES = [
+        ('', '-- Chọn năm học --'),
+        ('2024-2025', '2024-2025'),
+        ('2025-2026', '2025-2026'),
+        ('2026-2027', '2026-2027'),
+    ]
+    TERM_CHOICES = [
+        ('', '-- Chọn học kỳ --'),
+        ('Học kỳ 1', 'Học kỳ 1'),
+        ('Học kỳ 2', 'Học kỳ 2'),
+        ('Học kỳ 3 (Hè)', 'Học kỳ 3 (Hè)'),
+    ]
+
+    school_year = forms.ChoiceField(
+        choices=YEAR_CHOICES,
+        label='Năm học',
+        required=True,
+    )
+    semester_term = forms.ChoiceField(
+        choices=TERM_CHOICES,
+        label='Học kỳ',
+        required=True,
+    )
     join_requires_approval = forms.BooleanField(
         required=False,
         label='Học sinh tham gia cần giáo viên duyệt',
+        initial=True,
     )
 
     class Meta:
         model = Classrooms
-        fields = ['name', 'description', 'max_students']
+        fields = ['name', 'description', 'school_year', 'semester_term', 'max_students']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Tên lớp học'}),
             'description': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Mô tả lớp học...'}),
@@ -111,16 +135,10 @@ class ClassroomSubjectForm(forms.ModelForm):
         queryset=Subjects.objects.filter(is_active=True, status=SubjectApprovalStatus.APPROVED).order_by('code'),
         empty_label='-- Chọn môn học --',
     )
-    semester = forms.ModelChoiceField(
-        queryset=Semesters.objects.filter(is_active=True).order_by('-is_current', '-start_date'),
-        required=False,
-        empty_label='-- Chưa chọn kỳ học --',
-        help_text='Chọn kỳ học áp dụng môn này trong lớp (có thể để trống).',
-    )
 
     class Meta:
         model = ClassroomSubjects
-        fields = ['subject', 'semester']
+        fields = ['subject']
 
 
 class SemesterForm(forms.ModelForm):

@@ -1,0 +1,27 @@
+{# includes/page_header.html - Shared content page header #}
+<div class="page-header{% if header_variant %} {{ header_variant }}{% endif %}">
+    <div class="container">
+        {% if breadcrumbs %}
+            {% include "includes/breadcrumb.html" with crumbs=breadcrumbs %}
+        {% endif %}
+        <div class="page-header-inner">
+            <div class="page-header-text">
+                {% if eyebrow %}
+                <p class="eyebrow">{{ eyebrow }}</p>
+                {% endif %}
+                <h1 class="page-title">{{ title }}</h1>
+                {% if subtitle %}
+                <p class="page-subtitle">{{ subtitle }}</p>
+                {% endif %}
+            </div>
+            {% if action_url and action_label %}
+            <a href="{{ action_url }}" class="btn btn-primary">
+                {% if action_icon %}
+                <span class="material-symbols-outlined" aria-hidden="true">{{ action_icon }}</span>
+                {% endif %}
+                {{ action_label }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>

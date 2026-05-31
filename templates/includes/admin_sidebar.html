@@ -1,0 +1,102 @@
+{# includes/admin_sidebar.html - Admin navigation sidebar #}
+<aside class="admin-sidebar" aria-label="Điều hướng quản trị">
+    <div class="admin-sidebar-card">
+        <p class="admin-sidebar-kicker">Admin Center</p>
+        <p class="admin-sidebar-desc">Điều phối người dùng, học tập và vận hành hệ thống.</p>
+    </div>
+
+    <nav>
+        <div class="admin-sidebar-section">
+            <p class="admin-sidebar-label">Tổng quan</p>
+            <a href="{% url 'administation:dashboard' %}" class="admin-sidebar-link {% if current_page == 'dashboard' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
+                Bảng điều khiển
+            </a>
+            <a href="{% url 'administation:analytics' %}" class="admin-sidebar-link {% if current_page == 'analytics' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
+                Analytics
+            </a>
+        </div>
+
+        <div class="admin-sidebar-section">
+            <p class="admin-sidebar-label">Người dùng</p>
+            <a href="{% url 'administation:user_management' %}" class="admin-sidebar-link {% if current_page == 'user_management' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">group</span>
+                Tài khoản
+            </a>
+            <a href="{% url 'administation:student_management' %}" class="admin-sidebar-link {% if current_page == 'student_management' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                Học sinh
+            </a>
+            <a href="{% url 'administation:teacher_management' %}" class="admin-sidebar-link {% if current_page == 'teacher_management' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">school</span>
+                Giáo viên
+                {% if pending_teachers_count %}
+                <span class="admin-sidebar-count">{{ pending_teachers_count }}</span>
+                {% endif %}
+            </a>
+        </div>
+
+        <div class="admin-sidebar-section">
+            <p class="admin-sidebar-label">Học tập</p>
+            <a href="{% url 'administation:classroom_management' %}" class="admin-sidebar-link {% if current_page == 'classroom_management' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">meeting_room</span>
+                Lớp học
+                {% if pending_classrooms_count %}
+                <span class="admin-sidebar-count">{{ pending_classrooms_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'administation:subject_approvals' %}" class="admin-sidebar-link {% if current_page == 'subject_management' or current_page == 'subject_approvals' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+                Môn học
+                {% if pending_subjects_count %}
+                <span class="admin-sidebar-count">{{ pending_subjects_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'classrooms:semester_list' %}" class="admin-sidebar-link {% if current_page == 'semesters' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">event_note</span>
+                Kỳ học
+            </a>
+        </div>
+
+        <div class="admin-sidebar-section">
+            <p class="admin-sidebar-label">Chấm code</p>
+            <a href="{% url 'administation:languages' %}" class="admin-sidebar-link {% if current_page == 'languages' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">code</span>
+                Ngôn ngữ
+            </a>
+            <a href="{% url 'administation:sandboxes' %}" class="admin-sidebar-link {% if current_page == 'sandboxes' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">deployed_code</span>
+                Cấu hình Sandbox
+            </a>
+            <a href="{% url 'administation:sandbox_monitor' %}" class="admin-sidebar-link {% if current_page == 'sandbox_monitor' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">dns</span>
+                Sandbox Monitor
+            </a>
+        </div>
+
+        <div class="admin-sidebar-section">
+            <p class="admin-sidebar-label">Giám sát</p>
+            <a href="{% url 'administation:metrics' %}" class="admin-sidebar-link {% if current_page == 'metrics' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">monitoring</span>
+                Server Metrics
+            </a>
+            <a href="{% url 'administation:exam_events' %}" class="admin-sidebar-link {% if current_page == 'exam_events' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">policy_alert</span>
+                Sự kiện thi
+            </a>
+            <a href="{% url 'administation:activity_logs' %}" class="admin-sidebar-link {% if current_page == 'logs' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                Nhật ký hoạt động
+            </a>
+        </div>
+
+        <div class="admin-sidebar-section">
+            <p class="admin-sidebar-label">Cấu hình</p>
+            <a href="{% url 'administation:system_settings' %}" class="admin-sidebar-link {% if current_page == 'settings' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+                Cài đặt hệ thống
+            </a>
+        </div>
+    </nav>
+</aside>

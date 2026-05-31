@@ -138,6 +138,176 @@
 </div>
 {% endif %}
 
+<section class="rounded-xl border border-primary-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-primary mb-1">Upload policy</p>
+            <h2 class="text-xl font-black text-primary-950">Dung lượng và file nộp</h2>
+        </div>
+        <a href="{% url 'administation:system_settings' %}?category=uploads" class="btn btn-sm">
+            <span class="material-symbols-outlined text-xs">tune</span>
+            Cấu hình
+        </a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="rounded-lg border border-primary-100 bg-primary-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Tổng file</p>
+            <p class="text-2xl font-black text-primary-950 mt-1">{{ upload_file_count }}</p>
+        </div>
+        <div class="rounded-lg border border-primary-100 bg-primary-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Dung lượng</p>
+            <p class="text-2xl font-black text-primary-950 mt-1">{{ upload_total_mb }} MB</p>
+        </div>
+        <div class="rounded-lg border border-warning-100 bg-warning-100/60 p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-warning-600">Chờ scan</p>
+            <p class="text-2xl font-black text-warning-600 mt-1">{{ scan_pending_count }}</p>
+        </div>
+        <div class="rounded-lg border border-danger-100 bg-danger-100/60 p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-danger-600">Bị chặn</p>
+            <p class="text-2xl font-black text-danger-600 mt-1">{{ scan_blocked_count }}</p>
+        </div>
+    </div>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <section class="rounded-xl border border-primary-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-primary mb-1">Top file</p>
+                <h2 class="text-lg font-black text-primary-950">Bài có nhiều file nộp</h2>
+            </div>
+            <span class="material-symbols-outlined text-primary">upload_file</span>
+        </div>
+        <div class="space-y-3">
+            {% for assignment in top_file_assignments|slice:":3" %}
+            <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="block rounded-lg border border-primary-100 p-3 hover:bg-primary-50 transition-colors">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-primary-950 truncate">{{ assignment.title }}</p>
+                        <p class="text-xs text-neutral-500">{{ assignment.classroom.name|default:"Không rõ lớp" }} · {{ assignment.submission_count }} lượt nộp</p>
+                    </div>
+                    <span class="text-lg font-black text-primary">{{ assignment.file_count }}</span>
+                </div>
+            </a>
+            {% empty %}
+            <div class="py-8 text-center text-neutral-500 text-sm">Chưa có dữ liệu file nộp.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="rounded-xl border border-primary-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-primary mb-1">Top quiz</p>
+                <h2 class="text-lg font-black text-primary-950">Bài có nhiều attempt</h2>
+            </div>
+            <span class="material-symbols-outlined text-primary">quiz</span>
+        </div>
+        <div class="space-y-3">
+            {% for assignment in top_quiz_attempt_assignments|slice:":3" %}
+            <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="block rounded-lg border border-primary-100 p-3 hover:bg-primary-50 transition-colors">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-primary-950 truncate">{{ assignment.title }}</p>
+                        <p class="text-xs text-neutral-500">{{ assignment.classroom.name|default:"Không rõ lớp" }} · {{ assignment.completed_attempt_count }} đã nộp</p>
+                    </div>
+                    <span class="text-lg font-black text-primary">{{ assignment.attempt_count }}</span>
+                </div>
+            </a>
+            {% empty %}
+            <div class="py-8 text-center text-neutral-500 text-sm">Chưa có dữ liệu quiz attempt.</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<section class="rounded-xl border border-primary-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-primary mb-1">Exam audit</p>
+            <h2 class="text-xl font-black text-primary-950">Bài thi file/quiz cần theo dõi</h2>
+        </div>
+        <a href="{% url 'administation:exam_events' %}" class="btn btn-sm">
+            <span class="material-symbols-outlined text-xs">policy_alert</span>
+            Sự kiện thi
+        </a>
+    </div>
+    {% if file_quiz_exam_audits %}
+    <div class="overflow-x-auto rounded-lg border border-primary-100">
+        <table class="w-full text-sm">
+            <thead class="bg-primary-50 text-primary-700 uppercase text-xs font-bold tracking-wider">
+                <tr>
+                    <th class="text-left px-4 py-3">Bài thi</th>
+                    <th class="text-left px-4 py-3">Mode</th>
+                    <th class="text-right px-4 py-3">Phiên</th>
+                    <th class="text-right px-4 py-3">Cảnh báo</th>
+                    <th class="text-right px-4 py-3">Dữ liệu</th>
+                    <th class="text-right px-4 py-3">Trạng thái</th>
+                    <th class="text-right px-4 py-3">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-primary-100">
+                {% for assignment in file_quiz_exam_audits|slice:":3" %}
+                <tr>
+                    <td class="px-4 py-3">
+                        <p class="font-bold text-primary-950">{{ assignment.title|truncatechars:42 }}</p>
+                        <p class="text-xs text-neutral-500">{{ assignment.classroom.name|default:"Không rõ lớp" }} · {{ assignment.created_by.username|default:"Không rõ GV" }}</p>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="badge bg-primary-100 text-primary-700">
+                            {% if assignment.submission_mode == 'file' %}Nộp file{% else %}Quiz{% endif %}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right">{{ assignment.session_count }}</td>
+                    <td class="px-4 py-3 text-right font-bold {% if assignment.warning_count %}text-warning-600{% else %}text-success-600{% endif %}">{{ assignment.warning_count }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% if assignment.submission_mode == 'file' %}
+                        {{ assignment.uploaded_file_count }} file
+                        {% else %}
+                        {{ assignment.quiz_attempt_count }} attempt
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if assignment.is_published %}
+                        <span class="badge bg-success-100 text-success-600">Đang mở</span>
+                        {% else %}
+                        <span class="badge bg-neutral-100 text-neutral-600">Đã ẩn</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex justify-end gap-2">
+                            <a href="{% url 'administation:exam_events' %}?assignment_id={{ assignment.pk }}" class="btn btn-sm" title="Xem audit">
+                                <span class="material-symbols-outlined text-xs">visibility</span>
+                            </a>
+                            <form method="post" action="{% url 'administation:assignment_visibility_toggle' assignment.pk %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'administation:dashboard' %}">
+                                {% if assignment.is_published %}
+                                <input type="hidden" name="action" value="hide">
+                                <button type="submit" class="btn btn-sm" title="Ẩn/khóa bài" onclick="return confirm('Ẩn bài này khỏi học sinh?')">
+                                    <span class="material-symbols-outlined text-xs">lock</span>
+                                </button>
+                                {% else %}
+                                <input type="hidden" name="action" value="publish">
+                                <button type="submit" class="btn btn-sm" title="Mở lại bài">
+                                    <span class="material-symbols-outlined text-xs">lock_open</span>
+                                </button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="py-8 text-center text-neutral-500 text-sm border border-dashed border-primary-200 rounded-lg">
+        Chưa có bài thi file/quiz để audit.
+    </div>
+    {% endif %}
+</section>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="flex flex-col gap-4 rounded-xl border border-primary/10 bg-white p-6 shadow-sm">
         <div class="flex items-center justify-between mb-2">
@@ -145,7 +315,7 @@
             <a href="{% url 'administation:teacher_management' %}?approval_status=pending" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
         </div>
         <div class="flex flex-col gap-3">
-            {% for reg in recent_registrations %}
+            {% for reg in recent_registrations|slice:":3" %}
             <div class="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/5">
                 <div class="flex items-center gap-3">
                     <div class="size-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-sm">
@@ -186,7 +356,7 @@
             <a href="{% url 'administation:activity_logs' %}" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
         </div>
         <div class="flex flex-col gap-2">
-            {% for log in recent_logs %}
+            {% for log in recent_logs|slice:":3" %}
             <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
                 <span class="material-symbols-outlined text-slate-500 text-lg">history</span>
                 <div class="flex-1 min-w-0">

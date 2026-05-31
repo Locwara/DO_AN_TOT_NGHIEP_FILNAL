@@ -6,11 +6,14 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>{{ assignment.title }} - DevLearn IDE</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/neo.min.css">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/ide.css' %}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
@@ -39,133 +42,6 @@
                             950: "#020d1f",
                             DEFAULT: "#137fec",
                         },
-                        accent: {
-                            100: "#ede9fe",
-                            400: "#8b5cf6",
-                            500: "#7c3aed",
-                            600: "#6d28d9",
-                            DEFAULT: "#7c3aed",
-                        },
-                        success: {
-                            100: "#f0fdf4",
-                            500: "#22c55e",
-                            600: "#16a34a",
-                            DEFAULT: "#16a34a",
-                        },
-                        warning: {
-                            100: "#fff7ed",
-                            500: "#f59e0b",
-                            600: "#ea580c",
-                            DEFAULT: "#ea580c",
-                        },
-                        danger: {
-                            100: "#fef2f2",
-                            400: "#ef4444",
-                            500: "#dc2626",
-                            600: "#b91c1c",
-                            DEFAULT: "#dc2626",
-                        },
-                        slate: {
-                            50: "#f0f8ff",
-                            100: "#f0f8ff",
-                            200: "#b8d9fd",
-                            300: "#cbd5e1",
-                            400: "#64748b",
-                            500: "#64748b",
-                            600: "#334155",
-                            700: "#0f172a",
-                            800: "#061a38",
-                            900: "#020d1f",
-                            950: "#020d1f",
-                        },
-                        gray: {
-                            50: "#f8fafc",
-                            100: "#f8fafc",
-                            200: "#e2e8f0",
-                            300: "#cbd5e1",
-                            400: "#64748b",
-                            500: "#64748b",
-                            600: "#475569",
-                            700: "#334155",
-                            800: "#1e293b",
-                            900: "#0f172a",
-                        },
-                        blue: {
-                            50: "#f0f8ff",
-                            100: "#daeefe",
-                            200: "#b8d9fd",
-                            300: "#78bcfa",
-                            400: "#3d9af5",
-                            500: "#137fec",
-                            600: "#1260c0",
-                            700: "#0f4289",
-                            800: "#0b2d60",
-                            900: "#061a38",
-                            950: "#020d1f",
-                        },
-                        green: {
-                            100: "#f0fdf4",
-                            400: "#4ade80",
-                            500: "#22c55e",
-                            600: "#16a34a",
-                            700: "#15803d",
-                            DEFAULT: "#16a34a",
-                        },
-                        emerald: {
-                            100: "#f0fdf4",
-                            400: "#4ade80",
-                            500: "#22c55e",
-                            600: "#16a34a",
-                            700: "#15803d",
-                            DEFAULT: "#16a34a",
-                        },
-                        amber: {
-                            100: "#fff7ed",
-                            400: "#fb923c",
-                            500: "#f59e0b",
-                            600: "#ea580c",
-                            700: "#c2410c",
-                            DEFAULT: "#ea580c",
-                        },
-                        yellow: {
-                            100: "#fff7ed",
-                            400: "#fb923c",
-                            500: "#f59e0b",
-                            600: "#ea580c",
-                            DEFAULT: "#f59e0b",
-                        },
-                        red: {
-                            100: "#fef2f2",
-                            400: "#ef4444",
-                            500: "#dc2626",
-                            600: "#b91c1c",
-                            700: "#991b1b",
-                            DEFAULT: "#dc2626",
-                        },
-                        rose: {
-                            100: "#fff1f2",
-                            400: "#fb7185",
-                            500: "#f43f5e",
-                            600: "#e11d48",
-                            DEFAULT: "#f43f5e",
-                        },
-                        violet: {
-                            100: "#ede9fe",
-                            400: "#8b5cf6",
-                            500: "#7c3aed",
-                            600: "#6d28d9",
-                            DEFAULT: "#7c3aed",
-                        },
-                        purple: {
-                            100: "#ede9fe",
-                            400: "#8b5cf6",
-                            500: "#7c3aed",
-                            600: "#6d28d9",
-                            DEFAULT: "#7c3aed",
-                        },
-                        black: "#020d1f",
-                        "background-light": "#ffffff",
-                        "background-dark": "#020d1f",
                     },
                     fontFamily: {
                         display: ["Be Vietnam Pro", "sans-serif"],
@@ -176,186 +52,182 @@
         }
     </script>
     <style>
-        body { font-family: 'Be Vietnam Pro', sans-serif; }
-        .CodeMirror { height: 100% !important; font-size: 14px; }
-        .CodeMirror-gutters { background: #061a38 !important; border-right: 1px solid #0b2d60 !important; }
-        /* Markdown styling */
-        .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #f8fafc; font-weight: 700; margin-top: 1em; margin-bottom: 0.5em; }
-        .markdown-body h1 { font-size: 1.4em; }
-        .markdown-body h2 { font-size: 1.2em; }
-        .markdown-body h3 { font-size: 1.05em; }
-        .markdown-body p { margin: 0.6em 0; line-height: 1.6; }
-        .markdown-body code { background: rgba(218, 238, 254, 0.14); padding: 1px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #b8d9fd; }
-        .markdown-body pre { background: rgba(2, 13, 31, 0.48); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 0.8em 0; border: 1px solid rgba(184, 217, 253, 0.14); }
-        .markdown-body pre code { background: transparent; padding: 0; color: #e2e8f0; }
-        .markdown-body ul, .markdown-body ol { margin: 0.6em 0; padding-left: 1.5em; }
-        .markdown-body li { margin: 0.2em 0; }
-        .markdown-body blockquote { border-left: 3px solid #137fec; padding-left: 12px; color: #64748b; font-style: italic; margin: 0.8em 0; }
-        .markdown-body a { color: #78bcfa; text-decoration: underline; }
-        .markdown-body strong { color: #f8fafc; font-weight: 600; }
-        .markdown-body table { border-collapse: collapse; margin: 0.8em 0; }
-        .markdown-body th, .markdown-body td { border: 1px solid rgba(184, 217, 253, 0.2); padding: 6px 10px; }
-        .markdown-body hr { border-color: rgba(184, 217, 253, 0.2); margin: 1em 0; }
-        @media (max-width: 900px) {
-            body { height: auto; min-height: 100vh; overflow: auto; }
-            #ide-main { flex-direction: column; overflow: visible; }
-            #instructions-panel { width: 100%; height: 36vh; min-height: 260px; border-right: 0; border-bottom: 1px solid #061a38; }
-            #editor-shell { min-height: 62vh; }
-            #editor-toolbar { flex-wrap: wrap; align-items: flex-start; gap: 0.75rem; }
-            #bottom-panel { min-height: 220px; }
-            #ide-topbar { flex-wrap: wrap; gap: 0.75rem; }
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            background: #f8fafc;
+        }
+        .CodeMirror-gutters {
+            background: #f1f5f9;
+            border-right: 1px solid #e2e8f0;
+        }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            color: #0f172a;
+            font-weight: 800;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .markdown-body p { margin-bottom: 1rem; }
+        .markdown-body pre {
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+        .markdown-body code {
+            background: #f1f5f9;
+            color: #ef4444;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: 'Fira Code', monospace;
         }
     </style>
 </head>
-<body class="bg-background-dark font-display text-slate-100 antialiased overflow-hidden h-screen flex flex-col">
+<body class="bg-slate-100 font-display text-slate-900 antialiased overflow-hidden h-screen flex flex-col">
 
 <!-- Top Navigation Bar -->
-<header id="ide-topbar" class="flex items-center justify-between border-b border-slate-800 px-4 sm:px-6 py-3 bg-background-dark shrink-0">
+<header id="ide-topbar" class="flex items-center justify-between border-b border-slate-200 px-4 sm:px-6 py-3 bg-white shrink-0 shadow-sm z-30">
     <div class="flex items-center gap-6">
         <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
             <span class="material-symbols-outlined text-2xl">terminal</span>
-            <h2 class="text-lg font-bold tracking-tight">DevLearn IDE</h2>
+            <h2 class="text-lg font-black tracking-tight">DevLearn IDE</h2>
         </a>
         <nav class="hidden md:flex items-center gap-4">
-            <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="text-slate-400 hover:text-primary text-sm font-medium transition-colors">Bài tập</a>
-            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="text-slate-400 hover:text-primary text-sm font-medium transition-colors">Lớp học</a>
-            <a href="{% url 'submissions:history' assignment_pk=assignment.pk %}" class="text-slate-400 hover:text-primary text-sm font-medium transition-colors">Lịch sử nộp</a>
+            <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="text-slate-500 hover:text-primary text-sm font-bold transition-colors">Bài tập</a>
+            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="text-slate-500 hover:text-primary text-sm font-bold transition-colors">Lớp học</a>
         </nav>
     </div>
     <div class="flex items-center gap-4">
         {% if assignment.is_exam and exam_started %}
-        <div id="exam-timer" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
-            <span class="material-symbols-outlined text-sm text-red-400">timer</span>
-            <span class="text-xs font-bold text-red-400">EXAM</span>
-            <span id="timer-display" class="text-sm font-mono font-bold text-red-400">--:--</span>
+        <div id="exam-timer" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200">
+            <span class="material-symbols-outlined text-sm text-red-600">timer</span>
+            <span class="text-xs font-black text-red-600">THI</span>
+            <span id="timer-display" class="text-sm font-mono font-bold text-red-600">--:--</span>
         </div>
         {% endif %}
-        <div id="save-status" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-900/70">
+        <div id="save-status" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
             <span class="material-symbols-outlined text-sm text-green-500">fiber_manual_record</span>
-            <span class="text-xs font-medium text-slate-300">Sẵn sàng</span>
+            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Sẵn sàng</span>
         </div>
-        <span class="text-xs text-slate-400">Đã nộp: {{ submission_count }}{% if assignment.max_attempts %}/{{ assignment.max_attempts }}{% endif %}</span>
-        <a href="{% url 'accounts:profile' %}" class="flex items-center justify-center rounded-lg h-9 px-4 bg-primary text-white text-sm font-bold">Profile</a>
+        <div class="flex items-center gap-2">
+            <button id="btn-run" onclick="runCode()" class="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all">
+                <span class="material-symbols-outlined text-sm">play_arrow</span>
+                Chạy thử
+            </button>
+            <button id="btn-submit" onclick="submitCode()" class="flex items-center gap-1.5 px-5 h-9 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-lg shadow-primary/20 transition-all">
+                Nộp bài
+                <span class="material-symbols-outlined text-sm">send</span>
+            </button>
+        </div>
     </div>
 </header>
 
 <!-- Main IDE Workspace -->
 <main id="ide-main" class="flex flex-1 overflow-hidden">
     <!-- Left Panel: Assignment Instructions -->
-    <section id="instructions-panel" class="w-[420px] flex flex-col border-r border-primary-900 bg-background-dark">
-        <div class="flex border-b border-primary-900 px-4">
-            <button onclick="showTab('instructions')" id="tab-instructions" class="border-b-2 border-primary px-4 py-3 text-sm font-bold text-slate-100">Đề bài</button>
-            <button onclick="showTab('resources')" id="tab-resources" class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-200">Tài liệu</button>
-            <button onclick="showTab('testcases')" id="tab-testcases" class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-200">Testcases</button>
+    <section id="instructions-panel" class="w-[420px] flex flex-col border-r border-slate-200 bg-white z-20">
+        <div class="flex border-b border-slate-200 bg-slate-50/50 px-2">
+            <button onclick="showTab('instructions')" id="tab-instructions" class="border-b-2 border-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-primary">Đề bài</button>
+            <button onclick="showTab('resources')" id="tab-resources" class="px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600">Tài liệu</button>
+            <button onclick="showTab('testcases')" id="tab-testcases" class="px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600">Testcases</button>
         </div>
         <div class="flex-1 overflow-y-auto">
             <!-- Instructions Tab -->
-            <div id="content-instructions" class="p-6">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="bg-primary/20 p-2 rounded-lg">
-                        <span class="material-symbols-outlined text-primary">assignment</span>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold">{{ assignment.title }}</h1>
-                        <p class="text-sm text-slate-300">
-                            {% if assignment.due_date %}Hạn nộp: {{ assignment.due_date|date:"d/m/Y H:i" }}{% endif %}
-                            • {{ assignment.max_score }} điểm
-                        </p>
+            <div id="content-instructions" class="p-8">
+                <div class="flex flex-col gap-1 mb-8">
+                    <p class="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Bài tập lập trình</p>
+                    <h1 class="text-2xl font-black text-slate-900 leading-tight">{{ assignment.title }}</h1>
+                    <div class="flex items-center gap-3 mt-3">
+                        <span class="badge bg-primary-50 text-primary-700 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded">{{ assignment.difficulty|default:"General" }}</span>
+                        <span class="text-xs font-bold text-slate-400 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">workspace_premium</span>
+                            {{ assignment.max_score }} điểm
+                        </span>
                     </div>
                 </div>
-                {% if assignment.description %}
-                <div class="text-sm text-slate-300 leading-relaxed mb-4 markdown-body" data-raw-md="{{ assignment.description }}"></div>
-                {% endif %}
-                {% if assignment.instructions %}
-                <div class="markdown-body text-sm text-slate-300 leading-relaxed" data-raw-md="{{ assignment.instructions }}"></div>
-                {% endif %}
-                {% if assignment.difficulty %}
-                <div class="mt-4">
-                    <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider
-                        {% if assignment.difficulty == 'easy' %}bg-green-500/10 text-green-400
-                        {% elif assignment.difficulty == 'medium' %}bg-amber-500/10 text-amber-400
-                        {% elif assignment.difficulty == 'hard' %}bg-red-500/10 text-red-400
-                        {% else %}bg-purple-500/10 text-purple-400{% endif %}">
-                        {{ assignment.difficulty }}
-                    </span>
+
+                <div class="prose prose-slate prose-sm max-w-none">
+                    {% if assignment.description %}
+                    <div class="text-slate-600 font-medium italic mb-6 border-l-4 border-slate-200 pl-4 markdown-body" data-raw-md="{{ assignment.description }}"></div>
+                    {% endif %}
+                    {% if assignment.instructions %}
+                    <div class="markdown-body text-slate-700 leading-relaxed" data-raw-md="{{ assignment.instructions }}"></div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
             <!-- Resources Tab -->
-            <div id="content-resources" class="p-6 hidden">
-                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Tài liệu đính kèm</h3>
+            <div id="content-resources" class="p-8 hidden">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Tài liệu đính kèm</h3>
                 {% if files %}
-                <div class="space-y-2">
+                <div class="space-y-3">
                     {% for f in files %}
-                    <a href="{{ f.file_url }}" target="_blank" class="flex items-center justify-between p-3 border border-primary-900 rounded-lg group hover:border-primary transition-colors">
-                        <div class="flex items-center gap-3">
+                    <a href="{% url 'assignments:open_file' pk=assignment.pk file_pk=f.pk %}" target="_blank" class="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl group hover:border-primary transition-all">
+                        <div class="flex items-center gap-4">
                             <span class="material-symbols-outlined text-slate-400 group-hover:text-primary">description</span>
-                            <span class="text-sm font-medium">{{ f.file_name }}</span>
+                            <span class="text-sm font-bold text-slate-700">{{ f.file_name }}</span>
                         </div>
-                        <span class="material-symbols-outlined text-slate-400 group-hover:text-primary text-sm">download</span>
+                        <span class="material-symbols-outlined text-slate-300 group-hover:text-primary text-sm">download</span>
                     </a>
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-slate-300">Không có tài liệu đính kèm.</p>
+                <p class="text-sm text-slate-400 italic">Không có tài liệu đính kèm.</p>
                 {% endif %}
             </div>
             <!-- Testcases Tab -->
-            <div id="content-testcases" class="p-6 hidden">
-                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Testcases mẫu</h3>
+            <div id="content-testcases" class="p-8 hidden">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Testcases mẫu</h3>
                 {% if sample_testcases %}
-                <div class="space-y-4">
+                <div class="space-y-6">
                     {% for tc in sample_testcases %}
-                    <div class="border border-primary-900 rounded-lg overflow-hidden">
-                        <div class="bg-primary-900/50 px-4 py-2 text-xs font-bold text-slate-300">
+                    <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div class="bg-slate-50 px-4 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-100">
                             {{ tc.name|default:"Test mẫu" }} #{{ forloop.counter }}
                         </div>
-                        <div class="p-4 space-y-3">
+                        <div class="p-4 space-y-4 bg-white">
                             <div>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Input</span>
-                                <pre class="mt-1 p-2 bg-primary-950/30 rounded text-xs text-slate-300 font-mono overflow-x-auto">{{ tc.input_data|default:"(không có)" }}</pre>
+                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Input</span>
+                                <pre class="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 font-mono border border-slate-100">{{ tc.input_data|default:"(không có)" }}</pre>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Expected Output</span>
-                                <pre class="mt-1 p-2 bg-primary-950/30 rounded text-xs text-slate-300 font-mono overflow-x-auto">{{ tc.expected_output|default:"(không có)" }}</pre>
+                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Expected Output</span>
+                                <pre class="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 font-mono border border-slate-100">{{ tc.expected_output|default:"(không có)" }}</pre>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-slate-300">Không có testcase mẫu.</p>
+                <p class="text-sm text-slate-400 italic">Không có testcase mẫu.</p>
                 {% endif %}
             </div>
         </div>
     </section>
 
     <!-- Right Panel: Code Editor & Results -->
-    <section id="editor-shell" class="flex-1 flex flex-col bg-primary-950 overflow-hidden">
+    <section id="editor-shell" class="flex-1 flex flex-col bg-white overflow-hidden">
         <!-- Editor Header -->
-        <div id="editor-toolbar" class="flex items-center justify-between bg-primary-900 px-4 py-2 border-b border-primary-950">
+        <div id="editor-toolbar" class="flex items-center justify-between bg-slate-50 px-4 py-2 border-b border-slate-200">
             <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2 bg-primary-950 px-3 py-1.5 rounded-t-lg border-t border-x border-primary/50">
-                    <span class="material-symbols-outlined text-yellow-500 text-sm">terminal</span>
-                    <span class="text-xs font-medium text-slate-200">solution</span>
-                    <span class="material-symbols-outlined text-slate-400 text-xs">circle</span>
+                <div class="flex items-center gap-2 bg-white px-4 py-1.5 rounded-t-lg border-t border-x border-slate-200">
+                    <span class="material-symbols-outlined text-primary text-sm">code</span>
+                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">solution.py</span>
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <select id="language-select" class="bg-slate-800 text-slate-200 text-xs border-none rounded-md px-3 py-1.5 focus:ring-1 focus:ring-primary cursor-pointer">
-                    {% for lang in languages %}
-                    <option value="{{ lang.name }}" data-mode="{{ lang.syntax_highlight_mode|default:'python' }}" {% if lang.name == selected_lang %}selected{% endif %}>{{ lang.display_name }}</option>
-                    {% endfor %}
-                </select>
-                <div class="h-4 w-px bg-primary-800"></div>
-                <button id="btn-run" onclick="runCode()" class="flex items-center gap-1.5 px-3 py-1.5 rounded bg-green-600 hover:bg-green-500 text-white text-xs font-bold transition-colors">
-                    <span class="material-symbols-outlined text-sm">play_arrow</span>
-                    Chạy thử
-                </button>
-                <button id="btn-submit" onclick="submitCode()" class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-lg shadow-primary/20 transition-all">
-                    Nộp bài
-                    <span class="material-symbols-outlined text-sm">send</span>
-                </button>
+                <div class="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <span class="material-symbols-outlined text-sm">language</span>
+                    <select id="language-select" class="bg-transparent border-none p-0 text-xs font-black text-slate-600 focus:ring-0 cursor-pointer hover:text-primary transition-colors">
+                        {% for lang in languages %}
+                        <option value="{{ lang.name }}" data-mode="{{ lang.syntax_highlight_mode|default:'python' }}" {% if lang.name == selected_lang %}selected{% endif %}>{{ lang.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="h-4 w-px bg-slate-200 mx-1"></div>
+                <div class="text-[10px] font-bold text-slate-400 font-mono" id="status-cursor">Ln 1, Col 1</div>
             </div>
         </div>
 
@@ -365,58 +237,43 @@
         </div>
 
         <!-- Bottom Panel -->
-        <div id="bottom-panel" class="h-[220px] border-t border-primary-900 bg-primary-950 flex flex-col">
-            <div class="flex items-center justify-between px-4 py-2 bg-primary-900 border-b border-primary-950">
-                <div class="flex gap-4">
-                    <button onclick="showOutputTab('output')" id="otab-output" class="text-xs font-bold text-slate-200 border-b-2 border-primary pb-1">Output</button>
-                    <button onclick="showOutputTab('testresults')" id="otab-testresults" class="text-xs font-medium text-slate-300 hover:text-slate-200 pb-1">Test Results</button>
-                    <button onclick="showOutputTab('custom')" id="otab-custom" class="text-xs font-medium text-slate-300 hover:text-slate-200 pb-1">Custom Input</button>
+        <div id="bottom-panel" class="h-[280px] border-t border-slate-200 bg-white flex flex-col z-20">
+            <div class="flex items-center justify-between px-4 bg-slate-50 border-b border-slate-200">
+                <div class="flex gap-1">
+                    <button onclick="showOutputTab('output')" id="otab-output" class="text-[10px] font-black uppercase tracking-widest text-primary border-b-2 border-primary px-4 py-3">Bảng điều khiển</button>
+                    <button onclick="showOutputTab('testresults')" id="otab-testresults" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 px-4 py-3">Kết quả Test</button>
+                    <button onclick="showOutputTab('custom')" id="otab-custom" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 px-4 py-3">Thử nghiệm</button>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="toggleBottomPanel()" class="p-1 text-slate-300 hover:text-slate-100">
-                        <span class="material-symbols-outlined text-sm">keyboard_arrow_down</span>
-                    </button>
-                </div>
+                <button onclick="toggleBottomPanel()" class="p-1 text-slate-400 hover:text-slate-600">
+                    <span id="terminal-toggle-icon" class="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+                </button>
             </div>
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto bg-slate-50/50">
                 <!-- Output Tab -->
-                <div id="ocontent-output" class="p-4 font-mono text-xs bg-primary-950/20 h-full">
-                    <span class="text-slate-400">Nhấn "Chạy thử" hoặc "Nộp bài" để xem kết quả...</span>
+                <div id="ocontent-output" class="p-6 font-mono text-sm h-full">
+                    <span class="text-slate-400 italic">Nhấn "Chạy thử" hoặc "Nộp bài" để xem kết quả chương trình...</span>
                 </div>
                 <!-- Test Results Tab -->
-                <div id="ocontent-testresults" class="p-4 font-mono text-xs bg-primary-950/20 h-full hidden">
-                    <span class="text-slate-400">Chưa có kết quả test.</span>
+                <div id="ocontent-testresults" class="p-6 font-mono text-sm h-full hidden">
+                    <span class="text-slate-400 italic">Chưa có kết quả kiểm thử.</span>
                 </div>
                 <!-- Custom Input Tab -->
-                <div id="ocontent-custom" class="p-4 bg-primary-950/20 h-full hidden">
-                    <textarea id="custom-input" class="w-full h-20 bg-primary-950/40 text-slate-300 font-mono text-xs border border-primary-900 rounded p-2 focus:ring-1 focus:ring-primary resize-none" placeholder="Nhập input tùy chỉnh..."></textarea>
-                    <button onclick="runCustom()" class="mt-2 px-3 py-1.5 bg-primary-800 hover:bg-primary-700 text-white text-xs font-bold rounded transition-colors">
-                        <span class="material-symbols-outlined text-sm align-middle">play_arrow</span> Chạy với input này
-                    </button>
-                    <div id="custom-output" class="mt-2 font-mono text-xs text-slate-300"></div>
+                <div id="ocontent-custom" class="p-6 h-full hidden">
+                    <div class="flex flex-col h-full gap-4">
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Dữ liệu đầu vào tùy chỉnh</label>
+                            <textarea id="custom-input" class="w-full h-24 bg-white text-slate-700 font-mono text-sm border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-primary/20 outline-none resize-none" placeholder="VD: 10"></textarea>
+                        </div>
+                        <button onclick="runCustom()" class="self-start flex items-center gap-2 px-6 h-10 bg-slate-900 text-white hover:bg-slate-800 text-xs font-bold rounded-lg transition-all">
+                            <span class="material-symbols-outlined text-sm">play_arrow</span> Chạy với input này
+                        </button>
+                        <div id="custom-output" class="mt-2 font-mono text-sm text-slate-700 border-t border-slate-100 pt-4"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 </main>
-
-<!-- Status Bar -->
-<footer class="h-6 bg-primary flex items-center justify-between px-3 text-[10px] text-white font-medium shrink-0">
-    <div class="flex items-center gap-4">
-        <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[12px]">sync</span>
-            <span id="status-engine">Connected</span>
-        </div>
-        <div class="flex items-center gap-1">
-            <span class="material-symbols-outlined text-[12px]">code</span>
-            <span id="status-cursor">Ln 1, Col 1</span>
-        </div>
-    </div>
-    <div class="flex items-center gap-4">
-        <span>UTF-8</span>
-        <span id="autosave-status">Autosave: ON</span>
-    </div>
-</footer>
 
 <script>
 const CSRF_TOKEN = '{{ csrf_token }}';
@@ -466,7 +323,6 @@ function startExamTimer(seconds) {
             ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
             : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         if (display) display.textContent = text;
-        // Cảnh báo khi còn 5 phút
         if (remaining === 300) {
             alert('Còn 5 phút! Hãy kiểm tra lại bài làm của bạn.');
         }
@@ -477,7 +333,6 @@ function startExamTimer(seconds) {
 }
 
 function autoSubmitExam() {
-    // Khóa IDE
     if (editor) editor.setOption('readOnly', 'nocursor');
     const runBtn = document.getElementById('btn-run');
     const submitBtn = document.getElementById('btn-submit');
@@ -488,7 +343,7 @@ function autoSubmitExam() {
     const language = document.getElementById('language-select').value;
 
     showOutputTab('output');
-    document.getElementById('ocontent-output').innerHTML = '<span class="text-amber-400">⏳ Tự động nộp bài do hết giờ...</span>';
+    document.getElementById('ocontent-output').innerHTML = '<span class="text-amber-600 font-bold">⏳ Tự động nộp bài do hết giờ...</span>';
 
     fetch(`/submissions/submit/${ASSIGNMENT_PK}/`, {
         method: 'POST',
@@ -498,13 +353,13 @@ function autoSubmitExam() {
     .then(parseJsonResponse)
     .then(data => {
         if (data.status === 'ok') {
-            document.getElementById('ocontent-output').innerHTML = `<div class="text-emerald-400 font-bold">✅ Đã tự động nộp bài. Điểm: ${data.total_score}/${data.max_score}</div><a href="/submissions/detail/${data.submission_id}/" class="inline-block mt-3 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg">Xem chi tiết →</a>`;
+            document.getElementById('ocontent-output').innerHTML = `<div class="text-green-600 font-bold">✅ Đã tự động nộp bài. Điểm: ${data.total_score}/${data.max_score}</div><a href="/submissions/detail/${data.submission_id}/" class="inline-block mt-3 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg">Xem chi tiết →</a>`;
         } else {
-            document.getElementById('ocontent-output').innerHTML = `<span class="text-red-400">❌ Tự động nộp thất bại: ${data.message}</span>`;
+            document.getElementById('ocontent-output').innerHTML = `<span class="text-red-600">❌ Tự động nộp thất bại: ${data.message}</span>`;
         }
     })
     .catch(() => {
-        document.getElementById('ocontent-output').innerHTML = '<span class="text-red-400">❌ Lỗi kết nối khi tự động nộp.</span>';
+        document.getElementById('ocontent-output').innerHTML = '<span class="text-red-600">❌ Lỗi kết nối khi tự động nộp.</span>';
     });
 }
 
@@ -527,7 +382,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const langSelect = document.getElementById('language-select');
     const currentLang = langSelect.value;
 
-    // Khởi động exam timer nếu là exam mode
     if (IS_EXAM && EXAM_REMAINING !== null) {
         setupExamEventTracking();
         setInterval(sendExamPing, 30000);
@@ -537,7 +391,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         if (EXAM_REMAINING <= 0) {
-            // Hết giờ ngay từ đầu
             examAutoSubmitted = true;
             alert('Thời gian làm bài đã kết thúc. Bạn không thể nộp bài nữa.');
             document.getElementById('btn-submit').disabled = true;
@@ -549,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
         mode: MODE_MAP[currentLang] || 'python',
-        theme: 'material-darker',
+        theme: 'neo',
         lineNumbers: true,
         indentUnit: 4,
         tabSize: 4,
@@ -564,6 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
             'Ctrl-Shift-Enter': submitCode,
         },
     });
+
+    if (!editor.getValue().trim()) {
+        const starterCode = `{{ assignment.starter_code|safe|default:'' }}`;
+        if (starterCode.trim()) {
+            editor.setValue(starterCode);
+        }
+    }
 
     editor.on('cursorActivity', function() {
         const pos = editor.getCursor();
@@ -656,40 +516,45 @@ function setupExamEventTracking() {
 function showTab(name) {
     ['instructions', 'resources', 'testcases'].forEach(t => {
         document.getElementById('content-' + t).classList.add('hidden');
-        document.getElementById('tab-' + t).classList.remove('border-b-2', 'border-primary', 'font-bold', 'text-slate-100');
-        document.getElementById('tab-' + t).classList.add('font-medium', 'text-slate-400');
+        document.getElementById('tab-' + t).classList.remove('border-b-2', 'border-primary', 'text-primary');
+        document.getElementById('tab-' + t).classList.add('text-slate-400');
     });
     document.getElementById('content-' + name).classList.remove('hidden');
     const tab = document.getElementById('tab-' + name);
-    tab.classList.add('border-b-2', 'border-primary', 'font-bold', 'text-slate-100');
-    tab.classList.remove('font-medium', 'text-slate-400');
+    tab.classList.add('border-b-2', 'border-primary', 'text-primary');
+    tab.classList.remove('text-slate-400');
 }
 
 function showOutputTab(name) {
     ['output', 'testresults', 'custom'].forEach(t => {
         document.getElementById('ocontent-' + t).classList.add('hidden');
-        document.getElementById('otab-' + t).classList.remove('font-bold', 'text-slate-200', 'border-b-2', 'border-primary');
-        document.getElementById('otab-' + t).classList.add('font-medium', 'text-slate-400');
+        document.getElementById('otab-' + t).classList.remove('text-primary', 'border-b-2', 'border-primary');
+        document.getElementById('otab-' + t).classList.add('text-slate-400');
     });
     document.getElementById('ocontent-' + name).classList.remove('hidden');
     const tab = document.getElementById('otab-' + name);
-    tab.classList.add('font-bold', 'text-slate-200', 'border-b-2', 'border-primary');
-    tab.classList.remove('font-medium', 'text-slate-400');
+    tab.classList.add('text-primary', 'border-b-2', 'border-primary');
+    tab.classList.remove('text-slate-400');
 }
 
+let terminalCollapsed = false;
 function toggleBottomPanel() {
     const panel = document.getElementById('bottom-panel');
-    if (panel.style.display === 'none') {
-        panel.style.display = 'flex';
+    const icon = document.getElementById('terminal-toggle-icon');
+    terminalCollapsed = !terminalCollapsed;
+    if (terminalCollapsed) {
+        panel.style.height = '40px';
+        icon.textContent = 'keyboard_arrow_up';
     } else {
-        panel.style.display = 'none';
+        panel.style.height = '280px';
+        icon.textContent = 'keyboard_arrow_down';
     }
     editor.refresh();
 }
 
 function setStatus(text, color) {
     const el = document.getElementById('save-status');
-        el.innerHTML = `<span class="material-symbols-outlined text-sm text-${color}-500">fiber_manual_record</span><span class="text-xs font-medium text-slate-300">${text}</span>`;
+        el.innerHTML = `<span class="material-symbols-outlined text-sm text-${color}-500">fiber_manual_record</span><span class="text-xs font-bold text-slate-600 uppercase tracking-wider">${text}</span>`;
 }
 
 function saveDraft() {
@@ -720,7 +585,7 @@ function loadDraft(language) {
 function runCode() {
     if (IS_EXAM && !EXAM_ALLOW_SAMPLE_RUN) {
         showOutputTab('testresults');
-        document.getElementById('ocontent-testresults').innerHTML = '<span class="text-amber-400">Bài thi này không cho phép chạy testcase mẫu.</span>';
+        document.getElementById('ocontent-testresults').innerHTML = '<span class="text-amber-600">Bài thi này không cho phép chạy testcase mẫu.</span>';
         return;
     }
     const btn = document.getElementById('btn-run');
@@ -731,7 +596,7 @@ function runCode() {
     const language = document.getElementById('language-select').value;
 
     showOutputTab('testresults');
-    document.getElementById('ocontent-testresults').innerHTML = '<span class="text-blue-400">⏳ Đang chạy testcases mẫu...</span>';
+    document.getElementById('ocontent-testresults').innerHTML = '<span class="text-blue-600">⏳ Đang chạy testcases mẫu...</span>';
 
     fetch(`/submissions/run-test/${ASSIGNMENT_PK}/`, {
         method: 'POST',
@@ -741,25 +606,25 @@ function runCode() {
     .then(parseJsonResponse)
     .then(data => {
         if (data.status === 'ok' && data.mode === 'sample') {
-            let html = `<div class="mb-2 text-slate-200">Kết quả: <span class="font-bold ${data.passed === data.total ? 'text-green-400' : 'text-amber-400'}">${data.passed}/${data.total}</span> passed</div>`;
+            let html = `<div class="mb-4 text-slate-800 font-bold">Kết quả: <span class="${data.passed === data.total ? 'text-green-600' : 'text-amber-600'}">${data.passed}/${data.total}</span> passed</div>`;
             data.results.forEach(r => {
-                const icon = r.passed ? '<span class="text-green-500 font-bold">[PASS]</span>' : '<span class="text-red-400 font-bold">[FAIL]</span>';
-                html += `<div class="flex items-start gap-2 mb-2">${icon} <span class="text-slate-300">${r.name}`;
+                const icon = r.passed ? '<span class="text-green-600 font-black">[PASS]</span>' : '<span class="text-red-600 font-black">[FAIL]</span>';
+                html += `<div class="flex items-start gap-3 mb-3 p-3 bg-white border border-slate-200 rounded-lg shadow-sm">${icon} <div><p class="text-slate-900 font-bold">${r.name}</p>`;
                 if (!r.passed && r.error_message) {
-                    html += ` - ${escapeHtml(r.error_message)}`;
+                    html += `<p class="text-red-500 text-xs mt-1 font-mono">${escapeHtml(r.error_message)}</p>`;
                 } else if (!r.passed) {
-                    html += ` - Expected: "${escapeHtml(r.expected_output)}" Got: "${escapeHtml(r.actual_output)}"`;
+                    html += `<p class="text-slate-500 text-xs mt-1 font-mono">Mong đợi: "${escapeHtml(r.expected_output)}" <br> Thực tế: "${escapeHtml(r.actual_output)}"</p>`;
                 }
-                if (r.execution_time) html += ` <span class="text-slate-400">(${r.execution_time}ms)</span>`;
-                html += '</span></div>';
+                if (r.execution_time) html += `<p class="text-[10px] text-slate-400 mt-1 uppercase font-black">${r.execution_time}ms</p>`;
+                html += '</div></div>';
             });
             document.getElementById('ocontent-testresults').innerHTML = html;
         } else {
-            document.getElementById('ocontent-testresults').innerHTML = `<span class="text-red-400">${data.message || 'Lỗi không xác định'}</span>`;
+            document.getElementById('ocontent-testresults').innerHTML = `<span class="text-red-600 font-bold">${data.message || 'Lỗi không xác định'}</span>`;
         }
     })
     .catch(err => {
-        document.getElementById('ocontent-testresults').innerHTML = `<span class="text-red-400">Lỗi kết nối: ${err.message}</span>`;
+        document.getElementById('ocontent-testresults').innerHTML = `<span class="text-red-600 font-bold">Lỗi kết nối: ${err.message}</span>`;
     })
     .finally(() => {
         btn.disabled = false;
@@ -769,14 +634,14 @@ function runCode() {
 
 function runCustom() {
     if (IS_EXAM && !EXAM_ALLOW_CUSTOM_INPUT) {
-        document.getElementById('custom-output').innerHTML = '<span class="text-amber-400">Bài thi này không cho phép custom input.</span>';
+        document.getElementById('custom-output').innerHTML = '<span class="text-amber-600">Bài thi này không cho phép custom input.</span>';
         return;
     }
     const code = editor.getValue();
     const language = document.getElementById('language-select').value;
     const customInput = document.getElementById('custom-input').value;
     const outputEl = document.getElementById('custom-output');
-    outputEl.innerHTML = '<span class="text-blue-400">⏳ Đang chạy...</span>';
+    outputEl.innerHTML = '<span class="text-blue-600">⏳ Đang chạy...</span>';
 
     fetch(`/submissions/run-test/${ASSIGNMENT_PK}/`, {
         method: 'POST',
@@ -787,16 +652,16 @@ function runCustom() {
     .then(data => {
         if (data.status === 'ok') {
             let html = '';
-            if (data.output) html += `<div class="text-green-400">Output:</div><pre class="text-slate-200 whitespace-pre-wrap">${escapeHtml(data.output)}</pre>`;
-            if (data.error) html += `<div class="text-red-400 mt-1">Error:</div><pre class="text-red-300 whitespace-pre-wrap">${escapeHtml(data.error)}</pre>`;
-            if (data.execution_time) html += `<div class="text-slate-400 mt-1">Time: ${data.execution_time}ms</div>`;
-            outputEl.innerHTML = html || '<span class="text-slate-400">(Không có output)</span>';
+            if (data.output) html += `<div class="text-green-600 font-bold mb-1">Output:</div><pre class="bg-white border border-slate-200 p-3 rounded-lg text-slate-800 font-mono text-sm whitespace-pre-wrap">${escapeHtml(data.output)}</pre>`;
+            if (data.error) html += `<div class="text-red-600 font-bold mt-3 mb-1">Error:</div><pre class="bg-red-50 border border-red-100 p-3 rounded-lg text-red-700 font-mono text-sm whitespace-pre-wrap">${escapeHtml(data.error)}</pre>`;
+            if (data.execution_time) html += `<div class="text-slate-400 text-xs mt-3">Thời gian: ${data.execution_time}ms</div>`;
+            outputEl.innerHTML = html || '<span class="text-slate-400 italic">(Không có output)</span>';
         } else {
-            outputEl.innerHTML = `<span class="text-red-400">${data.message}</span>`;
+            outputEl.innerHTML = `<span class="text-red-600 font-bold">${data.message}</span>`;
         }
     })
     .catch(err => {
-        outputEl.innerHTML = `<span class="text-red-400">Lỗi: ${err.message}</span>`;
+        outputEl.innerHTML = `<span class="text-red-600 font-bold">Lỗi: ${err.message}</span>`;
     });
 }
 
@@ -811,7 +676,7 @@ function submitCode() {
     const language = document.getElementById('language-select').value;
 
     showOutputTab('output');
-    document.getElementById('ocontent-output').innerHTML = '<span class="text-blue-400">⏳ Đang chấm bài... Vui lòng đợi.</span>';
+    document.getElementById('ocontent-output').innerHTML = '<span class="text-blue-600 font-bold">⏳ Đang chấm bài... Vui lòng đợi.</span>';
 
     fetch(`/submissions/submit/${ASSIGNMENT_PK}/`, {
         method: 'POST',
@@ -821,20 +686,22 @@ function submitCode() {
     .then(parseJsonResponse)
     .then(data => {
         if (data.status === 'ok') {
-            let html = '<div class="space-y-2">';
-            html += `<div class="text-green-400 font-bold text-sm">✅ Nộp bài thành công!</div>`;
-            html += `<div class="text-slate-300">Điểm: <span class="text-primary font-bold">${data.total_score}/${data.max_score}</span></div>`;
-            html += `<div class="text-slate-300">Testcases: <span class="font-bold">${data.passed}/${data.total}</span> passed</div>`;
-            if (data.is_late) html += `<div class="text-amber-400">⚠️ Nộp muộn - Trừ ${data.penalty_applied}%</div>`;
-            html += `<a href="/submissions/detail/${data.submission_id}/" class="inline-block mt-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90">Xem chi tiết →</a>`;
+            let html = '<div class="space-y-4">';
+            html += `<div class="text-green-600 font-black text-lg">✅ Nộp bài thành công!</div>`;
+            html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
+            html += `<div class="flex justify-between"><span>Điểm số:</span><span class="text-primary font-black">${data.total_score}/${data.max_score}</span></div>`;
+            html += `<div class="flex justify-between"><span>Testcases đạt:</span><span class="font-bold">${data.passed}/${data.total}</span></div>`;
+            if (data.is_late) html += `<div class="text-amber-600 font-bold">⚠️ Nộp muộn (Bị trừ ${data.penalty_applied}%)</div>`;
+            html += `</div>`;
+            html += `<a href="/submissions/detail/${data.submission_id}/" class="inline-flex items-center gap-2 px-6 h-10 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-all">Xem chi tiết bài làm <span class="material-symbols-outlined text-sm">arrow_forward</span></a>`;
             html += '</div>';
             document.getElementById('ocontent-output').innerHTML = html;
         } else {
-            document.getElementById('ocontent-output').innerHTML = `<span class="text-red-400">❌ ${data.message}</span>`;
+            document.getElementById('ocontent-output').innerHTML = `<div class="p-4 bg-red-50 border border-red-100 text-red-600 font-bold rounded-lg">❌ ${data.message}</div>`;
         }
     })
     .catch(err => {
-        document.getElementById('ocontent-output').innerHTML = `<span class="text-red-400">Lỗi: ${err.message}</span>`;
+        document.getElementById('ocontent-output').innerHTML = `<span class="text-red-600 font-bold">Lỗi: ${err.message}</span>`;
     })
     .finally(() => {
         btn.disabled = false;
@@ -848,15 +715,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 </script>
-<div id="global-loading" class="global-loading" role="status" aria-live="polite" aria-hidden="true">
-    <div class="global-loading__card">
-        <div class="global-loading__spinner" aria-hidden="true"></div>
-        <div>
-            <div class="global-loading__title">Đang xử lý</div>
-            <div class="global-loading__hint">Vui lòng chờ trong giây lát...</div>
-        </div>
-    </div>
-</div>
+{% include 'includes/loading.html' %}
 <script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>

@@ -2,315 +2,261 @@
 {% block title %}{{ classroom.name }} - DevLearn{% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto px-6 py-8">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
-        <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
-        <span class="material-symbols-outlined text-xs">chevron_right</span>
-        <span class="text-slate-900 font-medium">{{ classroom.name }}</span>
-    </nav>
+{% include "includes/page_header.html" with title=classroom.name subtitle=classroom.description|default:"Không có mô tả lớp học" breadcrumbs=breadcrumbs %}
 
-    <!-- Header -->
-    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
-        <div>
-            <h1 class="text-3xl font-black tracking-tight">{{ classroom.name }}</h1>
-            <p class="text-slate-600 mt-1">{{ classroom.description|default:"Không có mô tả" }}</p>
-            <div class="flex items-center gap-4 mt-3 text-sm text-slate-600">
-                <div class="flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">person</span>
-                    <span>GV: {{ classroom.teacher.get_full_name|default:classroom.teacher.username }}</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">group</span>
-                    <span>{{ member_count }} sinh viên</span>
-                </div>
-                <div class="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">
-                    <span class="material-symbols-outlined text-sm">vpn_key</span>
-                    <span>{{ classroom.invite_code }}</span>
-                </div>
+<div class="page-body classroom-page">
+    <div class="container">
+        {% if is_teacher and not classroom.is_active %}
+        <div class="mb-6 p-4 bg-warning-50 border border-warning-200 rounded-xl flex items-start gap-3">
+            <span class="material-symbols-outlined text-warning-600 mt-0.5">info</span>
+            <div class="flex-1">
+                <p class="text-sm font-bold text-warning-900">Lớp học đang chờ duyệt</p>
+                <p class="text-xs text-warning-700 mt-1">Lớp học này hiện chỉ hiển thị với bạn. Sinh viên sẽ không thể tìm thấy hoặc tham gia cho đến khi Admin phê duyệt.</p>
             </div>
         </div>
-        {% if is_teacher %}
-        <div class="flex gap-3">
-            <a href="{% url 'classrooms:gradebook' pk=classroom.pk %}" class="flex items-center gap-2 bg-emerald-500/10 text-emerald-600 font-bold py-2.5 px-5 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">table_chart</span> Sổ điểm
-            </a>
-            <a href="{% url 'classrooms:edit' pk=classroom.pk %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-200 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">edit</span> Chỉnh sửa
-            </a>
-            <a href="{% url 'classrooms:create_announcement' pk=classroom.pk %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
-                <span class="material-symbols-outlined text-sm">campaign</span> Thông báo
-            </a>
-        </div>
-        {% else %}
-        <div class="flex gap-3">
-            <a href="{% url 'classrooms:leaderboard' pk=classroom.pk %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-200 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">leaderboard</span> Bảng xếp hạng
-            </a>
-            <form method="post" action="{% url 'classrooms:leave' pk=classroom.pk %}">
-                {% csrf_token %}
-                <button type="submit" onclick="return confirm('Bạn có chắc muốn rời lớp?')" class="flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2.5 px-5 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
-                    <span class="material-symbols-outlined text-sm">logout</span> Rời lớp
-                </button>
-            </form>
-        </div>
         {% endif %}
-    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Main Content -->
-        <div class="lg:col-span-2 space-y-8">
-            <!-- Announcements -->
-            <section>
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold">Thông báo</h2>
-                    {% if is_teacher %}
-                    <a href="{% url 'classrooms:create_announcement' pk=classroom.pk %}" class="text-sm text-primary font-medium hover:underline">+ Tạo mới</a>
-                    {% endif %}
+        <div class="classroom-overview">
+            <div class="classroom-overview-main">
+                <p class="section-eyebrow">Classroom Overview</p>
+                <h2>{{ classroom.name }}</h2>
+                <div class="classroom-meta-list">
+                    <span class="invite-chip" title="Mã mời học sinh">
+                        <span class="material-symbols-outlined">vpn_key</span>
+                        Mã: <strong>{{ classroom.invite_code }}</strong>
+                    </span>
+                    <span>
+                        <span class="material-symbols-outlined">calendar_today</span>
+                        {{ classroom.school_year }} • {{ classroom.get_semester_term_display }}
+                    </span>
+                    <span>
+                        <span class="material-symbols-outlined">group</span>
+                        {{ student_count }} sinh viên
+                    </span>
                 </div>
-                {% if announcements %}
-                <div class="space-y-4">
-                    {% for ann in announcements %}
-                    <div class="bg-white border border-slate-200 rounded-xl p-5 {% if ann.is_pinned %}border-l-4 border-l-primary{% endif %}">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-1">
-                                    {% if ann.is_pinned %}
-                                    <span class="material-symbols-outlined text-primary text-sm">push_pin</span>
-                                    {% endif %}
-                                    <h4 class="font-bold">{{ ann.title }}</h4>
-                                </div>
-                                <p class="text-sm text-slate-600">{{ ann.content }}</p>
-                                <p class="text-xs text-slate-500 mt-2">{{ ann.created_at|date:"d/m/Y H:i" }} • {{ ann.teacher.get_full_name|default:ann.teacher.username }}</p>
-                            </div>
-                            {% if is_teacher %}
-                            <div class="flex gap-1">
-                                <form method="post" action="{% url 'classrooms:pin_announcement' pk=classroom.pk announcement_id=ann.pk %}" style="display:inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-primary transition-colors" title="{% if ann.is_pinned %}Bỏ ghim{% else %}Ghim{% endif %}">
-                                        <span class="material-symbols-outlined text-sm">push_pin</span>
-                                    </button>
-                                </form>
-                                <form method="post" action="{% url 'classrooms:delete_announcement' pk=classroom.pk announcement_id=ann.pk %}" style="display:inline">
-                                    {% csrf_token %}
-                                    <button type="submit" onclick="return confirm('Xóa thông báo này?')" class="p-1.5 rounded hover:bg-red-500/10 text-slate-500 hover:text-red-500 transition-colors" title="Xóa thông báo">
-                                        <span class="material-symbols-outlined text-sm">delete</span>
-                                    </button>
-                                </form>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
+            </div>
+            <div class="classroom-overview-actions">
+                {% if is_teacher %}
+                <a href="{% url 'classrooms:classroom_edit' pk=classroom.pk %}" class="btn btn-outline">
+                    <span class="material-symbols-outlined text-sm">edit</span> Chỉnh sửa
+                </a>
+                <a href="{% url 'classrooms:gradebook' pk=classroom.pk %}" class="btn btn-dark">
+                    <span class="material-symbols-outlined text-sm">grid_on</span> Sổ điểm
+                </a>
+                <a href="{% url 'assignments:create' classroom_pk=classroom.pk %}" class="btn btn-primary shadow-lg">
+                    <span class="material-symbols-outlined text-sm">add_circle</span> Giao bài mới
+                </a>
                 {% else %}
-                <div class="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-600">
-                    <span class="material-symbols-outlined text-3xl mb-2">campaign</span>
-                    <p>Chưa có thông báo nào.</p>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tiến độ của bạn</p>
+                        <p class="text-sm font-black text-primary">{{ completion_rate|floatformat:0 }}% hoàn thành</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full border-4 border-primary/10 flex items-center justify-center relative">
+                        <svg class="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="16" fill="none" class="stroke-primary" stroke-width="3" stroke-dasharray="{{ completion_rate }}, 100"></circle>
+                        </svg>
+                        <span class="text-[10px] font-black text-primary">{{ completion_rate|floatformat:0 }}%</span>
+                    </div>
                 </div>
                 {% endif %}
-            </section>
+            </div>
+        </div>
 
-            <!-- Subjects -->
-            <section>
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold">Môn học</h2>
-                    {% if can_manage_subjects %}
-                    <div class="flex items-center gap-3">
-                        <a href="{% url 'classrooms:subjects' pk=classroom.pk %}" class="text-sm text-slate-600 font-medium hover:underline">Xem tất cả</a>
-                        <a href="{% url 'classrooms:subject_create' pk=classroom.pk %}" class="text-sm text-primary font-medium hover:underline">+ Tạo mới</a>
-                        <a href="{% url 'classrooms:subject_assign' pk=classroom.pk %}" class="text-sm text-primary font-medium hover:underline">+ Gán môn có sẵn</a>
-                    </div>
-                    {% endif %}
-                </div>
-                {% if subject_links %}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {% for link in subject_links %}
-                    {% with subject=link.subject %}
-                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:border-primary transition-colors">
-                        <div class="flex items-start justify-between gap-3 mb-3">
-                            <div>
-                                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">{{ subject.code }}</p>
-                                <a href="{% url 'classrooms:subject_detail' pk=classroom.pk link_pk=link.pk %}" class="block text-base font-bold mt-1 hover:text-primary transition-colors">{{ subject.name }}</a>
-                            </div>
-                            {% if subject.status == 'approved' %}
-                            <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-success-100 text-success-600 uppercase">Đã duyệt</span>
-                            {% elif subject.status == 'pending' %}
-                            <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-warning-100 text-warning-600 uppercase">Chờ duyệt</span>
-                            {% else %}
-                            <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-danger-100 text-danger-600 uppercase">Từ chối</span>
-                            {% endif %}
+        <div class="classroom-layout">
+            <div class="classroom-main">
+                <!-- Subjects Section -->
+                <section class="classroom-panel">
+                    <div class="classroom-section-head">
+                        <div>
+                            <p class="section-eyebrow">Subjects</p>
+                            <h2>Môn học trong lớp</h2>
                         </div>
-                        {% if subject.description %}
-                        <p class="text-sm text-slate-600 mb-3">{{ subject.description }}</p>
+                        {% if is_teacher %}
+                        <div class="section-actions">
+                            <button type="button" id="assign-subject-trigger" class="section-link">
+                                <span class="material-symbols-outlined">add_box</span> Gán môn học
+                            </button>
+                            <a href="{% url 'classrooms:subjects' pk=classroom.pk %}" class="section-link">Quản lý</a>
+                        </div>
                         {% endif %}
-                        <div class="flex flex-wrap gap-2">
-                            {% for lang in subject.languages.all %}
-                            <span class="text-xs px-2 py-1 rounded-full bg-primary-50 text-primary-700 font-medium">{{ lang.display_name }}</span>
-                            {% endfor %}
-                        </div>
-                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-                            <div class="flex items-center gap-2 text-xs text-slate-500">
-                                <span class="material-symbols-outlined text-sm">assignment</span>
-                                <span>{{ link.assignment_count|default:0 }} bài</span>
-                            </div>
-                            <a href="{% url 'classrooms:subject_detail' pk=classroom.pk link_pk=link.pk %}" class="inline-flex items-center gap-1 text-xs text-primary font-bold hover:underline">
-                                Vào môn
-                                <span class="material-symbols-outlined text-sm">chevron_right</span>
-                            </a>
-                        </div>
                     </div>
-                    {% endwith %}
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-600">
-                    <span class="material-symbols-outlined text-3xl mb-2">menu_book</span>
-                    <p>Chưa có môn học nào.</p>
-                </div>
-                {% endif %}
-            </section>
-
-            <!-- Recent Assignments -->
-            <section>
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold">Bài tập gần đây</h2>
-                    {% if is_teacher %}
-                    <div class="flex items-center gap-3">
-                        <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="text-sm text-slate-600 font-medium hover:underline">Xem tất cả</a>
-                        <a href="{% url 'assignments:create' classroom_pk=classroom.pk %}" class="text-sm text-primary font-medium hover:underline">+ Tạo bài tập</a>
+                    
+                    {% if subject_links %}
+                    <div class="subject-grid">
+                        {% for cs in subject_links|slice:":4" %}
+                        <div class="subject-card">
+                            <div class="subject-card-head">
+                                <div>
+                                    <p>{{ cs.subject.code }}</p>
+                                    <h3><a href="{% url 'assignments:list' classroom_pk=classroom.pk %}?cs={{ cs.pk }}" class="hover:text-primary transition-colors">{{ cs.subject.name }}</a></h3>
+                                </div>
+                                <span class="status-chip neutral">{{ cs.assignment_count|default:0 }} bài</span>
+                            </div>
+                            <p class="subject-description line-clamp-2">{{ cs.subject.description|default:"Chưa có mô tả môn học." }}</p>
+                            <div class="language-row">
+                                {% for lang in cs.subject.languages.all %}
+                                <span>{{ lang.display_name }}</span>
+                                {% endfor %}
+                            </div>
+                            <div class="subject-card-footer">
+                                <span><span class="material-symbols-outlined">person</span> {{ cs.subject.created_by.get_full_name|default:cs.subject.created_by.username }}</span>
+                                <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}?cs={{ cs.pk }}">Chi tiết <span class="material-symbols-outlined">arrow_forward</span></a>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                     {% else %}
-                    <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="text-sm text-primary font-medium hover:underline">Xem tất cả</a>
+                    <div class="classroom-empty">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <h3>Chưa có môn học nào</h3>
+                        <p>Bắt đầu bằng cách gán môn học cho lớp này để quản lý bài tập và sinh viên.</p>
+                    </div>
                     {% endif %}
-                </div>
-                {% if assignments %}
-                <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <div class="divide-y divide-slate-200">
-                        {% for assignment in assignments %}
-                        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors cursor-pointer">
-                            <div class="size-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                                <span class="material-symbols-outlined">assignment</span>
+                </section>
+
+                <!-- Classwork Section -->
+                <section class="classroom-panel">
+                    <div class="classroom-section-head">
+                        <div>
+                            <p class="section-eyebrow">Work</p>
+                            <h2>Bài tập mới nhất</h2>
+                        </div>
+                        <div class="section-actions">
+                            <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="section-link">Tất cả bài tập</a>
+                        </div>
+                    </div>
+                    
+                    {% if assignments %}
+                    <div class="classwork-list">
+                        {% for a in assignments|slice:":5" %}
+                        <a href="{% url 'assignments:detail' pk=a.pk %}" class="classwork-item">
+                            <div class="classwork-icon {% if a.submission_mode == 'file' %}file{% elif a.submission_mode == 'quiz' %}quiz{% endif %}">
+                                <span class="material-symbols-outlined">{% if a.submission_mode == 'file' %}upload_file{% elif a.submission_mode == 'quiz' %}quiz{% else %}code{% endif %}</span>
                             </div>
-                            <div class="flex-1">
-                                <h5 class="font-bold">{{ assignment.title }}</h5>
-                                <p class="text-sm text-slate-600">{{ assignment.difficulty|default:"" }} • Hạn nộp: {{ assignment.due_date|date:"d/m/Y H:i"|default:"Không giới hạn" }}</p>
+                            <div class="classwork-copy">
+                                <strong>{{ a.title }}</strong>
+                                <small>{{ a.classroom_subject.subject.name|default:"Chung" }} • Giao ngày {{ a.start_date|date:"d/m" }}</small>
                             </div>
-                            <div class="text-right flex items-center gap-2">
-                                {% if assignment.due_date %}
-                                <span class="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-bold">{{ assignment.due_date|date:"d/m" }}</span>
-                                {% endif %}
-                                <span class="material-symbols-outlined text-slate-500 text-sm">chevron_right</span>
+                            <div class="date-pill">
+                                Hạn: {{ a.due_date|date:"d/m/Y" }}
                             </div>
+                            <span class="material-symbols-outlined item-chevron">chevron_right</span>
                         </a>
                         {% endfor %}
                     </div>
-                </div>
-                {% else %}
-                <div class="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-600">
-                    <span class="material-symbols-outlined text-3xl mb-2">assignment</span>
-                    <p>Chưa có bài tập nào.</p>
-                </div>
-                {% endif %}
-            </section>
-        </div>
-
-        <!-- Sidebar -->
-        <div class="space-y-8">
-            <!-- Members -->
-            <section class="bg-white border border-slate-200 rounded-xl p-6">
-                <h3 class="font-bold mb-4 flex items-center justify-between gap-2">
-                    <span class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">group</span>
-                        Thành viên ({{ member_count }})
-                    </span>
-                    {% if is_teacher %}
-                    <a href="{% url 'classrooms:import_members' pk=classroom.pk %}" class="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">
-                        <span class="material-symbols-outlined text-sm">upload_file</span>
-                        Import
-                    </a>
+                    {% else %}
+                    <div class="classroom-empty">
+                        <span class="material-symbols-outlined">assignment</span>
+                        <h3>Chưa có bài tập nào</h3>
+                        <p>Giao bài tập đầu tiên cho sinh viên thực hiện.</p>
+                    </div>
                     {% endif %}
-                </h3>
-                <div class="space-y-3">
-                    {% for member in members|slice:":10" %}
-                    <div class="flex items-center gap-3">
-                        {% if member.student.profiles.avatar_url %}
-                        <div class="bg-center bg-no-repeat bg-cover rounded-full size-8 border border-slate-200" style="background-image: url('{{ member.student.profiles.avatar_url }}');"></div>
-                        {% else %}
-                        <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                            {{ member.student.first_name|first|default:member.student.username|first|upper }}
-                        </div>
-                        {% endif %}
-                        <span class="flex-1 text-sm font-medium truncate">{{ member.student.get_full_name|default:member.student.username }}</span>
-                        {% if is_teacher %}
-                        <form method="post" action="{% url 'classrooms:remove_member' pk=classroom.pk member_id=member.pk %}" style="display:inline">
-                            {% csrf_token %}
-                            <button type="submit" onclick="return confirm('Xóa thành viên này?')" class="text-slate-400 hover:text-red-500 transition-colors" title="Xóa thành viên khỏi lớp">
-                                <span class="material-symbols-outlined text-sm">close</span>
-                            </button>
-                        </form>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-                {% if member_count > 10 %}
-                <p class="text-xs text-slate-500 mt-3 text-center">và {{ member_count|add:"-10" }} thành viên khác</p>
-                {% endif %}
-            </section>
+                </section>
+            </div>
 
-            <!-- Pending Approvals (Teacher only) -->
-            {% if is_teacher and pending_members %}
-            <section class="bg-white border border-slate-200 rounded-xl p-6">
-                <h3 class="font-bold mb-4 flex items-center justify-between">
-                    <span class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-amber-500">pending_actions</span>
-                        Chờ duyệt
-                    </span>
-                    <span class="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-xs font-bold">{{ pending_members|length }}</span>
-                </h3>
-                <div class="space-y-4">
-                    {% for member in pending_members %}
-                    <div class="p-3 bg-slate-50 rounded-lg">
-                        <div class="flex items-center gap-3 mb-3">
-                            <div class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
-                                {{ member.student.first_name|first|default:member.student.username|first|upper }}
+            <div class="classroom-aside">
+                <!-- Notifications/Stream Panel -->
+                <section class="classroom-side-panel">
+                    <div class="side-panel-head">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <h2>Bảng tin lớp học</h2>
+                    </div>
+                    <div class="classroom-feed">
+                        {% for item in announcements|slice:":3" %}
+                        <div class="classroom-feed-item">
+                            <div class="feed-icon">
+                                <span class="material-symbols-outlined">campaign</span>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-bold truncate">{{ member.student.get_full_name|default:member.student.username }}</p>
-                                <p class="text-xs text-slate-600 truncate">{{ member.student.email }}</p>
+                            <div class="feed-body">
+                                <div class="feed-title-row">
+                                    <h3 class="line-clamp-1">{{ item.title }}</h3>
+                                </div>
+                                <p class="line-clamp-2">{{ item.content|striptags }}</p>
+                                <small>{{ item.created_at|timesince }} trước</small>
                             </div>
                         </div>
-                        <div class="flex gap-2">
-                            <form method="post" action="{% url 'classrooms:approve_member' pk=classroom.pk member_id=member.pk %}" class="flex-1">
-                                {% csrf_token %}
-                                <button type="submit" class="w-full py-1.5 bg-primary text-white text-xs font-bold rounded-lg text-center hover:bg-primary/90 transition-all">
-                                    Duyệt
-                                </button>
-                            </form>
-                            <form method="post" action="{% url 'classrooms:remove_member' pk=classroom.pk member_id=member.pk %}" class="flex-1">
-                                {% csrf_token %}
-                                <button type="submit" class="w-full py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-all">
-                                    Từ chối
-                                </button>
-                            </form>
-                        </div>
+                        {% empty %}
+                        <p class="side-empty">Không có thông báo mới.</p>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                </div>
-            </section>
-            {% endif %}
+                </section>
 
-            <!-- Leaderboard Snippet -->
-            <section class="bg-white border border-slate-200 rounded-xl p-6">
-                <h3 class="font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-500">leaderboard</span>
-                    Bảng xếp hạng
-                </h3>
-                <a href="{% url 'classrooms:leaderboard' pk=classroom.pk %}" class="w-full py-2 border border-slate-200 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors text-center block">
-                    Xem bảng xếp hạng đầy đủ
-                </a>
-            </section>
+                <!-- Members Summary -->
+                <section class="classroom-side-panel">
+                    <div class="side-panel-head">
+                        <span class="material-symbols-outlined">groups</span>
+                        <h2>Thành viên</h2>
+                    </div>
+                    <div class="member-list">
+                        {% for member in members|slice:":5" %}
+                        <div class="member-row">
+                            <div class="member-avatar fallback">
+                                {{ member.student.username|first|upper }}
+                            </div>
+                            <span>{{ member.student.get_full_name|default:member.student.username }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="side-note">
+                        <span class="text-xs text-slate-500 font-bold">Tổng số: {{ student_count }} sinh viên</span>
+                    </div>
+                </section>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal gán môn học (Inline cho teacher) -->
+{% if is_teacher %}
+<div id="assign-subject-modal" class="custom-modal-overlay">
+    <div class="custom-modal-card">
+        <div class="custom-modal-header">
+            <div class="custom-modal-icon" style="background: var(--primary-50); color: var(--primary-600);">
+                <span class="material-symbols-outlined">add_box</span>
+            </div>
+            <h3 class="custom-modal-title">Gán môn học vào lớp</h3>
+        </div>
+        <form method="post" action="{% url 'classrooms:subject_assign' pk=classroom.pk %}">
+            {% csrf_token %}
+            <div class="custom-modal-body space-y-4">
+                <p class="text-sm">Chọn môn học bạn muốn đưa vào chương trình giảng dạy của lớp <strong>{{ classroom.name }}</strong>.</p>
+                <div>
+                    <label class="form-label">Danh sách môn học khả dụng</label>
+                    <select name="subject_id" class="form-select" required>
+                        <option value="">-- Chọn môn học --</option>
+                        {% for sub in available_subjects_to_assign %}
+                        <option value="{{ sub.pk }}">{{ sub.code }} - {{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-slate-500 mt-1 italic">* Chỉ hiển thị các môn học bạn đã tạo hoặc đã được admin phê duyệt.</p>
+                </div>
+            </div>
+            <div class="custom-modal-footer">
+                <button type="button" id="close-modal-btn" class="btn btn-ghost">Hủy</button>
+                <button type="submit" class="btn btn-primary px-6">Xác nhận gán môn</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const trigger = document.getElementById('assign-subject-trigger');
+        const modal = document.getElementById('assign-subject-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        const openModal = () => modal.classList.add('is-active');
+        const closeModal = () => modal.classList.remove('is-active');
+
+        if (trigger) trigger.addEventListener('click', openModal);
+        if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+    });
+</script>
 {% endblock %}

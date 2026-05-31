@@ -2,7 +2,7 @@
 {% block title %}{{ assignment.title }} - DevLearn{% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto px-6 py-8">
+<div class="max-w-[1200px] mx-auto px-6 py-8 classroom-page">
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
         <a class="hover:text-primary" href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
@@ -18,8 +18,40 @@
         <span class="text-slate-900 font-medium">{{ assignment.title|truncatechars:30 }}</span>
     </nav>
 
+    <nav class="frontend-tabs mb-6" aria-label="Điều hướng bài tập">
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}#stream" class="frontend-tab">
+            <span class="material-symbols-outlined">dynamic_feed</span>
+            Bảng tin
+        </a>
+        {% if assignment.classroom_subject %}
+        <a href="{% url 'classrooms:subject_detail' pk=classroom.pk link_pk=assignment.classroom_subject.pk %}" class="frontend-tab">
+            <span class="material-symbols-outlined">menu_book</span>
+            Môn học
+        </a>
+        {% endif %}
+        <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}" class="frontend-tab is-active">
+            <span class="material-symbols-outlined">assignment</span>
+            Bài tập
+        </a>
+        {% if is_teacher %}
+        <a href="{% url 'submissions:teacher_list' assignment_pk=assignment.pk %}" class="frontend-tab">
+            <span class="material-symbols-outlined">grading</span>
+            Bài nộp
+        </a>
+        <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="frontend-tab">
+            <span class="material-symbols-outlined">analytics</span>
+            Thống kê
+        </a>
+        {% else %}
+        <a href="{% url 'submissions:history' assignment_pk=assignment.pk %}" class="frontend-tab">
+            <span class="material-symbols-outlined">history</span>
+            Lịch sử nộp
+        </a>
+        {% endif %}
+    </nav>
+
     <!-- Header -->
-    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+    <div class="content-action-bar items-start mb-8">
         <div>
             <div class="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
@@ -34,6 +66,10 @@
                     EXAM{% if assignment.exam_duration_minutes %} • {{ assignment.exam_duration_minutes }}ph{% endif %}
                 </span>
                 {% endif %}
+                <span class="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">{% if assignment.submission_mode == 'file' %}upload_file{% elif assignment.submission_mode == 'quiz' %}quiz{% else %}code{% endif %}</span>
+                    {% if assignment.submission_mode == 'file' %}Nộp file{% elif assignment.submission_mode == 'quiz' %}Trắc nghiệm{% else %}Lập trình{% endif %}
+                </span>
                 {% if assignment.classroom_subject %}
                 <span class="text-xs font-bold px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded flex items-center gap-1">
                     <span class="material-symbols-outlined text-sm">menu_book</span>
@@ -56,7 +92,7 @@
                 {% endif %}
             </div>
         </div>
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-3 justify-end">
             {% if is_teacher %}
             <form method="post" action="{% url 'assignments:toggle_publish' pk=assignment.pk %}" style="display:inline">
                 {% csrf_token %}
@@ -77,6 +113,19 @@
             <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
                 <span class="material-symbols-outlined text-sm">bar_chart</span> Thống kê
             </a>
+            {% if assignment.submission_mode == 'quiz' %}
+            <a href="{% url 'assignments:quiz_manage' pk=assignment.pk %}" class="flex items-center gap-2 bg-violet-500/10 text-violet-700 font-bold py-2.5 px-5 rounded-lg hover:bg-violet-500/20 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">quiz</span> Quản lý quiz
+            </a>
+            {% endif %}
+            {% if assignment.submission_mode == 'file' %}
+            <a href="{% url 'assignments:file_requirements' pk=assignment.pk %}" class="flex items-center gap-2 bg-emerald-500/10 text-emerald-700 font-bold py-2.5 px-5 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">rule_folder</span> Yêu cầu file
+            </a>
+            <a href="{% url 'assignments:download_submission_files' pk=assignment.pk %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-200 transition-colors text-sm">
+                <span class="material-symbols-outlined text-sm">folder_zip</span> Tải file nộp
+            </a>
+            {% endif %}
             <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2.5 px-5 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
                 <span class="material-symbols-outlined text-sm">policy</span> Đạo văn
             </a>
@@ -86,8 +135,9 @@
             </a>
             {% endif %}
             {% else %}
-            <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
-                <span class="material-symbols-outlined text-sm">{% if assignment.is_exam %}timer{% else %}code{% endif %}</span> {% if assignment.is_exam %}Vào phòng thi{% else %}Làm bài{% endif %}
+            <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% elif assignment.submission_mode == 'quiz' %}{% url 'submissions:quiz_lobby' assignment_pk=assignment.pk %}{% elif assignment.submission_mode == 'file' %}{% url 'submissions:file_submission' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">{% if assignment.is_exam %}timer{% elif assignment.submission_mode == 'file' %}upload_file{% elif assignment.submission_mode == 'quiz' %}quiz{% else %}code{% endif %}</span>
+                {% if assignment.is_exam %}Vào phòng thi{% elif assignment.submission_mode == 'file' %}Nộp file{% elif assignment.submission_mode == 'quiz' %}Làm trắc nghiệm{% else %}Làm bài{% endif %}
             </a>
             {% endif %}
         </div>
@@ -118,6 +168,72 @@
             </section>
             {% endif %}
 
+            {% if assignment.submission_mode == 'file' %}
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <div class="flex items-center justify-between gap-4 mb-5">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">rule_folder</span>
+                        Yêu cầu nộp file
+                    </h2>
+                    {% if is_teacher %}
+                    <a href="{% url 'assignments:file_requirements' pk=assignment.pk %}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-sm font-bold hover:bg-primary-100 transition-colors">
+                        <span class="material-symbols-outlined text-sm">tune</span>
+                        Chỉnh yêu cầu
+                    </a>
+                    {% endif %}
+                </div>
+                {% if file_requirements %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-xs font-bold uppercase text-slate-500 mb-2">Định dạng cho phép</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for ext in file_requirements.allowed_extensions %}
+                            <span class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-bold text-slate-700">{{ ext }}</span>
+                            {% empty %}
+                            <span class="text-sm text-slate-500">Chưa cấu hình</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <p class="text-xs font-bold uppercase text-slate-500">Dung lượng</p>
+                            <p class="text-2xl font-black text-primary mt-1">{{ file_requirements.max_file_size_mb }}MB</p>
+                            <p class="text-xs text-slate-500">mỗi file</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <p class="text-xs font-bold uppercase text-slate-500">Số file</p>
+                            <p class="text-2xl font-black text-primary mt-1">{{ file_requirements.max_files }}</p>
+                            <p class="text-xs text-slate-500">tối đa</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                    <div class="flex items-center gap-2 text-sm rounded-lg border border-slate-200 p-3">
+                        <span class="material-symbols-outlined text-base {% if file_requirements.require_comment %}text-emerald-500{% else %}text-slate-400{% endif %}">{% if file_requirements.require_comment %}check_circle{% else %}radio_button_unchecked{% endif %}</span>
+                        <span>{% if file_requirements.require_comment %}Bắt buộc ghi chú khi nộp{% else %}Không bắt buộc ghi chú{% endif %}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm rounded-lg border border-slate-200 p-3">
+                        <span class="material-symbols-outlined text-base {% if file_requirements.allow_resubmit %}text-emerald-500{% else %}text-slate-400{% endif %}">{% if file_requirements.allow_resubmit %}check_circle{% else %}lock{% endif %}</span>
+                        <span>{% if file_requirements.allow_resubmit %}Cho phép nộp lại theo số lần nộp{% else %}Chỉ nộp một lần{% endif %}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm rounded-lg border border-slate-200 p-3">
+                        <span class="material-symbols-outlined text-base {% if file_requirements.require_all_files_before_submit %}text-emerald-500{% else %}text-slate-400{% endif %}">{% if file_requirements.require_all_files_before_submit %}check_circle{% else %}radio_button_unchecked{% endif %}</span>
+                        <span>{% if file_requirements.require_all_files_before_submit %}Cần đủ file trước khi nộp{% else %}Có thể nộp ít hơn số file tối đa{% endif %}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm rounded-lg border border-slate-200 p-3">
+                        <span class="material-symbols-outlined text-base {% if file_requirements.scan_required %}text-amber-500{% else %}text-slate-400{% endif %}">{% if file_requirements.scan_required %}security{% else %}verified{% endif %}</span>
+                        <span>{% if file_requirements.scan_required %}File cần được quét trước khi chấm{% else %}Không yêu cầu quét file{% endif %}</span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    Chưa có cấu hình yêu cầu file. Giáo viên cần chỉnh sửa bài và lưu phần yêu cầu nộp file.
+                </div>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            {% if assignment.submission_mode == 'code' %}
             <!-- Testcases -->
             <section class="bg-white border border-slate-200 rounded-xl p-6">
                 <div class="flex items-center justify-between mb-6">
@@ -175,11 +291,11 @@
                         <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Input</label>
-                                <pre class="bg-primary-950 text-slate-300 p-3 rounded-lg text-xs overflow-x-auto max-h-40">{{ tc.input_data|default:"(trống)" }}</pre>
+                                <pre class="bg-slate-50 text-slate-900 border border-slate-100 p-3 rounded-lg text-xs overflow-x-auto max-h-40 font-mono">{{ tc.input_data|default:"(trống)" }}</pre>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Expected Output</label>
-                                <pre class="bg-primary-950 text-slate-300 p-3 rounded-lg text-xs overflow-x-auto max-h-40">{{ tc.expected_output|default:"(trống)" }}</pre>
+                                <pre class="bg-slate-50 text-slate-900 border border-slate-100 p-3 rounded-lg text-xs overflow-x-auto max-h-40 font-mono">{{ tc.expected_output|default:"(trống)" }}</pre>
                             </div>
                         </div>
                         {% endif %}
@@ -203,6 +319,47 @@
                 </div>
                 {% endif %}
             </section>
+            {% endif %}
+
+            {% if assignment.submission_mode == 'quiz' %}
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+                    <div>
+                        <h2 class="text-xl font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">quiz</span>
+                            Cấu hình trắc nghiệm
+                        </h2>
+                        <p class="text-sm text-slate-600 mt-1">Câu hỏi, đáp án, preview và CSV được quản lý riêng để giáo viên thao tác nhanh.</p>
+                    </div>
+                    {% if is_teacher %}
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{% url 'assignments:quiz_manage' pk=assignment.pk %}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90">
+                            <span class="material-symbols-outlined text-sm">edit_note</span>
+                            Quản lý câu hỏi
+                        </a>
+                        <a href="{% url 'assignments:quiz_preview' pk=assignment.pk %}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary-200 text-primary text-sm font-bold hover:bg-primary-50">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                            Preview
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-xs font-bold uppercase text-slate-500">Số câu đang bật</p>
+                        <p class="text-2xl font-black text-primary mt-1">{{ quiz_questions.count }}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-xs font-bold uppercase text-slate-500">Thứ tự câu hỏi</p>
+                        <p class="text-lg font-black text-slate-900 mt-1">{% if quiz_settings %}{{ quiz_settings.get_question_order_mode_display }}{% else %}Chưa cấu hình{% endif %}</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-xs font-bold uppercase text-slate-500">Hiện kết quả</p>
+                        <p class="text-lg font-black text-slate-900 mt-1">{% if quiz_settings and quiz_settings.show_score_after_submit %}Có{% else %}Không{% endif %}</p>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
 
             <!-- Files -->
             <section class="bg-white border border-slate-200 rounded-xl p-6">
@@ -226,7 +383,7 @@
                 <div class="space-y-2">
                     {% for file in files %}
                     <div class="flex items-center justify-between p-3 bg-slate-100 rounded-lg">
-                        <a href="{{ file.file_url }}" target="_blank" class="flex items-center gap-3 hover:text-primary transition-colors">
+                        <a href="{% url 'assignments:open_file' pk=assignment.pk file_pk=file.pk %}" target="_blank" class="flex items-center gap-3 hover:text-primary transition-colors">
                             <span class="material-symbols-outlined text-primary">{% if 'pdf' in file.mime_type %}picture_as_pdf{% elif 'image' in file.mime_type %}image{% elif 'zip' in file.mime_type %}folder_zip{% else %}description{% endif %}</span>
                             <div>
                                 <span class="text-sm font-medium">{{ file.file_name }}</span>
@@ -274,12 +431,42 @@
                     {% endfor %}
                 </div>
             </section>
+
+            <section class="bg-white p-6 rounded-xl border border-slate-200">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">verified</span>
+                    Công bố điểm
+                </h3>
+                {% if assignment.grades_released_at %}
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                    <p class="font-bold">Đã công bố</p>
+                    <p class="mt-1">{{ assignment.grades_released_at|date:"d/m/Y H:i" }}</p>
+                    <p class="mt-1">Feedback: {% if assignment.show_feedback_after_release %}học sinh được xem{% else %}đang ẩn{% endif %}</p>
+                </div>
+                {% else %}
+                <form method="post" action="{% url 'assignments:release_grades' pk=assignment.pk %}" class="space-y-3">
+                    {% csrf_token %}
+                    <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                        <input type="checkbox" name="show_feedback_after_release" value="1" checked class="rounded border-slate-300 text-primary focus:ring-primary">
+                        Hiện nhận xét/file phản hồi sau khi công bố
+                    </label>
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90" onclick="return confirm('Công bố điểm cho học sinh có bài nộp?')">
+                        <span class="material-symbols-outlined text-sm">campaign</span>
+                        Công bố điểm
+                    </button>
+                </form>
+                {% endif %}
+            </section>
             {% endif %}
 
             <!-- Info Card -->
             <section class="bg-primary/5 p-6 rounded-xl border border-primary/20">
                 <h3 class="text-lg font-bold mb-4">Thông tin bài tập</h3>
                 <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Hình thức</span>
+                        <span class="font-bold">{% if assignment.submission_mode == 'file' %}Nộp file{% elif assignment.submission_mode == 'quiz' %}Trắc nghiệm{% else %}Lập trình{% endif %}</span>
+                    </div>
                     <div class="flex justify-between">
                         <span class="text-slate-600">Loại</span>
                         <span class="font-bold">{% if assignment.type == 'auto_grade' %}Tự động{% elif assignment.type == 'manual_grade' %}Thủ công{% else %}Kết hợp{% endif %}</span>
@@ -347,9 +534,53 @@
                     </div>
                     {% endif %}
                     <div class="flex justify-between">
+                        <span class="text-slate-600">Điểm</span>
+                        <span class="font-bold">{% if assignment.grades_released_at %}Đã công bố{% else %}Chưa công bố{% endif %}</span>
+                    </div>
+                    {% if assignment.submission_mode == 'file' and file_requirements %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">File tối đa</span>
+                        <span class="font-bold">{{ file_requirements.max_files }} file · {{ file_requirements.max_file_size_mb }}MB/file</span>
+                    </div>
+                    {% endif %}
+                    {% if assignment.submission_mode == 'code' %}
+                    <div class="flex justify-between">
                         <span class="text-slate-600">Testcases</span>
                         <span class="font-bold">{{ total_testcases }} ({{ sample_count }} mẫu, {{ hidden_count }} ẩn)</span>
                     </div>
+                    {% endif %}
+                    {% if assignment.submission_mode == 'quiz' %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Câu hỏi</span>
+                        <span class="font-bold">{{ quiz_questions.count }} câu đang bật</span>
+                    </div>
+                    {% if not is_teacher %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Đã làm</span>
+                        <span class="font-bold">{{ quiz_attempt_count|default:0 }} lượt</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Còn lại</span>
+                        <span class="font-bold">{% if quiz_remaining_attempts is None %}Không giới hạn{% else %}{{ quiz_remaining_attempts }} lượt{% endif %}</span>
+                    </div>
+                    {% endif %}
+                    {% if quiz_settings %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Đảo câu hỏi</span>
+                        <span class="font-bold">{{ quiz_settings.get_question_order_mode_display }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Đảo đáp án</span>
+                        <span class="font-bold">{{ quiz_settings.get_choice_order_mode_display }}</span>
+                    </div>
+                    {% if quiz_settings.time_limit_minutes %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Giới hạn quiz</span>
+                        <span class="font-bold">{{ quiz_settings.time_limit_minutes }} phút</span>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
                     {% if assignment.allowed_languages %}
                     <div>
                         <span class="text-slate-600 block mb-1">Ngôn ngữ cho phép</span>
@@ -364,8 +595,8 @@
 
                 {% if not is_teacher %}
                 <hr class="my-4 border-primary/20">
-                <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all text-center block">
-                    {% if assignment.is_exam %}Vào phòng thi{% else %}Bắt đầu làm bài{% endif %}
+                <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% elif assignment.submission_mode == 'quiz' %}{% url 'submissions:quiz_lobby' assignment_pk=assignment.pk %}{% elif assignment.submission_mode == 'file' %}{% url 'submissions:file_submission' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all text-center block">
+                    {% if assignment.is_exam %}Vào phòng thi{% elif assignment.submission_mode == 'file' %}Nộp file{% elif assignment.submission_mode == 'quiz' %}Làm trắc nghiệm{% else %}Bắt đầu làm bài{% endif %}
                 </a>
                 {% endif %}
             </section>
@@ -477,12 +708,77 @@
             <!-- Danger Zone -->
             <section class="bg-white border border-red-200 rounded-xl p-6">
                 <h3 class="text-sm font-bold text-red-500 mb-3">Vùng nguy hiểm</h3>
-                <a href="{% url 'assignments:delete' pk=assignment.pk %}" class="inline-flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2 px-4 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
-                    <span class="material-symbols-outlined text-sm">delete</span> Xóa bài tập
-                </a>
+                <button type="button" id="delete-assignment-trigger" class="inline-flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2.5 px-5 rounded-lg hover:bg-red-500/20 transition-colors text-sm border border-red-200">
+                    <span class="material-symbols-outlined text-sm">delete</span> Xóa bài tập này
+                </button>
             </section>
             {% endif %}
         </div>
     </div>
 </div>
+
+<!-- Deletion Confirmation Modal -->
+<div id="delete-assignment-modal" class="custom-modal-overlay">
+    <div class="custom-modal-card">
+        <div class="custom-modal-header">
+            <div class="custom-modal-icon">
+                <span class="material-symbols-outlined">delete_forever</span>
+            </div>
+            <h3 class="custom-modal-title">Xóa bài tập?</h3>
+        </div>
+        <div class="custom-modal-body space-y-3">
+            <p>Bạn có chắc chắn muốn xóa bài tập <strong class="text-slate-900">"{{ assignment.title }}"</strong> không?</p>
+            <div class="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 font-medium">
+                <span class="font-bold block mb-1">Cảnh báo:</span>
+                Hành động này sẽ xóa vĩnh viễn toàn bộ dữ liệu bài nộp, điểm số và testcase của bài tập này. Thao tác này không thể khôi phục.
+            </div>
+        </div>
+        <div class="custom-modal-footer">
+            <button type="button" id="cancel-delete-btn" class="h-11 px-6 rounded-lg text-sm font-bold text-slate-500 hover:bg-slate-100 transition-colors">
+                Hủy
+            </button>
+            <form method="post" action="{% url 'assignments:delete' pk=assignment.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="h-11 px-6 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-sm">delete_forever</span>
+                    Xác nhận xóa
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteTrigger = document.getElementById('delete-assignment-trigger');
+        const deleteModal = document.getElementById('delete-assignment-modal');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+
+        if (deleteTrigger && deleteModal) {
+            deleteTrigger.addEventListener('click', () => {
+                deleteModal.classList.add('is-active');
+            });
+        }
+
+        const closeDeleteModal = () => deleteModal.classList.remove('is-active');
+        
+        if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+        
+        if (deleteModal) {
+            deleteModal.addEventListener('click', (e) => {
+                if (e.target === deleteModal) closeDeleteModal();
+            });
+            
+            // Hide modal on submit to show loading better
+            const deleteForm = deleteModal.querySelector('form');
+            if (deleteForm) {
+                deleteForm.addEventListener('submit', () => {
+                    setTimeout(() => {
+                        deleteModal.classList.remove('is-active');
+                    }, 50);
+                });
+            }
+        }
+    });
+</script>
 {% endblock %}

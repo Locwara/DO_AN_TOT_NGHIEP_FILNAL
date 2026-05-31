@@ -35,6 +35,20 @@ def get_bool_setting(key, default=False):
     return bool(value)
 
 
+def get_list_setting(key, default=None, allowed_values=None):
+    default = list(default or [])
+    value = get_system_setting(key, default)
+    if isinstance(value, str):
+        value = [item.strip() for item in value.split(',') if item.strip()]
+    if not isinstance(value, (list, tuple)):
+        value = default
+    result = [item for item in value if isinstance(item, str) and item.strip()]
+    if allowed_values is not None:
+        allowed = set(allowed_values)
+        result = [item for item in result if item in allowed]
+    return result or default
+
+
 def get_int_param(params, name, default=None, minimum=None, maximum=None):
     value = params.get(name)
     if value in (None, ''):
@@ -115,6 +129,28 @@ def csv_filename(base, export_type='', filtered=False, timestamp='', extension='
     if timestamp:
         parts.append(str(timestamp).strip('_-'))
     return '_'.join(part for part in parts if part) + f'.{extension}'
+
+
+def get_client_ip_from_request(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR') if request else None
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR') if request else None
+
+
+def log_activity(user, action, resource_type='', resource_id=None, metadata=None, request=None):
+    """Write a focused audit entry; middleware still records the raw HTTP event."""
+    from .models import ActivityLogs
+
+    return ActivityLogs.objects.create(
+        user=user if getattr(user, 'is_authenticated', False) else None,
+        action=action,
+        resource_type=resource_type or None,
+        resource_id=resource_id,
+        ip_address=get_client_ip_from_request(request),
+        user_agent=(request.META.get('HTTP_USER_AGENT', '')[:500] if request else ''),
+        metadata=metadata or {},
+    )
 
 
 def active_filter_badges(source, labels=None, value_labels=None, defaults=None, ignore=None):

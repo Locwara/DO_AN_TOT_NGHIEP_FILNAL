@@ -13,12 +13,12 @@
         <span class="text-slate-300">Lịch sử nộp</span>
     </nav>
 
-    <div class="flex items-center justify-between mb-6">
+    <div class="content-action-bar">
         <h1 class="text-2xl font-bold">Lịch sử nộp bài</h1>
         {% if can_start_new_submission %}
         <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm">code</span>
-            Làm bài tiếp
+            <span class="material-symbols-outlined text-sm">{% if assignment.submission_mode == 'file' %}upload_file{% else %}code{% endif %}</span>
+            {% if assignment.submission_mode == 'file' %}Nộp file{% else %}Làm bài tiếp{% endif %}
         </a>
         {% elif assignment.is_exam %}
         <a href="{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}" class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2">
@@ -29,9 +29,9 @@
     </div>
 
     {% if submissions %}
-    <div class="space-y-3">
+    <div class="frontend-list">
         {% for sub in submissions %}
-        <a href="{% url 'submissions:detail' pk=sub.pk %}" class="block border border-primary-200 rounded-xl p-5 hover:border-primary/40 transition-all group bg-white shadow-sm">
+        <a href="{% url 'submissions:detail' pk=sub.pk %}" class="frontend-list-card p-5 group">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-4">
                     <div class="flex items-center gap-2">
@@ -61,8 +61,18 @@
                 <div class="flex items-center gap-6">
                     <div class="text-right">
                         <p class="text-[10px] text-slate-500 uppercase font-bold">Điểm</p>
-                        <p class="text-lg font-bold text-primary">{{ sub.total_score|floatformat:1 }}/{{ sub.max_score }}</p>
+                        {% if grades_visible %}
+                        <p class="text-lg font-bold text-primary">{% if sub.manual_score is not None %}{{ sub.manual_score|floatformat:1 }}{% else %}{{ sub.total_score|floatformat:1 }}{% endif %}/{{ sub.max_score }}</p>
+                        {% else %}
+                        <p class="text-sm font-bold text-slate-500">Chờ công bố</p>
+                        {% endif %}
                     </div>
+                    {% if assignment.submission_mode == 'file' %}
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold">File</p>
+                        <p class="text-sm font-bold">{{ sub.files.all|length }}</p>
+                    </div>
+                    {% else %}
                     <div class="text-right">
                         <p class="text-[10px] text-slate-500 uppercase font-bold">Tests</p>
                         <p class="text-sm font-bold">{{ sub.passed_testcases }}/{{ sub.total_testcases }}</p>
@@ -71,6 +81,7 @@
                         <p class="text-[10px] text-slate-500 uppercase font-bold">Ngôn ngữ</p>
                         <p class="text-sm font-medium">{{ sub.language }}</p>
                     </div>
+                    {% endif %}
                     <div class="text-right">
                         <p class="text-[10px] text-slate-500 uppercase font-bold">Thời gian</p>
                         <p class="text-xs text-slate-400">{{ sub.submitted_at|date:"d/m/Y H:i" }}</p>
@@ -81,11 +92,11 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="text-center py-16">
+    <div class="frontend-empty">
         <span class="material-symbols-outlined text-6xl text-slate-600 mb-4">inbox</span>
         <p class="text-slate-400 text-lg">Chưa có bài nộp nào.</p>
         {% if can_start_new_submission %}
-        <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="inline-block mt-4 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90">Bắt đầu làm bài</a>
+        <a href="{% url 'submissions:solve' assignment_pk=assignment.pk %}" class="inline-block mt-4 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90">{% if assignment.submission_mode == 'file' %}Nộp file{% else %}Bắt đầu làm bài{% endif %}</a>
         {% elif assignment.is_exam %}
         <a href="{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}" class="inline-block mt-4 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90">Vào phòng thi</a>
         {% endif %}

@@ -1,6 +1,13 @@
 import json
 import logging
 import csv
+import io
+import os
+import random
+import uuid
+import zipfile
+import urllib.request
+import cloudinary.uploader
 from django.conf import settings as django_settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -8,27 +15,31 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.db import DataError, transaction, models
 from datetime import timedelta
 from django.core.paginator import Paginator
 
 from core.decorators import teacher_required
-from apps.administation.utils import csv_filename, csv_query_context
+from apps.administation.utils import csv_filename, csv_query_context, get_bool_setting, log_activity
 from apps.classrooms.views import _is_classroom_teacher, _is_classroom_member
 from apps.classrooms.models import ClassroomMembers
-from apps.assignments.models import Assignments, Testcases, Rubrics
+from apps.assignments.models import Assignments, Testcases, Rubrics, QuizSettings, QuizQuestions, QuizChoices
+from apps.assignments.models import AssignmentFiles, AssignmentFileRequirements
 from apps.administation.models import ProgrammingLanguages, SandboxConfigs
 from apps.notifications.services import notify_user
 from services.docker_service import execute_code, run_testcase
 from .models import (
-    Submissions, SubmissionDetails, CodeDrafts, CodeComments,
-    RubricScores, FeedbackTemplates, ExamSessions, ExamEvents,
+    Submissions, SubmissionDetails, SubmissionFiles, SubmissionFileFeedbacks,
+    CodeDrafts, CodeComments, RubricScores, FeedbackTemplates, ExamSessions, ExamEvents,
+    QuizAttempts, QuizAnswers, GradeChangeLogs,
 )
 from .forms import GradeSubmissionForm, CodeCommentForm, FeedbackTemplateForm
 from .utils import (
     assignment_open_error, can_solve_assignment, validate_submission_language,
-    update_assignment_statistics,
+    update_assignment_statistics, file_checksum, sanitize_upload_filename,
+    upload_to_configured_storage, validate_uploaded_files,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +60,22 @@ EXAM_MONITOR_FILTER_STATUSES = {
 
 JSON_OUTPUT_LIMIT = 10000
 JSON_ERROR_LIMIT = 4000
+FEEDBACK_FILE_MAX_MB = 25
+FEEDBACK_FILE_EXTENSIONS = {
+    '.pdf', '.doc', '.docx', '.txt', '.md',
+    '.png', '.jpg', '.jpeg', '.zip',
+}
+
+
+def _submission_attempt_context(assignment, user):
+    submission_count = Submissions.objects.filter(
+        assignment=assignment,
+        student=user,
+    ).count()
+    remaining_attempts = None
+    if assignment.max_attempts:
+        remaining_attempts = max(0, assignment.max_attempts - submission_count)
+    return submission_count, remaining_attempts
 
 
 def _sanitize_text_for_db(value):
@@ -65,6 +92,557 @@ def _safe_json_text(value, limit=JSON_OUTPUT_LIMIT):
     if len(value) <= limit:
         return value
     return value[:limit] + '\n...[đã rút gọn]'
+
+
+def _safe_zip_name(value, fallback='file'):
+    value = os.path.basename(value or '').strip()
+    if not value:
+        value = fallback
+    return ''.join(ch if ch.isalnum() or ch in '._- ' else '_' for ch in value)[:160]
+
+
+def _upload_feedback_file(submission, uploaded_file, teacher, note=''):
+    errors = validate_uploaded_files(
+        [uploaded_file],
+        allowed_extensions=FEEDBACK_FILE_EXTENSIONS,
+        max_file_size_mb=FEEDBACK_FILE_MAX_MB,
+        max_files=1,
+        label='file phản hồi',
+    )
+    if errors:
+        return None, errors[0]
+    safe_name = sanitize_upload_filename(uploaded_file.name, fallback='feedback')
+    result = upload_to_configured_storage(
+        uploaded_file,
+        folder='submission_feedback/',
+        user=teacher,
+        safe_name=safe_name,
+        prefix='submission-feedback',
+    )
+    feedback = SubmissionFileFeedbacks.objects.create(
+        submission=submission,
+        uploaded_by=teacher,
+        file_name=safe_name,
+        file_url=result.get('url', ''),
+        file_size=uploaded_file.size,
+        mime_type=uploaded_file.content_type or '',
+        note=note or '',
+    )
+    return feedback, ''
+
+
+def _create_grade_change_log(submission, teacher, before, reason='', metadata=None):
+    return GradeChangeLogs.objects.create(
+        submission=submission,
+        changed_by=teacher,
+        previous_manual_score=before.get('manual_score'),
+        new_manual_score=submission.manual_score,
+        previous_total_score=before.get('total_score'),
+        new_total_score=submission.total_score,
+        previous_status=before.get('status'),
+        new_status=submission.status,
+        previous_comment=before.get('teacher_comment'),
+        new_comment=submission.teacher_comment,
+        reason=reason,
+        metadata=metadata or {},
+    )
+
+
+def _file_checksum(uploaded_file):
+    return file_checksum(uploaded_file)
+
+
+def _validate_submission_files(uploaded_files, requirements):
+    errors = []
+    if not requirements:
+        errors.append('Bài nộp file chưa được giáo viên cấu hình yêu cầu.')
+        return errors
+    max_files = requirements.max_files or 1
+    return validate_uploaded_files(
+        uploaded_files,
+        allowed_extensions=requirements.allowed_extensions,
+        allowed_mime_types=requirements.allowed_mime_types,
+        max_file_size_mb=requirements.max_file_size_mb or 20,
+        max_files=max_files,
+        require_all_files_before_submit=requirements.require_all_files_before_submit,
+        label='bài nộp',
+    )
+
+
+def _quiz_settings_for(assignment):
+    settings_obj = QuizSettings.objects.filter(assignment=assignment).first()
+    if settings_obj:
+        return settings_obj
+    return QuizSettings.objects.create(assignment=assignment)
+
+
+def _quiz_active_questions(assignment):
+    return QuizQuestions.objects.filter(
+        assignment=assignment,
+        is_active=True,
+    ).prefetch_related('choices').order_by('order_index', 'id')
+
+
+def _quiz_attempt_count(assignment, user):
+    return QuizAttempts.objects.filter(
+        assignment=assignment,
+        student=user,
+    ).exclude(status=QuizAttempts.STATUS_CANCELLED).count()
+
+
+def _quiz_remaining_attempts(assignment, user):
+    if not assignment.max_attempts:
+        return None
+    return max(0, assignment.max_attempts - _quiz_attempt_count(assignment, user))
+
+
+def _build_quiz_attempt_metadata(assignment, settings_obj, seed):
+    questions = list(_quiz_active_questions(assignment))
+    rng = random.Random(seed)
+    question_ids = [question.pk for question in questions]
+    if settings_obj.question_order_mode == QuizSettings.ORDER_RANDOM:
+        rng.shuffle(question_ids)
+
+    choice_order = {}
+    for question in questions:
+        choices = list(question.choices.all().order_by('order_index', 'id'))
+        choice_ids = [choice.pk for choice in choices]
+        if settings_obj.choice_order_mode == QuizSettings.ORDER_RANDOM:
+            rng.shuffle(choice_ids)
+        choice_order[str(question.pk)] = choice_ids
+
+    return {
+        'question_order': question_ids,
+        'choice_order': choice_order,
+        'settings_snapshot': {
+            'question_order_mode': settings_obj.question_order_mode,
+            'choice_order_mode': settings_obj.choice_order_mode,
+            'show_score_after_submit': settings_obj.show_score_after_submit,
+            'show_correct_answers': settings_obj.show_correct_answers,
+            'show_explanation': settings_obj.show_explanation,
+            'time_limit_minutes': settings_obj.time_limit_minutes,
+            'passing_score': settings_obj.passing_score,
+            'allow_review': settings_obj.allow_review,
+        },
+    }
+
+
+def _quiz_questions_for_attempt(attempt):
+    metadata = attempt.metadata or {}
+    ordered_ids = metadata.get('question_order') or []
+    questions_by_id = _quiz_active_questions(attempt.assignment).in_bulk(ordered_ids)
+    fallback_questions = [q for q in _quiz_active_questions(attempt.assignment) if q.pk not in questions_by_id]
+    questions = [questions_by_id[qid] for qid in ordered_ids if qid in questions_by_id] + fallback_questions
+
+    answers = {
+        answer.question_id: answer
+        for answer in attempt.answers.select_related('question').prefetch_related('selected_choices')
+    }
+    choice_order = metadata.get('choice_order') or {}
+    for question in questions:
+        choices = list(question.choices.all().order_by('order_index', 'id'))
+        ordered_choice_ids = choice_order.get(str(question.pk)) or [choice.pk for choice in choices]
+        choices_by_id = {choice.pk: choice for choice in choices}
+        ordered_choices = [choices_by_id[choice_id] for choice_id in ordered_choice_ids if choice_id in choices_by_id]
+        ordered_choices += [choice for choice in choices if choice.pk not in ordered_choice_ids]
+        answer = answers.get(question.pk)
+        question.ordered_choices = ordered_choices
+        question.answer = answer
+        question.answer_state = {
+            'selected_choice_ids': [int(choice_id) for choice_id in (answer.selected_choice_ids or [])] if answer else [],
+            'text_answer': answer.text_answer if answer else '',
+            'score_awarded': answer.score_awarded if answer else 0,
+            'is_correct': answer.is_correct if answer else None,
+            'answered': bool(answer and ((answer.selected_choice_ids or []) or (answer.text_answer or '').strip())),
+        }
+    return questions
+
+
+def _selected_choice_ids_from_values(values):
+    cleaned = []
+    for value in values:
+        try:
+            value_int = int(value)
+        except (TypeError, ValueError):
+            continue
+        if value_int not in cleaned:
+            cleaned.append(value_int)
+    return cleaned
+
+
+def _save_quiz_answer(attempt, question, selected_choice_ids=None, text_answer=''):
+    selected_choice_ids = selected_choice_ids or []
+    valid_choice_ids = set(
+        QuizChoices.objects.filter(question=question, pk__in=selected_choice_ids)
+        .values_list('pk', flat=True)
+    )
+    selected_choice_ids = [choice_id for choice_id in selected_choice_ids if choice_id in valid_choice_ids]
+    answer, _ = QuizAnswers.objects.update_or_create(
+        attempt=attempt,
+        question=question,
+        defaults={
+            'selected_choice_ids': selected_choice_ids,
+            'text_answer': (text_answer or '').strip(),
+            'answered_at': timezone.now(),
+        },
+    )
+    answer.selected_choices.set(QuizChoices.objects.filter(pk__in=selected_choice_ids, question=question))
+    return answer
+
+
+def _quiz_attempt_time_remaining(attempt, settings_obj, now=None):
+    if attempt.exam_session_id and attempt.exam_session and attempt.exam_session.ends_at:
+        now = now or timezone.now()
+        return max(0, int((attempt.exam_session.ends_at - now).total_seconds()))
+    if not settings_obj.time_limit_minutes or not attempt.started_at:
+        return None
+    now = now or timezone.now()
+    deadline = attempt.started_at + timedelta(minutes=settings_obj.time_limit_minutes)
+    return max(0, int((deadline - now).total_seconds()))
+
+
+def _quiz_attempt_exam_session(attempt):
+    if not attempt.exam_session_id:
+        return None
+    if getattr(attempt, 'exam_session', None):
+        return attempt.exam_session
+    return ExamSessions.objects.filter(pk=attempt.exam_session_id).first()
+
+
+def _notify_teacher_quiz_exam_alert(attempt, submission, reason, metadata=None):
+    assignment = attempt.assignment
+    teacher = assignment.classroom.teacher if assignment and assignment.classroom_id else None
+    if not teacher or teacher_id_equals_student(teacher, attempt.student):
+        return None
+    return notify_user(
+        teacher,
+        title=f'Quiz exam tự động nộp: {assignment.title}',
+        message=f'{attempt.student.get_full_name() or attempt.student.username} có phiên quiz exam kết thúc bởi hệ thống.',
+        link=f'/submissions/detail/{submission.pk}/' if submission else f'/assignments/{assignment.pk}/quiz/attempts/',
+        notification_type='exam_auto_submitted',
+        actor=attempt.student,
+        metadata={
+            'assignment_id': assignment.pk,
+            'attempt_id': attempt.pk,
+            'submission_id': submission.pk if submission else None,
+            'exam_session_id': attempt.exam_session_id,
+            'reason': reason,
+            'submission_mode': 'quiz',
+            **(metadata or {}),
+        },
+    )
+
+
+def teacher_id_equals_student(teacher, student):
+    return bool(teacher and student and teacher.pk == student.pk)
+
+
+def _finalize_quiz_exam_session(attempt, submission, session_status, event_type, metadata=None):
+    session = _quiz_attempt_exam_session(attempt)
+    if not session:
+        return None
+    now = timezone.now()
+    answered_count = 0
+    for answer in attempt.answers.all():
+        if (answer.selected_choice_ids or []) or (answer.text_answer or '').strip():
+            answered_count += 1
+    session.final_submission = submission
+    session.status = session_status
+    session.submitted_at = now
+    session.last_seen_at = now
+    session.metadata = {
+        **(session.metadata or {}),
+        'submission_mode': 'quiz',
+        'quiz_attempt_id': attempt.pk,
+        'answered_count': answered_count,
+    }
+    session.save(update_fields=[
+        'final_submission', 'status', 'submitted_at',
+        'last_seen_at', 'metadata', 'updated_at',
+    ])
+    _log_exam_event(session, event_type, {
+        'submission_id': submission.pk,
+        'attempt_id': attempt.pk,
+        'submission_mode': 'quiz',
+        **(metadata or {}),
+    })
+    if session_status == ExamSessions.STATUS_AUTO_SUBMITTED or event_type == 'auto_submit':
+        _notify_teacher_quiz_exam_alert(
+            attempt,
+            submission,
+            reason=metadata.get('reason') if isinstance(metadata, dict) else event_type,
+            metadata={'event_type': event_type, 'session_status': session_status},
+        )
+    return session
+
+
+def _ensure_quiz_exam_attempt(assignment, student, session, request=None):
+    attempt = QuizAttempts.objects.filter(
+        assignment=assignment,
+        student=student,
+        exam_session=session,
+    ).select_related('assignment', 'student', 'exam_session', 'submission').first()
+    if attempt:
+        return attempt, False
+
+    questions = list(_quiz_active_questions(assignment))
+    if not questions:
+        return None, False
+    settings_obj = _quiz_settings_for(assignment)
+    seed = uuid.uuid4().hex
+    metadata = _build_quiz_attempt_metadata(assignment, settings_obj, seed)
+    attempt = QuizAttempts.objects.create(
+        assignment=assignment,
+        student=student,
+        exam_session=session,
+        attempt_no=1,
+        status=QuizAttempts.STATUS_IN_PROGRESS,
+        started_at=session.started_at or timezone.now(),
+        max_score=sum(question.points for question in questions),
+        ip_address=_get_client_ip(request) if request else session.ip_address,
+        user_agent=(request.META.get('HTTP_USER_AGENT', '')[:500] if request else session.user_agent),
+        random_seed=seed,
+        metadata={
+            **metadata,
+            'exam_session_id': session.pk,
+            'exam_mode': True,
+        },
+    )
+    return attempt, True
+
+
+def _grade_quiz_attempt(attempt, submit_status=QuizAttempts.STATUS_SUBMITTED):
+    assignment = attempt.assignment
+    now = timezone.now()
+    settings_obj = _quiz_settings_for(assignment)
+    questions = _quiz_questions_for_attempt(attempt)
+    max_score = sum(question.points for question in questions)
+    total_score = 0
+    passed_count = 0
+    total_questions = len(questions)
+
+    for question in questions:
+        answer = question.answer or QuizAnswers.objects.create(
+            attempt=attempt,
+            question=question,
+            selected_choice_ids=[],
+            answered_at=now,
+        )
+        correct_ids = set(question.choices.filter(is_correct=True).values_list('pk', flat=True))
+        selected_ids = set(int(choice_id) for choice_id in (answer.selected_choice_ids or []))
+        score_awarded = 0
+        is_correct = False
+
+        if question.question_type in (
+            QuizQuestions.TYPE_SINGLE_CHOICE,
+            QuizQuestions.TYPE_TRUE_FALSE,
+            QuizQuestions.TYPE_MULTIPLE_CHOICE,
+        ):
+            is_correct = bool(correct_ids) and selected_ids == correct_ids
+            score_awarded = question.points if is_correct else 0
+            if is_correct:
+                passed_count += 1
+        else:
+            is_correct = None
+            score_awarded = 0
+
+        answer.is_correct = is_correct
+        answer.score_awarded = score_awarded
+        answer.save(update_fields=['is_correct', 'score_awarded', 'updated_at'])
+        total_score += score_awarded
+
+    is_late = False
+    penalty_percent = 0
+    if assignment.due_date and now > assignment.due_date:
+        is_late = True
+        penalty_percent = assignment.late_penalty_percent if assignment.late_submission_allowed else 0
+    if is_late and penalty_percent > 0:
+        total_score = max(0, total_score - (total_score * penalty_percent / 100))
+
+    duration_seconds = None
+    if attempt.started_at:
+        duration_seconds = max(0, int((now - attempt.started_at).total_seconds()))
+
+    submission = attempt.submission
+    if not submission:
+        submission = Submissions.objects.create(
+            assignment=assignment,
+            student=attempt.student,
+            submission_mode_snapshot=Assignments.SUBMISSION_QUIZ,
+            language='quiz',
+            code_content='',
+            status='finished',
+            total_score=round(total_score, 2),
+            max_score=max_score or assignment.max_score,
+            passed_testcases=passed_count,
+            total_testcases=total_questions,
+            is_late=is_late,
+            penalty_applied=penalty_percent,
+        )
+    else:
+        submission.submission_mode_snapshot = Assignments.SUBMISSION_QUIZ
+        submission.language = 'quiz'
+        submission.code_content = ''
+        submission.status = 'finished'
+        submission.total_score = round(total_score, 2)
+        submission.max_score = max_score or assignment.max_score
+        submission.passed_testcases = passed_count
+        submission.total_testcases = total_questions
+        submission.is_late = is_late
+        submission.penalty_applied = penalty_percent
+        submission.save(update_fields=[
+            'submission_mode_snapshot', 'language', 'code_content',
+            'status', 'total_score', 'max_score', 'passed_testcases',
+            'total_testcases', 'is_late', 'penalty_applied',
+        ])
+
+    attempt.submission = submission
+    attempt.status = submit_status
+    attempt.submitted_at = now
+    attempt.score = round(total_score, 2)
+    attempt.max_score = max_score or assignment.max_score
+    attempt.duration_seconds = duration_seconds
+    attempt.metadata = {
+        **(attempt.metadata or {}),
+        'graded_at': now.isoformat(),
+        'auto_graded': True,
+        'show_score_after_submit': settings_obj.show_score_after_submit,
+    }
+    attempt.save(update_fields=[
+        'submission', 'status', 'submitted_at', 'score',
+        'max_score', 'duration_seconds', 'metadata', 'updated_at',
+    ])
+    update_assignment_statistics(assignment)
+    return submission
+
+
+def _is_admin_user(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    try:
+        return user.profiles.role == 'admin'
+    except Exception:
+        return False
+
+
+def _can_access_submission_files(user, submission):
+    if not user.is_authenticated or not submission or not submission.assignment:
+        return False
+    if _is_admin_user(user):
+        return True
+    if submission.student_id == user.id:
+        return True
+    return _is_classroom_teacher(user, submission.assignment.classroom)
+
+
+def _submission_exam_session(submission):
+    if not submission or not submission.assignment or not submission.assignment.is_exam:
+        return None
+    return ExamSessions.objects.filter(
+        assignment=submission.assignment,
+        student=submission.student,
+    ).first()
+
+
+def _log_file_access(request, submission, event_type, file_obj):
+    logger.info(
+        'file_access event=%s file=%s submission=%s actor=%s',
+        event_type,
+        getattr(file_obj, 'pk', None),
+        getattr(submission, 'pk', None),
+        getattr(request.user, 'pk', None),
+    )
+    session = _submission_exam_session(submission)
+    if session:
+        _log_exam_event(session, event_type, {
+            'file_id': getattr(file_obj, 'pk', None),
+            'file_name': getattr(file_obj, 'file_name', ''),
+            'actor_id': request.user.pk,
+            'actor_username': request.user.username,
+        })
+
+
+@login_required
+def open_submission_file_view(request, file_pk):
+    submission_file = get_object_or_404(
+        SubmissionFiles.objects.select_related(
+            'submission',
+            'submission__student',
+            'submission__assignment',
+            'submission__assignment__classroom',
+        ),
+        pk=file_pk,
+    )
+    if not _can_access_submission_files(request.user, submission_file.submission):
+        messages.error(request, 'Bạn không có quyền mở file bài nộp này.')
+        return redirect('classrooms:classroom_list')
+    _log_file_access(request, submission_file.submission, 'submission_file_download', submission_file)
+    return redirect(submission_file.file_url)
+
+
+@login_required
+def open_feedback_file_view(request, file_pk):
+    feedback_file = get_object_or_404(
+        SubmissionFileFeedbacks.objects.select_related(
+            'submission',
+            'submission__student',
+            'submission__assignment',
+            'submission__assignment__classroom',
+        ),
+        pk=file_pk,
+    )
+    if not _can_access_submission_files(request.user, feedback_file.submission):
+        messages.error(request, 'Bạn không có quyền mở file phản hồi này.')
+        return redirect('classrooms:classroom_list')
+    _log_file_access(request, feedback_file.submission, 'feedback_file_download', feedback_file)
+    return redirect(feedback_file.file_url)
+
+
+def _build_file_submission_context(request, assignment, classroom, is_teacher=False, exam_session=None):
+    requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
+    assignment_files = AssignmentFiles.objects.filter(assignment=assignment).order_by('-uploaded_at')
+    submissions = Submissions.objects.filter(
+        assignment=assignment,
+        student=request.user,
+    ).prefetch_related('files', 'feedback_files').order_by('-submitted_at')
+    submission_count, remaining_attempts = _submission_attempt_context(assignment, request.user)
+    is_exam_running = bool(exam_session and exam_session.status == ExamSessions.STATUS_RUNNING)
+    can_submit = (
+        not is_teacher
+        and bool(requirements)
+        and (
+            (
+                assignment.is_exam
+                and is_exam_running
+                and not exam_session.final_submission_id
+                and submission_count == 0
+            )
+            or (
+                not assignment.is_exam
+                and (not assignment.max_attempts or submission_count < assignment.max_attempts)
+                and (requirements.allow_resubmit or submission_count == 0)
+            )
+        )
+    )
+    return {
+        'assignment': assignment,
+        'classroom': classroom,
+        'requirements': requirements,
+        'files': assignment_files,
+        'submissions': submissions,
+        'submission_count': submission_count,
+        'remaining_attempts': remaining_attempts,
+        'can_submit': can_submit,
+        'is_teacher': is_teacher,
+        'exam_session': exam_session,
+        'exam_started': bool(exam_session),
+        'exam_deadline': exam_session.ends_at if exam_session else None,
+        'exam_remaining_seconds': _exam_remaining_seconds(exam_session),
+        'max_file_size_bytes': (requirements.max_file_size_mb if requirements else 20) * 1024 * 1024,
+        'allowed_extensions': requirements.allowed_extensions if requirements else [],
+    }
 
 
 def _create_submission_detail_with_fallback(submission, testcase, tc_result, score_earned):
@@ -138,7 +716,7 @@ def _log_exam_event(session, event_type, metadata=None):
 def _filtered_exam_monitor_sessions(assignment, request):
     sessions = ExamSessions.objects.filter(
         assignment=assignment,
-    ).select_related('student', 'final_submission').order_by('student__username')
+    ).select_related('student', 'final_submission').prefetch_related('final_submission__files').order_by('student__username')
     status_filter = request.GET.get('status', 'all')
     if status_filter in EXAM_MONITOR_FILTER_STATUSES:
         if status_filter == ExamSessions.STATUS_SUBMITTED:
@@ -159,9 +737,51 @@ def _expire_session_if_needed(session, now=None):
         and session.ends_at
         and now > session.ends_at + timedelta(seconds=grace)
     ):
+        metadata = {'reason': 'server_time_exceeded'}
+        if session.assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+            attempt = QuizAttempts.objects.filter(
+                exam_session=session,
+                status=QuizAttempts.STATUS_IN_PROGRESS,
+            ).select_related('assignment', 'student', 'exam_session').first()
+            if attempt:
+                submission = _grade_quiz_attempt(
+                    attempt,
+                    submit_status=QuizAttempts.STATUS_AUTO_SUBMITTED,
+                )
+                _finalize_quiz_exam_session(
+                    attempt,
+                    submission,
+                    ExamSessions.STATUS_AUTO_SUBMITTED,
+                    'auto_submit',
+                    metadata,
+                )
+                return session
+            metadata.update({'submission_mode': 'quiz', 'quiz_attempt_found': False})
+            teacher = session.assignment.classroom.teacher if session.assignment.classroom_id else None
+            if teacher and teacher.pk != session.student_id:
+                notify_user(
+                    teacher,
+                    title=f'Quiz exam hết giờ bất thường: {session.assignment.title}',
+                    message=f'{session.student.get_full_name() or session.student.username} hết giờ nhưng không tìm thấy attempt đang làm.',
+                    link=f'/submissions/exam/{session.assignment.pk}/monitor/',
+                    notification_type='exam_auto_submitted',
+                    actor=session.student,
+                    metadata={
+                        'assignment_id': session.assignment_id,
+                        'exam_session_id': session.pk,
+                        'reason': 'expired_without_attempt',
+                        'submission_mode': 'quiz',
+                    },
+                )
+        if session.assignment.submission_mode == Assignments.SUBMISSION_FILE:
+            metadata.update({
+                'submission_mode': 'file',
+                'auto_submit_uploaded_draft': get_bool_setting('exam.file.auto_submit_uploaded_draft', False),
+                'server_file_draft': False,
+            })
         session.status = ExamSessions.STATUS_EXPIRED
         session.save(update_fields=['status', 'updated_at'])
-        _log_exam_event(session, 'expired', {'reason': 'server_time_exceeded'})
+        _log_exam_event(session, 'expired', metadata)
     return session
 
 
@@ -258,6 +878,12 @@ def solve_problem_view(request, assignment_pk):
         messages.error(request, open_error)
         return redirect('assignments:detail', pk=assignment.pk)
 
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        context = _build_file_submission_context(request, assignment, classroom, is_teacher=is_teacher)
+        return render(request, 'submissions/submit_file.html', context)
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        return redirect('submissions:quiz_lobby', assignment_pk=assignment.pk)
+
     # ===== EXAM MODE - tính deadline động =====
     exam_deadline = None
     exam_remaining_seconds = None
@@ -342,6 +968,578 @@ def solve_problem_view(request, assignment_pk):
 
 
 @login_required
+def file_submission_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk, is_published=True)
+    if assignment.submission_mode != Assignments.SUBMISSION_FILE:
+        messages.error(request, 'Bài này không phải dạng nộp file.')
+        return redirect('assignments:detail', pk=assignment.pk)
+    return solve_problem_view(request, assignment_pk)
+
+
+@login_required
+@require_POST
+def clear_file_draft_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk, is_published=True)
+    classroom = assignment.classroom
+    if assignment.submission_mode != Assignments.SUBMISSION_FILE:
+        return JsonResponse({'status': 'error', 'message': 'Bài này không phải dạng nộp file.'}, status=400)
+    if not _is_classroom_member(request.user, classroom) or _is_classroom_teacher(request.user, classroom):
+        return JsonResponse({'status': 'error', 'message': 'Bạn không có quyền xóa nháp file.'}, status=403)
+
+    draft_submissions = Submissions.objects.filter(
+        assignment=assignment,
+        student=request.user,
+        submission_mode_snapshot=Assignments.SUBMISSION_FILE,
+        status='draft',
+    )
+    deleted_files = SubmissionFiles.objects.filter(submission__in=draft_submissions).count()
+    deleted_submissions = draft_submissions.count()
+    if deleted_submissions:
+        draft_submissions.delete()
+
+    if assignment.is_exam:
+        session = ExamSessions.objects.filter(
+            assignment=assignment,
+            student=request.user,
+            status=ExamSessions.STATUS_RUNNING,
+        ).first()
+        if session:
+            _log_exam_event(session, 'file_draft_cleared', {
+                'deleted_files': deleted_files,
+                'deleted_submissions': deleted_submissions,
+                'has_server_draft': bool(deleted_submissions),
+            })
+
+    return JsonResponse({
+        'status': 'ok',
+        'deleted_files': deleted_files,
+        'deleted_submissions': deleted_submissions,
+    })
+
+
+@login_required
+@require_POST
+def submit_file_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk, is_published=True)
+    classroom = assignment.classroom
+    is_member = _is_classroom_member(request.user, classroom)
+    is_teacher = _is_classroom_teacher(request.user, classroom)
+
+    if assignment.submission_mode != Assignments.SUBMISSION_FILE:
+        messages.error(request, 'Bài này không phải dạng nộp file.')
+        return redirect('assignments:detail', pk=assignment.pk)
+    if not is_member or is_teacher:
+        messages.error(request, 'Chỉ học sinh của lớp mới được nộp file.')
+        return redirect('assignments:detail', pk=assignment.pk)
+
+    now = timezone.now()
+    open_error = assignment_open_error(assignment, request.user, now)
+    if open_error:
+        messages.error(request, open_error)
+        return redirect('assignments:detail', pk=assignment.pk)
+
+    requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
+    submission_count, _ = _submission_attempt_context(assignment, request.user)
+    exam_session = None
+    if assignment.is_exam:
+        session_id = request.POST.get('session_id')
+        session_qs = ExamSessions.objects.filter(assignment=assignment, student=request.user)
+        if session_id:
+            session_qs = session_qs.filter(pk=session_id)
+        exam_session = session_qs.first()
+        if not exam_session:
+            messages.error(request, 'Bạn cần bắt đầu phiên thi trước khi nộp file.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+        exam_session = _expire_session_if_needed(exam_session, now)
+        if exam_session.final_submission_id:
+            messages.info(request, 'Bạn đã nộp bài thi này.')
+            return redirect('submissions:detail', pk=exam_session.final_submission_id)
+        if exam_session.status != ExamSessions.STATUS_RUNNING:
+            messages.error(request, 'Phiên thi không còn hoạt động.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+        if exam_session.ends_at and now > exam_session.ends_at + timedelta(seconds=assignment.exam_grace_seconds or 30):
+            messages.error(request, 'Đã hết thời gian làm bài. Không thể nộp file.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+        if submission_count > 0:
+            messages.error(request, 'Bài thi nộp file chỉ cho phép nộp chính thức một lần.')
+            return redirect('submissions:history', assignment_pk=assignment.pk)
+    elif requirements and not requirements.allow_resubmit and submission_count > 0:
+        messages.error(request, 'Bài này chỉ cho phép nộp một lần.')
+        return redirect('submissions:history', assignment_pk=assignment.pk)
+    if not assignment.is_exam and assignment.max_attempts and submission_count >= assignment.max_attempts:
+        messages.error(request, f'Bạn đã nộp tối đa {assignment.max_attempts} lần.')
+        return redirect('submissions:history', assignment_pk=assignment.pk)
+
+    note = (request.POST.get('submission_text') or '').strip()
+    uploaded_files = request.FILES.getlist('files')
+    errors = _validate_submission_files(uploaded_files, requirements)
+    if requirements and requirements.require_comment and not note:
+        errors.append('Bài này yêu cầu ghi chú khi nộp.')
+    if errors:
+        for error in errors:
+            messages.error(request, error)
+        return redirect('submissions:exam_ide' if assignment.is_exam else 'submissions:solve', assignment_pk=assignment.pk)
+
+    is_late = False
+    penalty_percent = 0
+    if assignment.due_date and now > assignment.due_date:
+        if not assignment.late_submission_allowed:
+            messages.error(request, 'Đã quá hạn nộp bài và bài tập không cho phép nộp muộn.')
+            return redirect('assignments:detail', pk=assignment.pk)
+        is_late = True
+        penalty_percent = assignment.late_penalty_percent
+
+    uploaded_payloads = []
+    try:
+        for uploaded_file in uploaded_files:
+            checksum = _file_checksum(uploaded_file)
+            safe_name = sanitize_upload_filename(uploaded_file.name)
+            extension = os.path.splitext(safe_name.lower())[1]
+            result = upload_to_configured_storage(
+                uploaded_file,
+                folder='submission_files/',
+                user=request.user,
+                safe_name=safe_name,
+                prefix='submission-file',
+            )
+            uploaded_payloads.append({
+                'file_name': safe_name,
+                'file_url': result.get('url', ''),
+                'file_size': uploaded_file.size,
+                'mime_type': uploaded_file.content_type or '',
+                'extension': extension,
+                'checksum': checksum,
+                'scan_status': SubmissionFiles.SCAN_PENDING if requirements.scan_required else SubmissionFiles.SCAN_SKIPPED,
+                'metadata': {
+                    'original_name': uploaded_file.name,
+                    'storage_public_id': result.get('public_id', ''),
+                    'resource_type': result.get('resource_type', ''),
+                    'storage_provider': result.get('storage_provider', ''),
+                },
+            })
+            if exam_session:
+                _log_exam_event(exam_session, 'upload_file', {
+                    'file_name': safe_name,
+                    'file_size': uploaded_file.size,
+                    'extension': extension,
+                    'checksum': checksum,
+                })
+    except Exception:
+        logger.exception('Failed to upload submission file assignment=%s user=%s', assignment.pk, request.user.pk)
+        messages.error(request, 'Có lỗi xảy ra khi tải file. Vui lòng thử lại.')
+        return redirect('submissions:exam_ide' if assignment.is_exam else 'submissions:solve', assignment_pk=assignment.pk)
+
+    with transaction.atomic():
+        submission = Submissions.objects.create(
+            assignment=assignment,
+            student=request.user,
+            submission_mode_snapshot=Assignments.SUBMISSION_FILE,
+            submission_text=note,
+            status='pending',
+            is_late=is_late,
+            penalty_applied=penalty_percent,
+            max_score=assignment.max_score,
+        )
+        for payload in uploaded_payloads:
+            metadata = payload.pop('metadata', {})
+            SubmissionFiles.objects.create(
+                submission=submission,
+                uploaded_by=request.user,
+                storage_provider=metadata.get('storage_provider') or 'django',
+                metadata=metadata,
+                **payload,
+            )
+        if exam_session:
+            exam_session.final_submission = submission
+            exam_session.status = ExamSessions.STATUS_SUBMITTED
+            exam_session.submitted_at = timezone.now()
+            exam_session.last_seen_at = timezone.now()
+            exam_session.metadata = {
+                **(exam_session.metadata or {}),
+                'file_count': len(uploaded_payloads),
+                'submission_text_size': len(note),
+            }
+            exam_session.save(update_fields=[
+                'final_submission', 'status', 'submitted_at',
+                'last_seen_at', 'metadata', 'updated_at',
+            ])
+            _log_exam_event(exam_session, 'submitted', {
+                'submission_id': submission.pk,
+                'file_count': len(uploaded_payloads),
+                'submission_mode': 'file',
+            })
+
+    if classroom.teacher and classroom.teacher_id != request.user.id:
+        notify_user(
+            classroom.teacher,
+            title=f'Bài nộp file mới: {assignment.title}',
+            message=f'{request.user.get_full_name() or request.user.username} vừa nộp {len(uploaded_payloads)} file.',
+            link=f'/submissions/detail/{submission.pk}/',
+            notification_type='submission_submitted',
+            actor=request.user,
+            metadata={'submission_id': submission.pk, 'assignment_id': assignment.pk, 'submission_mode': 'file'},
+        )
+
+    messages.success(request, 'Đã nộp file thành công. Giáo viên sẽ chấm và phản hồi sau.')
+    return redirect('submissions:detail', pk=submission.pk)
+
+
+@login_required
+def quiz_lobby_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk, is_published=True)
+    classroom = assignment.classroom
+    is_teacher = _is_classroom_teacher(request.user, classroom)
+    is_member = _is_classroom_member(request.user, classroom)
+
+    if assignment.submission_mode != Assignments.SUBMISSION_QUIZ:
+        messages.error(request, 'Bài này không phải dạng trắc nghiệm.')
+        return redirect('assignments:detail', pk=assignment.pk)
+    if is_teacher:
+        return redirect('assignments:quiz_manage', pk=assignment.pk)
+    if not is_member:
+        messages.error(request, 'Bạn không phải thành viên của lớp này.')
+        return redirect('classrooms:classroom_list')
+    if assignment.is_exam:
+        return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+
+    settings_obj = _quiz_settings_for(assignment)
+    questions = list(_quiz_active_questions(assignment))
+    attempts = QuizAttempts.objects.filter(
+        assignment=assignment,
+        student=request.user,
+    ).select_related('submission').order_by('-attempt_no')
+    open_error = assignment_open_error(assignment, request.user)
+    remaining_attempts = _quiz_remaining_attempts(assignment, request.user)
+    can_start = (
+        not open_error
+        and bool(questions)
+        and (remaining_attempts is None or remaining_attempts > 0)
+    )
+    in_progress_attempt = attempts.filter(status=QuizAttempts.STATUS_IN_PROGRESS).first()
+
+    context = {
+        'assignment': assignment,
+        'classroom': classroom,
+        'quiz_settings': settings_obj,
+        'question_count': len(questions),
+        'attempts': attempts,
+        'attempt_count': attempts.count(),
+        'remaining_attempts': remaining_attempts,
+        'open_error': open_error,
+        'can_start': can_start,
+        'in_progress_attempt': in_progress_attempt,
+    }
+    return render(request, 'submissions/quiz_lobby.html', context)
+
+
+@login_required
+@require_POST
+def start_quiz_attempt_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk, is_published=True)
+    classroom = assignment.classroom
+
+    if assignment.submission_mode != Assignments.SUBMISSION_QUIZ:
+        messages.error(request, 'Bài này không phải dạng trắc nghiệm.')
+        return redirect('assignments:detail', pk=assignment.pk)
+    if assignment.is_exam:
+        return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+    if not _is_classroom_member(request.user, classroom) or _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Chỉ học sinh của lớp mới được làm quiz.')
+        return redirect('assignments:detail', pk=assignment.pk)
+
+    open_error = assignment_open_error(assignment, request.user)
+    if open_error:
+        messages.error(request, open_error)
+        return redirect('submissions:quiz_lobby', assignment_pk=assignment.pk)
+
+    in_progress = QuizAttempts.objects.filter(
+        assignment=assignment,
+        student=request.user,
+        status=QuizAttempts.STATUS_IN_PROGRESS,
+    ).order_by('-attempt_no').first()
+    if in_progress:
+        messages.info(request, 'Bạn đang có lượt làm chưa nộp. Tiếp tục lượt đó trước nha.')
+        return redirect('submissions:quiz_take', attempt_pk=in_progress.pk)
+
+    remaining_attempts = _quiz_remaining_attempts(assignment, request.user)
+    if remaining_attempts is not None and remaining_attempts <= 0:
+        messages.error(request, f'Bạn đã dùng hết {assignment.max_attempts} lượt làm quiz.')
+        return redirect('submissions:quiz_lobby', assignment_pk=assignment.pk)
+
+    questions = list(_quiz_active_questions(assignment))
+    if not questions:
+        messages.error(request, 'Quiz này chưa có câu hỏi đang bật.')
+        return redirect('assignments:detail', pk=assignment.pk)
+
+    settings_obj = _quiz_settings_for(assignment)
+    next_attempt_no = (
+        QuizAttempts.objects.filter(assignment=assignment, student=request.user)
+        .aggregate(max_no=models.Max('attempt_no'))['max_no'] or 0
+    ) + 1
+    seed = uuid.uuid4().hex
+    metadata = _build_quiz_attempt_metadata(assignment, settings_obj, seed)
+    attempt = QuizAttempts.objects.create(
+        assignment=assignment,
+        student=request.user,
+        attempt_no=next_attempt_no,
+        status=QuizAttempts.STATUS_IN_PROGRESS,
+        started_at=timezone.now(),
+        max_score=sum(question.points for question in questions),
+        ip_address=_get_client_ip(request),
+        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        random_seed=seed,
+        metadata=metadata,
+    )
+    messages.success(request, f'Đã bắt đầu lượt làm #{attempt.attempt_no}.')
+    return redirect('submissions:quiz_take', attempt_pk=attempt.pk)
+
+
+@login_required
+def take_quiz_attempt_view(request, attempt_pk):
+    attempt = get_object_or_404(
+        QuizAttempts.objects.select_related('assignment', 'student', 'exam_session'),
+        pk=attempt_pk,
+    )
+    assignment = attempt.assignment
+    if attempt.student_id != request.user.id:
+        messages.error(request, 'Bạn không có quyền làm lượt quiz này.')
+        return redirect('classrooms:classroom_list')
+    exam_session = None
+    if assignment.is_exam:
+        exam_session = _quiz_attempt_exam_session(attempt)
+        if not exam_session:
+            messages.error(request, 'Không tìm thấy phiên thi của lượt quiz này.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+        exam_session = _expire_session_if_needed(exam_session)
+        attempt.exam_session = exam_session
+        if exam_session.final_submission_id and attempt.status != QuizAttempts.STATUS_IN_PROGRESS:
+            return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+        if exam_session.status != ExamSessions.STATUS_RUNNING:
+            messages.error(request, 'Phiên thi không còn hoạt động.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+    if attempt.status != QuizAttempts.STATUS_IN_PROGRESS:
+        return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+
+    settings_obj = _quiz_settings_for(assignment)
+    remaining_seconds = _quiz_attempt_time_remaining(attempt, settings_obj)
+    if remaining_seconds == 0:
+        with transaction.atomic():
+            _grade_quiz_attempt(attempt, submit_status=QuizAttempts.STATUS_AUTO_SUBMITTED)
+        messages.info(request, 'Đã hết thời gian. Hệ thống đã tự động nộp lượt quiz này.')
+        return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+
+    questions = _quiz_questions_for_attempt(attempt)
+    answered_count = sum(1 for question in questions if question.answer_state['answered'])
+    context = {
+        'assignment': assignment,
+        'classroom': assignment.classroom,
+        'attempt': attempt,
+        'quiz_settings': settings_obj,
+        'questions': questions,
+        'answered_count': answered_count,
+        'total_questions': len(questions),
+        'remaining_seconds': remaining_seconds,
+        'is_exam_attempt': assignment.is_exam,
+        'exam_session': exam_session,
+    }
+    return render(request, 'submissions/quiz_take.html', context)
+
+
+@login_required
+@require_POST
+def autosave_quiz_answer_view(request, attempt_pk):
+    attempt = get_object_or_404(
+        QuizAttempts.objects.select_related('assignment', 'student', 'exam_session'),
+        pk=attempt_pk,
+    )
+    if attempt.student_id != request.user.id:
+        return JsonResponse({'status': 'error', 'message': 'Không có quyền.'}, status=403)
+    if attempt.status != QuizAttempts.STATUS_IN_PROGRESS:
+        return JsonResponse({'status': 'error', 'message': 'Lượt làm đã kết thúc.'}, status=400)
+
+    exam_session = None
+    if attempt.assignment.is_exam:
+        exam_session = _quiz_attempt_exam_session(attempt)
+        if not exam_session:
+            return JsonResponse({'status': 'error', 'message': 'Không tìm thấy phiên thi.'}, status=400)
+        exam_session = _expire_session_if_needed(exam_session)
+        attempt.exam_session = exam_session
+        if exam_session.status != ExamSessions.STATUS_RUNNING:
+            return JsonResponse({'status': 'expired', 'message': 'Phiên thi đã kết thúc.'}, status=400)
+
+    settings_obj = _quiz_settings_for(attempt.assignment)
+    if _quiz_attempt_time_remaining(attempt, settings_obj) == 0:
+        with transaction.atomic():
+            submission = _grade_quiz_attempt(attempt, submit_status=QuizAttempts.STATUS_AUTO_SUBMITTED)
+            if exam_session:
+                _finalize_quiz_exam_session(
+                    attempt,
+                    submission,
+                    ExamSessions.STATUS_AUTO_SUBMITTED,
+                    'auto_submit',
+                    {'reason': 'timer_zero_on_autosave'},
+                )
+        return JsonResponse({'status': 'expired', 'message': 'Đã hết giờ và hệ thống đã tự nộp.'}, status=400)
+
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Payload không hợp lệ.'}, status=400)
+
+    question_id = payload.get('question_id')
+    question = QuizQuestions.objects.filter(
+        pk=question_id,
+        assignment=attempt.assignment,
+        is_active=True,
+    ).first()
+    if not question:
+        return JsonResponse({'status': 'error', 'message': 'Câu hỏi không hợp lệ.'}, status=404)
+
+    selected_choice_ids = _selected_choice_ids_from_values(payload.get('selected_choice_ids') or [])
+    if question.question_type in (QuizQuestions.TYPE_SINGLE_CHOICE, QuizQuestions.TYPE_TRUE_FALSE):
+        selected_choice_ids = selected_choice_ids[:1]
+    text_answer = payload.get('text_answer') or ''
+    _save_quiz_answer(attempt, question, selected_choice_ids, text_answer)
+    if exam_session:
+        _log_exam_event(exam_session, 'answer_saved', {
+            'attempt_id': attempt.pk,
+            'question_id': question.pk,
+            'selected_count': len(selected_choice_ids),
+            'has_text_answer': bool((text_answer or '').strip()),
+        })
+        exam_session.last_seen_at = timezone.now()
+        exam_session.save(update_fields=['last_seen_at', 'updated_at'])
+
+    questions = _quiz_questions_for_attempt(attempt)
+    total_questions = len(questions)
+    answered_count = sum(1 for question in questions if question.answer_state['answered'])
+    return JsonResponse({
+        'status': 'ok',
+        'answered_count': min(answered_count, total_questions),
+        'total_questions': total_questions,
+        'saved_at': timezone.now().strftime('%H:%M:%S'),
+    })
+
+
+@login_required
+@require_POST
+def submit_quiz_attempt_view(request, attempt_pk):
+    attempt = get_object_or_404(
+        QuizAttempts.objects.select_related('assignment', 'student', 'exam_session'),
+        pk=attempt_pk,
+    )
+    if attempt.student_id != request.user.id:
+        messages.error(request, 'Bạn không có quyền nộp lượt quiz này.')
+        return redirect('classrooms:classroom_list')
+    if attempt.status != QuizAttempts.STATUS_IN_PROGRESS:
+        return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+
+    exam_session = None
+    if attempt.assignment.is_exam:
+        exam_session = _quiz_attempt_exam_session(attempt)
+        if not exam_session:
+            messages.error(request, 'Không tìm thấy phiên thi.')
+            return redirect('submissions:exam_lobby', assignment_pk=attempt.assignment.pk)
+        exam_session = _expire_session_if_needed(exam_session)
+        attempt.exam_session = exam_session
+        if exam_session.final_submission_id:
+            messages.info(request, 'Bạn đã nộp bài thi này.')
+            return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+        if exam_session.status not in (ExamSessions.STATUS_RUNNING, ExamSessions.STATUS_EXPIRED):
+            messages.error(request, 'Phiên thi không còn hoạt động.')
+            return redirect('submissions:exam_lobby', assignment_pk=attempt.assignment.pk)
+
+    settings_obj = _quiz_settings_for(attempt.assignment)
+    submit_status = QuizAttempts.STATUS_SUBMITTED
+    if _quiz_attempt_time_remaining(attempt, settings_obj) == 0:
+        submit_status = QuizAttempts.STATUS_AUTO_SUBMITTED
+
+    with transaction.atomic():
+        for question in _quiz_questions_for_attempt(attempt):
+            key = f'question_{question.pk}'
+            if question.question_type == QuizQuestions.TYPE_SHORT_TEXT:
+                _save_quiz_answer(
+                    attempt,
+                    question,
+                    [],
+                    request.POST.get(key, ''),
+                )
+            else:
+                selected_choice_ids = _selected_choice_ids_from_values(request.POST.getlist(key))
+                if question.question_type in (QuizQuestions.TYPE_SINGLE_CHOICE, QuizQuestions.TYPE_TRUE_FALSE):
+                    selected_choice_ids = selected_choice_ids[:1]
+                _save_quiz_answer(attempt, question, selected_choice_ids, '')
+        submission = _grade_quiz_attempt(attempt, submit_status=submit_status)
+        if exam_session:
+            _finalize_quiz_exam_session(
+                attempt,
+                submission,
+                ExamSessions.STATUS_AUTO_SUBMITTED if submit_status == QuizAttempts.STATUS_AUTO_SUBMITTED else ExamSessions.STATUS_SUBMITTED,
+                'auto_submit' if submit_status == QuizAttempts.STATUS_AUTO_SUBMITTED else 'submitted',
+                {'source': 'student_submit'},
+            )
+
+    if attempt.assignment.classroom.teacher and attempt.assignment.classroom.teacher_id != request.user.id:
+        notify_user(
+            attempt.assignment.classroom.teacher,
+            title=f'Học sinh vừa nộp quiz: {attempt.assignment.title}',
+            message=f'{request.user.get_full_name() or request.user.username} đã nộp lượt #{attempt.attempt_no}.',
+            link=f'/submissions/detail/{submission.pk}/',
+            notification_type='submission_submitted',
+            actor=request.user,
+            metadata={
+                'submission_id': submission.pk,
+                'assignment_id': attempt.assignment_id,
+                'submission_mode': 'quiz',
+                'attempt_id': attempt.pk,
+            },
+        )
+    messages.success(request, 'Đã nộp quiz thành công.')
+    return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+
+
+@login_required
+def quiz_result_view(request, attempt_pk):
+    attempt = get_object_or_404(
+        QuizAttempts.objects.select_related('assignment', 'student', 'submission', 'exam_session'),
+        pk=attempt_pk,
+    )
+    assignment = attempt.assignment
+    is_teacher = _is_classroom_teacher(request.user, assignment.classroom)
+    is_owner = attempt.student_id == request.user.id
+    if not (is_owner or is_teacher or _is_admin_user(request.user)):
+        messages.error(request, 'Bạn không có quyền xem kết quả quiz này.')
+        return redirect('classrooms:classroom_list')
+
+    settings_obj = _quiz_settings_for(assignment)
+    can_review = is_teacher or _is_admin_user(request.user) or settings_obj.allow_review
+    show_score = (
+        is_teacher
+        or _is_admin_user(request.user)
+        or settings_obj.show_score_after_submit
+        or bool(assignment.grades_released_at)
+    )
+    show_correct_answers = is_teacher or _is_admin_user(request.user) or (can_review and settings_obj.show_correct_answers)
+    show_explanation = show_correct_answers and settings_obj.show_explanation
+    questions = _quiz_questions_for_attempt(attempt) if can_review else []
+    for question in questions:
+        question.correct_choice_ids = list(question.choices.filter(is_correct=True).values_list('pk', flat=True))
+
+    context = {
+        'assignment': assignment,
+        'classroom': assignment.classroom,
+        'attempt': attempt,
+        'quiz_settings': settings_obj,
+        'questions': questions,
+        'show_score': show_score,
+        'show_correct_answers': show_correct_answers,
+        'show_explanation': show_explanation,
+        'can_review': can_review,
+    }
+    return render(request, 'submissions/quiz_result.html', context)
+
+
+@login_required
 def exam_lobby_view(request, assignment_pk):
     assignment = get_object_or_404(Assignments, pk=assignment_pk, is_published=True, is_exam=True)
     classroom = assignment.classroom
@@ -366,10 +1564,19 @@ def exam_lobby_view(request, assignment_pk):
     session = ExamSessions.objects.filter(assignment=assignment, student=request.user).first()
     if session:
         session = _expire_session_if_needed(session)
+    file_requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
+    quiz_settings = QuizSettings.objects.filter(assignment=assignment).first()
+    quiz_attempt = None
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ and session:
+        quiz_attempt = QuizAttempts.objects.filter(exam_session=session).select_related('submission').first()
     return render(request, 'submissions/exam_lobby.html', {
         'assignment': assignment,
         'classroom': classroom,
         'session': session,
+        'file_requirements': file_requirements,
+        'quiz_settings': quiz_settings,
+        'quiz_attempt': quiz_attempt,
+        'quiz_question_count': _quiz_active_questions(assignment).count() if assignment.submission_mode == Assignments.SUBMISSION_QUIZ else 0,
         'remaining_seconds': _exam_remaining_seconds(session),
         'now': now,
     })
@@ -424,6 +1631,18 @@ def start_exam_view(request, assignment_pk):
             session.started_at = session.started_at or now
             session.ends_at = session.ends_at or now + timedelta(minutes=assignment.exam_duration_minutes or 0)
             session.save(update_fields=['status', 'started_at', 'ends_at', 'updated_at'])
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        attempt, attempt_created = _ensure_quiz_exam_attempt(assignment, request.user, session, request)
+        if not attempt:
+            messages.error(request, 'Bài thi trắc nghiệm này chưa có câu hỏi đang bật.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+        if attempt.status in (QuizAttempts.STATUS_SUBMITTED, QuizAttempts.STATUS_AUTO_SUBMITTED) and attempt.submission_id:
+            messages.info(request, 'Bạn đã nộp bài thi trắc nghiệm này.')
+            return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+        _log_exam_event(session, 'quiz_attempt_created' if attempt_created else 'quiz_attempt_continued', {
+            'attempt_id': attempt.pk,
+            'submission_mode': 'quiz',
+        })
     _log_exam_event(session, 'started' if created else 'continued', {'ip': _get_client_ip(request)})
     return redirect('submissions:exam_ide', assignment_pk=assignment.pk)
 
@@ -441,6 +1660,21 @@ def exam_ide_view(request, assignment_pk):
     if session.status != ExamSessions.STATUS_RUNNING:
         messages.error(request, 'Phiên thi không còn hoạt động.')
         return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        context = _build_file_submission_context(
+            request,
+            assignment,
+            classroom,
+            is_teacher=False,
+            exam_session=session,
+        )
+        return render(request, 'submissions/submit_file.html', context)
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        attempt, _attempt_created = _ensure_quiz_exam_attempt(assignment, request.user, session, request)
+        if not attempt:
+            messages.error(request, 'Bài thi trắc nghiệm này chưa có câu hỏi đang bật.')
+            return redirect('submissions:exam_lobby', assignment_pk=assignment.pk)
+        return redirect('submissions:quiz_take', attempt_pk=attempt.pk)
     context = _build_ide_context(request, assignment, classroom, is_teacher=False, exam_session=session)
     return render(request, 'submissions/solve_problem.html', context)
 
@@ -507,6 +1741,24 @@ def exam_monitor_view(request, assignment_pk):
         'warnings': sum(all_sessions.values_list('violation_count', flat=True)),
     }
     page_obj = Paginator(sessions, 25).get_page(request.GET.get('page'))
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        page_sessions = list(page_obj.object_list)
+        attempts = QuizAttempts.objects.filter(
+            exam_session__in=page_sessions,
+        ).prefetch_related('answers').select_related('submission')
+        attempts_by_session = {attempt.exam_session_id: attempt for attempt in attempts}
+        for session in page_sessions:
+            attempt = attempts_by_session.get(session.pk)
+            session.quiz_attempt = attempt
+            if attempt:
+                questions = _quiz_questions_for_attempt(attempt)
+                session.quiz_answered_count = sum(1 for question in questions if question.answer_state['answered'])
+                session.quiz_total_questions = len(questions)
+                session.quiz_score = attempt.score if attempt.status != QuizAttempts.STATUS_IN_PROGRESS else None
+            else:
+                session.quiz_answered_count = 0
+                session.quiz_total_questions = _quiz_active_questions(assignment).count()
+                session.quiz_score = None
     context = {
         'assignment': assignment,
         'classroom': classroom,
@@ -514,6 +1766,8 @@ def exam_monitor_view(request, assignment_pk):
         'page_obj': page_obj,
         'status_filter': status_filter,
         'counts': counts,
+        'is_file_exam': assignment.submission_mode == Assignments.SUBMISSION_FILE,
+        'is_quiz_exam': assignment.submission_mode == Assignments.SUBMISSION_QUIZ,
     }
     context.update(csv_query_context(request))
     context['csv_items'] = [
@@ -669,6 +1923,51 @@ def force_submit_exam_session_view(request, session_pk):
         return redirect('classrooms:classroom_list')
     if session.final_submission_id:
         messages.info(request, 'Phiên thi đã có bài nộp.')
+        return redirect('submissions:exam_monitor', assignment_pk=assignment.pk)
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        attempt = QuizAttempts.objects.filter(
+            exam_session=session,
+        ).select_related('assignment', 'student', 'exam_session').first()
+        if not attempt:
+            attempt, _created = _ensure_quiz_exam_attempt(assignment, session.student, session, request)
+        if not attempt:
+            session.status = ExamSessions.STATUS_EXPIRED
+            session.save(update_fields=['status', 'updated_at'])
+            _log_exam_event(session, 'teacher_force_submit_empty', {
+                'teacher_id': request.user.pk,
+                'submission_mode': 'quiz',
+                'reason': 'no_quiz_questions',
+            })
+            messages.warning(request, 'Không có câu hỏi quiz để force submit; phiên đã được đánh dấu hết giờ.')
+            return redirect('submissions:exam_monitor', assignment_pk=assignment.pk)
+        if attempt.status == QuizAttempts.STATUS_IN_PROGRESS:
+            submission = _grade_quiz_attempt(
+                attempt,
+                submit_status=QuizAttempts.STATUS_AUTO_SUBMITTED,
+            )
+        else:
+            submission = attempt.submission
+        if submission:
+            _finalize_quiz_exam_session(
+                attempt,
+                submission,
+                ExamSessions.STATUS_AUTO_SUBMITTED,
+                'teacher_force_submit',
+                {'teacher_id': request.user.pk, 'submission_mode': 'quiz'},
+            )
+            messages.success(request, 'Đã force submit quiz theo các đáp án đã autosave.')
+        else:
+            messages.error(request, 'Không thể tạo bài nộp quiz cho phiên này.')
+        return redirect('submissions:exam_monitor', assignment_pk=assignment.pk)
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        session.status = ExamSessions.STATUS_EXPIRED
+        session.save(update_fields=['status', 'updated_at'])
+        _log_exam_event(session, 'teacher_force_submit_empty', {
+            'teacher_id': request.user.pk,
+            'submission_mode': 'file',
+            'reason': 'no_server_file_draft',
+        })
+        messages.warning(request, 'Bài thi file chưa có file nháp trên server để force submit; phiên đã được đánh dấu hết giờ.')
         return redirect('submissions:exam_monitor', assignment_pk=assignment.pk)
     code = session.latest_draft or ''
     if not code.strip():
@@ -1100,14 +2399,23 @@ def submission_history_view(request, assignment_pk):
 
     submissions = Submissions.objects.filter(
         assignment=assignment, student=request.user
-    ).order_by('-submitted_at')
+    ).prefetch_related('files', 'feedback_files').order_by('-submitted_at')
     submission_count = submissions.count()
     open_error = assignment_open_error(assignment, request.user)
+    file_requirements = None
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        file_requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
     can_start_new_submission = (
         not is_teacher
         and not assignment.is_exam
         and not open_error
         and (not assignment.max_attempts or submission_count < assignment.max_attempts)
+        and (
+            assignment.submission_mode != Assignments.SUBMISSION_FILE
+            or not file_requirements
+            or file_requirements.allow_resubmit
+            or submission_count == 0
+        )
     )
 
     context = {
@@ -1115,6 +2423,7 @@ def submission_history_view(request, assignment_pk):
         'classroom': classroom,
         'submissions': submissions,
         'is_teacher': is_teacher,
+        'grades_visible': is_teacher or bool(assignment.grades_released_at),
         'can_start_new_submission': can_start_new_submission,
         'submission_count': submission_count,
     }
@@ -1141,6 +2450,10 @@ def submission_detail_view(request, pk):
     ).select_related('teacher').order_by('line_number')
 
     code_lines = submission.code_content.split('\n') if submission.code_content else []
+    submission_files = submission.files.all().order_by('uploaded_at')
+    feedback_files = submission.feedback_files.select_related('uploaded_by').order_by('-uploaded_at')
+    grades_visible = is_teacher or bool(assignment.grades_released_at)
+    feedback_visible = is_teacher or (grades_visible and assignment.show_feedback_after_release)
 
     comments_by_line = {}
     for comment in code_comments:
@@ -1169,11 +2482,20 @@ def submission_detail_view(request, pk):
         student=submission.student,
     ).count()
     open_error = assignment_open_error(assignment, submission.student)
+    file_requirements = None
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        file_requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
     can_start_new_submission = (
         not is_teacher
         and not assignment.is_exam
         and not open_error
         and (not assignment.max_attempts or owner_submission_count < assignment.max_attempts)
+        and (
+            assignment.submission_mode != Assignments.SUBMISSION_FILE
+            or not file_requirements
+            or file_requirements.allow_resubmit
+            or owner_submission_count == 0
+        )
     )
 
     context = {
@@ -1185,6 +2507,12 @@ def submission_detail_view(request, pk):
         'code_comments': code_comments,
         'comments_by_line': comments_by_line,
         'code_lines': code_lines,
+        'submission_files': submission_files,
+        'feedback_files': feedback_files if feedback_visible else [],
+        'is_file_submission': submission.submission_mode_snapshot == Assignments.SUBMISSION_FILE or assignment.submission_mode == Assignments.SUBMISSION_FILE,
+        'grades_visible': grades_visible,
+        'feedback_visible': feedback_visible,
+        'final_score': submission.manual_score if submission.manual_score is not None else submission.total_score,
         'rubric_scores': rubric_scores,
         'rubric_score_total': rubric_score_total,
         'rubric_max_total': rubric_max_total,
@@ -1203,13 +2531,127 @@ def submission_list_teacher_view(request, assignment_pk):
         messages.error(request, 'Bạn không có quyền xem danh sách bài nộp.')
         return redirect('classrooms:classroom_list')
 
+    if request.method == 'POST' and request.POST.get('action') == 'quick_grade':
+        selected_ids = request.POST.getlist('selected_submission')
+        graded_count = 0
+        with transaction.atomic():
+            for submission_id in selected_ids:
+                score_raw = (request.POST.get(f'quick_score_{submission_id}') or '').strip()
+                comment = (request.POST.get(f'quick_comment_{submission_id}') or '').strip()
+                if score_raw == '' and comment == '':
+                    continue
+                try:
+                    score = float(score_raw) if score_raw != '' else None
+                except ValueError:
+                    messages.error(request, f'Điểm của bài #{submission_id} không hợp lệ.')
+                    continue
+                submission = Submissions.objects.filter(
+                    pk=submission_id,
+                    assignment=assignment,
+                ).select_related('student').first()
+                if not submission:
+                    continue
+                if score is not None and (score < 0 or score > submission.max_score):
+                    messages.error(request, f'Điểm của bài #{submission_id} phải nằm trong 0 - {submission.max_score}.')
+                    continue
+                before_grade = {
+                    'manual_score': submission.manual_score,
+                    'total_score': submission.total_score,
+                    'status': submission.status,
+                    'teacher_comment': submission.teacher_comment,
+                }
+                if score is not None:
+                    submission.manual_score = score
+                    submission.status = 'finished'
+                if comment:
+                    submission.teacher_comment = comment
+                submission.graded_by = request.user
+                submission.graded_at = timezone.now()
+                submission.save(update_fields=[
+                    'manual_score', 'teacher_comment', 'graded_by', 'graded_at', 'status'
+                ])
+                _create_grade_change_log(
+                    submission,
+                    request.user,
+                    before_grade,
+                    reason='quick_grade',
+                    metadata={'assignment_id': assignment.pk},
+                )
+                notify_user(
+                    submission.student,
+                    title=f'Giáo viên đã chấm bài: {assignment.title}',
+                    message=f'Điểm hiện tại: {submission.manual_score if submission.manual_score is not None else submission.total_score}/{submission.max_score}.',
+                    link=f'/submissions/detail/{submission.pk}/',
+                    notification_type='submission_graded',
+                    actor=request.user,
+                    metadata={'submission_id': submission.pk, 'assignment_id': assignment.pk, 'quick_grade': True},
+                )
+                graded_count += 1
+        if graded_count:
+            update_assignment_statistics(assignment)
+            messages.success(request, f'Đã chấm nhanh {graded_count} bài nộp.')
+        else:
+            messages.info(request, 'Chưa có bài nào được chấm nhanh.')
+        return redirect(f"{reverse('submissions:teacher_list', kwargs={'assignment_pk': assignment.pk})}?{request.GET.urlencode()}")
+
     submissions = Submissions.objects.filter(
         assignment=assignment
-    ).select_related('student').order_by('-submitted_at')
+    ).select_related('student').prefetch_related('files', 'feedback_files').order_by('-submitted_at')
 
     status_filter = request.GET.get('status', '')
     if status_filter:
         submissions = submissions.filter(status=status_filter)
+
+    submitted_filter = request.GET.get('submitted', 'submitted')
+    if submitted_filter not in {'all', 'submitted', 'missing'}:
+        submitted_filter = 'submitted'
+
+    grade_filter = request.GET.get('grade', '')
+    if grade_filter == 'graded':
+        submissions = submissions.filter(status='finished')
+    elif grade_filter == 'ungraded':
+        submissions = submissions.exclude(status='finished')
+
+    late_filter = request.GET.get('late', '')
+    if late_filter == 'late':
+        submissions = submissions.filter(is_late=True)
+    elif late_filter == 'ontime':
+        submissions = submissions.filter(is_late=False)
+
+    file_ext_filter = (request.GET.get('file_ext') or '').strip().lower()
+    if file_ext_filter:
+        if not file_ext_filter.startswith('.'):
+            file_ext_filter = f'.{file_ext_filter}'
+        submissions = submissions.filter(files__extension__iexact=file_ext_filter).distinct()
+
+    score_min = request.GET.get('score_min')
+    score_max = request.GET.get('score_max')
+    try:
+        if score_min not in (None, ''):
+            submissions = submissions.filter(manual_score__gte=float(score_min))
+    except ValueError:
+        score_min = ''
+    try:
+        if score_max not in (None, ''):
+            submissions = submissions.filter(manual_score__lte=float(score_max))
+    except ValueError:
+        score_max = ''
+
+    missing_members = []
+    if submitted_filter == 'missing':
+        submitted_student_ids = Submissions.objects.filter(
+            assignment=assignment,
+        ).values_list('student_id', flat=True)
+        missing_members = ClassroomMembers.objects.filter(
+            classroom=classroom,
+            status='approved',
+        ).exclude(student_id__in=submitted_student_ids).select_related('student').order_by('student__username')
+        submissions = submissions.none()
+
+    file_extensions = SubmissionFiles.objects.filter(
+        submission__assignment=assignment,
+        extension__isnull=False,
+    ).exclude(extension='').values_list('extension', flat=True).distinct().order_by('extension')
 
     paginator = Paginator(submissions, 30)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -1220,8 +2662,135 @@ def submission_list_teacher_view(request, assignment_pk):
         'submissions': page_obj,
         'page_obj': page_obj,
         'status_filter': status_filter,
+        'submitted_filter': submitted_filter,
+        'grade_filter': grade_filter,
+        'late_filter': late_filter,
+        'file_ext_filter': file_ext_filter,
+        'score_min': score_min or '',
+        'score_max': score_max or '',
+        'file_extensions': file_extensions,
+        'missing_members': missing_members,
+        'csv_export_url': reverse('submissions:export_grades_csv', kwargs={'assignment_pk': assignment.pk}) + '?' + request.GET.urlencode(),
     }
     return render(request, 'submissions/list_teacher.html', context)
+
+
+@teacher_required
+def export_assignment_grades_csv_view(request, assignment_pk):
+    """Xuất điểm của sinh viên cho một bài tập cụ thể ra file CSV."""
+    assignment = get_object_or_404(Assignments, pk=assignment_pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        return HttpResponse("Unauthorized", status=403)
+
+    # Lấy danh sách bài nộp (áp dụng tương tự các filter như view danh sách)
+    submissions = Submissions.objects.filter(
+        assignment=assignment
+    ).select_related('student').order_by('student__username', '-submitted_at')
+
+    # Chỉ lấy bài nộp mới nhất của mỗi sinh viên cho báo cáo điểm
+    student_latest_submissions = {}
+    for sub in submissions:
+        if sub.student_id not in student_latest_submissions:
+            student_latest_submissions[sub.student_id] = sub
+
+    # Chuẩn bị CSV
+    response = HttpResponse(content_type='text/csv')
+    filename = slugify(f"grades_{assignment.title}_{timezone.now().strftime('%Y%m%d')}")
+    response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+    
+    # Thêm BOM cho Excel hiển thị đúng tiếng Việt (UTF-8)
+    response.write('\ufeff'.encode('utf8'))
+    
+    writer = csv.writer(response)
+    writer.writerow([
+        'MSSV/Username', 'Họ tên', 'Trạng thái', 'Điểm hệ thống', 
+        'Điểm chấm tay', 'Tổng điểm', 'Thang điểm', 'Nộp muộn', 'Ngày nộp'
+    ])
+
+    # Lấy tất cả thành viên lớp để bao gồm cả những người chưa nộp
+    members = ClassroomMembers.objects.filter(
+        classroom=classroom, status='approved'
+    ).select_related('student').order_by('student__username')
+
+    for member in members:
+        student = member.student
+        sub = student_latest_submissions.get(student.id)
+        
+        if sub:
+            final_score = sub.manual_score if sub.manual_score is not None else sub.total_score
+            writer.writerow([
+                student.username,
+                student.get_full_name() or student.username,
+                sub.status,
+                sub.total_score,
+                sub.manual_score if sub.manual_score is not None else '',
+                final_score,
+                sub.max_score,
+                'Có' if sub.is_late else 'Không',
+                sub.submitted_at.strftime('%d/%m/%Y %H:%M')
+            ])
+        else:
+            writer.writerow([
+                student.username,
+                student.get_full_name() or student.username,
+                'Chưa nộp',
+                0, '', 0, assignment.max_score, '', ''
+            ])
+
+    return response
+
+
+@teacher_required
+def download_submission_files_zip_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền tải file bài nộp.')
+        return redirect('classrooms:classroom_list')
+
+    files = SubmissionFiles.objects.filter(
+        submission__assignment=assignment,
+    ).select_related('submission', 'submission__student').order_by('submission__student__username', 'uploaded_at')
+    buffer = io.BytesIO()
+    errors = []
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            'README.txt',
+            (
+                'DevLearn submission files\n'
+                f'Assignment: {assignment.title}\n'
+                f'Classroom: {classroom.name}\n'
+                f'Downloaded by: {request.user.username} ({request.user.pk})\n'
+                f'Downloaded at: {timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M:%S")}\n'
+            ),
+        )
+        for index, item in enumerate(files, start=1):
+            student = item.submission.student
+            student_folder = slugify(student.get_full_name() or student.username) or f'student-{student.pk}'
+            file_name = _safe_zip_name(item.file_name, f'file-{item.pk}')
+            arcname = f'{student_folder}/submission-{item.submission_id}/{index:03d}-{file_name}'
+            _log_file_access(request, item.submission, 'submission_files_zip_download', item)
+            try:
+                with urllib.request.urlopen(item.file_url, timeout=8) as response:
+                    archive.writestr(arcname, response.read())
+            except Exception as exc:
+                errors.append(f'{arcname}: {item.file_url} ({exc})')
+                archive.writestr(f'{arcname}.url.txt', item.file_url or 'missing url')
+        if errors:
+            archive.writestr('_download_errors.txt', '\n'.join(errors))
+    buffer.seek(0)
+    filename = f"{slugify(classroom.name) or 'class'}_{slugify(assignment.title) or 'assignment'}_submission_files.zip"
+    logger.info(
+        'file_access event=submission_files_zip_download assignment=%s actor=%s files=%s errors=%s',
+        assignment.pk,
+        request.user.pk,
+        files.count(),
+        len(errors),
+    )
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @teacher_required
@@ -1266,6 +2835,16 @@ def grade_submission_view(request, pk):
         is_active=True,
     ).order_by('category', 'title')
     feedback_template_form = FeedbackTemplateForm()
+    submission_files = submission.files.all().order_by('uploaded_at')
+    feedback_files = submission.feedback_files.select_related('uploaded_by').order_by('-uploaded_at')
+    quiz_attempt = QuizAttempts.objects.filter(submission=submission).prefetch_related(
+        'answers', 'answers__selected_choices'
+    ).first()
+    quiz_questions = _quiz_questions_for_attempt(quiz_attempt) if quiz_attempt else []
+    grade_change_logs = submission.grade_change_logs.select_related('changed_by')[:8]
+    ai_suggestions = submission.ai_suggestions.select_related(
+        'accepted_by_teacher', 'quiz_answer',
+    )[:5]
 
     comments_by_line = {}
     for comment in code_comments:
@@ -1281,6 +2860,26 @@ def grade_submission_view(request, pk):
             template.save()
             messages.success(request, 'Đã lưu feedback mẫu.')
             return redirect('submissions:grade', pk=pk)
+    elif request.method == 'POST' and request.POST.get('action') == 'upload_feedback_file':
+        uploaded_file = request.FILES.get('feedback_file')
+        if not uploaded_file:
+            messages.error(request, 'Vui lòng chọn file phản hồi.')
+        else:
+            try:
+                _, error = _upload_feedback_file(
+                    submission,
+                    uploaded_file,
+                    request.user,
+                    note=(request.POST.get('feedback_file_note') or '').strip(),
+                )
+                if error:
+                    messages.error(request, error)
+                else:
+                    messages.success(request, 'Đã tải file phản hồi cho bài nộp.')
+            except Exception:
+                logger.exception('Failed to upload feedback file submission=%s user=%s', submission.pk, request.user.pk)
+                messages.error(request, 'Có lỗi xảy ra khi tải file phản hồi.')
+        return redirect('submissions:grade', pk=pk)
     elif request.method == 'POST':
         use_rubric_score = bool(request.POST.get('use_rubric_score')) and bool(rubrics)
         form = GradeSubmissionForm(
@@ -1322,6 +2921,12 @@ def grade_submission_view(request, pk):
                     messages.error(request, error)
             else:
                 with transaction.atomic():
+                    before_grade = {
+                        'manual_score': submission.manual_score,
+                        'total_score': submission.total_score,
+                        'status': submission.status,
+                        'teacher_comment': submission.teacher_comment,
+                    }
                     for rubric, score, comment in parsed_rubric_scores:
                         RubricScores.objects.update_or_create(
                             submission=submission,
@@ -1336,6 +2941,50 @@ def grade_submission_view(request, pk):
                     submission.save(update_fields=[
                         'manual_score', 'teacher_comment', 'graded_by', 'graded_at', 'status'
                     ])
+                    _create_grade_change_log(
+                        submission,
+                        request.user,
+                        before_grade,
+                        reason='manual_grade',
+                        metadata={
+                            'used_rubric_score': use_rubric_score,
+                            'rubric_total_score': round(rubric_total_score, 2),
+                            'rubric_count': len(parsed_rubric_scores),
+                            'submission_mode': submission.submission_mode_snapshot,
+                        },
+                    )
+                    log_activity(
+                        request.user,
+                        'SUBMISSION_MANUAL_GRADE',
+                        'submissions',
+                        submission.pk,
+                        metadata={
+                            'submission_id': submission.pk,
+                            'assignment_id': assignment.pk,
+                            'student_id': submission.student_id,
+                            'submission_mode': submission.submission_mode_snapshot,
+                            'previous_manual_score': before_grade['manual_score'],
+                            'new_manual_score': submission.manual_score,
+                            'previous_status': before_grade['status'],
+                            'new_status': submission.status,
+                            'used_rubric_score': use_rubric_score,
+                        },
+                        request=request,
+                    )
+                    uploaded_file = request.FILES.get('feedback_file')
+                    if uploaded_file:
+                        try:
+                            _, error = _upload_feedback_file(
+                                submission,
+                                uploaded_file,
+                                request.user,
+                                note=(request.POST.get('feedback_file_note') or '').strip(),
+                            )
+                            if error:
+                                messages.error(request, error)
+                        except Exception:
+                            logger.exception('Failed to upload feedback file submission=%s user=%s', submission.pk, request.user.pk)
+                            messages.error(request, 'Đã lưu điểm nhưng chưa tải được file phản hồi.')
                 update_assignment_statistics(assignment)
                 notify_user(
                     submission.student,
@@ -1387,6 +3036,14 @@ def grade_submission_view(request, pk):
         'rubric_total': rubric_total,
         'feedback_templates': feedback_templates,
         'feedback_template_form': feedback_template_form,
+        'submission_files': submission_files,
+        'feedback_files': feedback_files,
+        'is_file_submission': submission.submission_mode_snapshot == Assignments.SUBMISSION_FILE or assignment.submission_mode == Assignments.SUBMISSION_FILE,
+        'is_quiz_submission': submission.submission_mode_snapshot == Assignments.SUBMISSION_QUIZ or assignment.submission_mode == Assignments.SUBMISSION_QUIZ,
+        'quiz_attempt': quiz_attempt,
+        'quiz_questions': quiz_questions,
+        'grade_change_logs': grade_change_logs,
+        'ai_suggestions': ai_suggestions,
         'all_submissions': all_submissions,
         'current_index': current_index,
         'prev_submission': prev_submission,

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Sửa câu hỏi quiz - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[900px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a href="{% url 'assignments:quiz_manage' pk=assignment.pk %}" class="hover:text-primary">Quản lý quiz</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="font-bold text-slate-900">Sửa câu hỏi</span>
+    </nav>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 class="text-2xl font-black text-primary-950 mb-6">Sửa câu hỏi</h1>
+        {% if form.errors %}
+        <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            Vui lòng kiểm tra lại dữ liệu câu hỏi.
+        </div>
+        {% endif %}
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            {% include 'assignments/quiz_question_fields.html' with form=form %}
+            <div class="flex flex-wrap gap-2 pt-2">
+                <button type="submit" class="inline-flex items-center gap-2 h-11 px-5 rounded-lg bg-primary text-white font-bold hover:bg-primary/90">
+                    <span class="material-symbols-outlined text-lg">save</span>
+                    Lưu câu hỏi
+                </button>
+                <a href="{% url 'assignments:quiz_manage' pk=assignment.pk %}" class="inline-flex items-center h-11 px-5 rounded-lg border border-slate-200 text-slate-700 font-bold hover:bg-slate-50">
+                    Hủy
+                </a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

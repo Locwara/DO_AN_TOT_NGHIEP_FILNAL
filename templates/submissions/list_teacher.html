@@ -2,107 +2,308 @@
 {% block title %}Bài nộp - {{ assignment.title }}{% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto px-6 py-8">
+<div class="max-w-[1280px] mx-auto px-6 py-8">
     <nav class="flex items-center gap-2 text-xs text-slate-500 mb-4">
         <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
         <span>/</span>
         <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
         <span>/</span>
-        <span class="text-slate-300">Danh sách bài nộp</span>
+        <span class="text-slate-700 font-medium">Danh sách bài nộp</span>
     </nav>
 
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">Danh sách bài nộp</h1>
-        <div class="flex items-center gap-3">
-        <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="px-4 py-2 bg-primary-900 text-slate-200 text-sm font-bold rounded-lg hover:bg-primary-800 transition-colors flex items-center gap-2">
+    <div class="content-action-bar">
+        <div>
+            <h1 class="text-2xl font-black tracking-tight">Danh sách bài nộp</h1>
+            <p class="text-sm text-slate-500 mt-1">
+                {% if assignment.submission_mode == 'file' %}Bài nộp file, chấm thủ công và phản hồi theo file.{% else %}Theo dõi bài nộp lập trình và điểm chấm.{% endif %}
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            {% if csv_export_url %}
+            <a href="{{ csv_export_url }}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+                <span class="material-symbols-outlined text-sm">csv</span>
+                Xuất CSV
+            </a>
+            {% endif %}
+            {% if assignment.submission_mode == 'file' %}
+            <a href="{% url 'submissions:download_files_zip' assignment_pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+                <span class="material-symbols-outlined text-sm">folder_zip</span>
+                Tải ZIP
+            </a>
+            {% endif %}
+            <a href="{% url 'assignments:statistics' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
                 <span class="material-symbols-outlined text-sm">analytics</span>
                 Thống kê
             </a>
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="flex items-center gap-3 mb-6">
-        <a href="?" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if not status_filter %}bg-primary text-white{% else %}bg-primary-50 text-primary-700 hover:bg-primary-100{% endif %} transition-colors">Tất cả</a>
-        <a href="?status=finished" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'finished' %}bg-primary text-white{% else %}bg-primary-50 text-primary-700 hover:bg-primary-100{% endif %} transition-colors">Đã chấm</a>
-        <a href="?status=pending" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'pending' %}bg-primary text-white{% else %}bg-primary-50 text-primary-700 hover:bg-primary-100{% endif %} transition-colors">Chờ chấm</a>
-        <a href="?status=running" class="px-3 py-1.5 rounded-lg text-xs font-bold {% if status_filter == 'running' %}bg-primary text-white{% else %}bg-primary-50 text-primary-700 hover:bg-primary-100{% endif %} transition-colors">Đang chạy</a>
-    </div>
+    <form method="get" class="frontend-filter-form mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Nộp bài</label>
+                <select name="submitted" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="submitted" {% if submitted_filter == 'submitted' %}selected{% endif %}>Đã nộp</option>
+                    <option value="missing" {% if submitted_filter == 'missing' %}selected{% endif %}>Chưa nộp</option>
+                    <option value="all" {% if submitted_filter == 'all' %}selected{% endif %}>Tất cả bài nộp</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Trạng thái</label>
+                <select name="status" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not status_filter %}selected{% endif %}>Tất cả</option>
+                    <option value="finished" {% if status_filter == 'finished' %}selected{% endif %}>Finished</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="running" {% if status_filter == 'running' %}selected{% endif %}>Running</option>
+                    <option value="error" {% if status_filter == 'error' %}selected{% endif %}>Error</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Chấm điểm</label>
+                <select name="grade" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not grade_filter %}selected{% endif %}>Tất cả</option>
+                    <option value="graded" {% if grade_filter == 'graded' %}selected{% endif %}>Đã chấm</option>
+                    <option value="ungraded" {% if grade_filter == 'ungraded' %}selected{% endif %}>Chưa chấm</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Trễ hạn</label>
+                <select name="late" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not late_filter %}selected{% endif %}>Tất cả</option>
+                    <option value="late" {% if late_filter == 'late' %}selected{% endif %}>Nộp trễ</option>
+                    <option value="ontime" {% if late_filter == 'ontime' %}selected{% endif %}>Đúng hạn</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Loại file</label>
+                <select name="file_ext" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not file_ext_filter %}selected{% endif %}>Tất cả</option>
+                    {% for ext in file_extensions %}
+                    <option value="{{ ext }}" {% if file_ext_filter == ext %}selected{% endif %}>{{ ext }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Điểm từ</label>
+                    <input type="number" step="0.5" name="score_min" value="{{ score_min }}" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Đến</label>
+                    <input type="number" step="0.5" name="score_max" value="{{ score_max }}" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+            <button type="submit" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">
+                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                Lọc
+            </button>
+            <a href="{% url 'submissions:teacher_list' assignment_pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+                <span class="material-symbols-outlined text-sm">restart_alt</span>
+                Xóa lọc
+            </a>
+        </div>
+    </form>
 
-    {% if submissions %}
-    <div class="rounded-xl border border-primary-200 overflow-hidden bg-white shadow-sm">
-        <table class="w-full">
-            <thead>
-                <tr class="bg-primary-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    <th class="px-4 py-3 text-left">#</th>
-                    <th class="px-4 py-3 text-left">Sinh viên</th>
-                    <th class="px-4 py-3 text-center">Điểm</th>
-                    <th class="px-4 py-3 text-center">Tests</th>
-                    <th class="px-4 py-3 text-center">Ngôn ngữ</th>
-                    <th class="px-4 py-3 text-center">Trạng thái</th>
-                    <th class="px-4 py-3 text-center">Thời gian</th>
-                    <th class="px-4 py-3 text-center">Hành động</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-primary-100">
-                {% for sub in submissions %}
-                <tr class="hover:bg-primary-50 transition-colors">
-                    <td class="px-4 py-3 text-sm text-slate-500">{{ sub.pk }}</td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                                {{ sub.student.username|first|upper }}
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium">{{ sub.student.get_full_name|default:sub.student.username }}</p>
-                                <p class="text-[10px] text-slate-500">{{ sub.student.username }}</p>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                        <span class="text-sm font-bold text-primary">{{ sub.total_score|floatformat:1 }}</span>
-                        <span class="text-xs text-slate-500">/{{ sub.max_score }}</span>
-                        {% if sub.manual_score is not None %}
-                        <br><span class="text-[10px] text-amber-400">Thủ công: {{ sub.manual_score|floatformat:1 }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-center text-sm font-medium
-                        {% if sub.passed_testcases == sub.total_testcases and sub.total_testcases > 0 %}text-success-600{% else %}text-slate-700{% endif %}">
-                        {{ sub.passed_testcases }}/{{ sub.total_testcases }}
-                    </td>
-                    <td class="px-4 py-3 text-center text-xs text-slate-500">{{ sub.language }}</td>
-                    <td class="px-4 py-3 text-center">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
-                            {% if sub.status == 'finished' %}bg-success-100 text-success-600
-                            {% elif sub.status == 'running' %}bg-primary-100 text-primary-600
-                            {% else %}bg-slate-100 text-slate-500{% endif %}">
-                            {{ sub.status }}
-                        </span>
-                        {% if sub.is_late %}
-                        <span class="ml-1 text-[10px] text-warning-600">Muộn</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-center text-xs text-slate-500">{{ sub.submitted_at|date:"d/m H:i" }}</td>
-                    <td class="px-4 py-3 text-center">
-                        <div class="flex items-center justify-center gap-2">
-                            <a href="{% url 'submissions:detail' pk=sub.pk %}" class="p-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 text-slate-500 hover:text-primary transition-colors" title="Xem chi tiết">
-                                <span class="material-symbols-outlined text-sm">visibility</span>
-                            </a>
-                            <a href="{% url 'submissions:grade' pk=sub.pk %}" class="p-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 text-slate-500 hover:text-warning-600 transition-colors" title="Chấm bài">
-                                <span class="material-symbols-outlined text-sm">grading</span>
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    {% if missing_members %}
+    <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-bold text-slate-900">Học sinh chưa nộp</h2>
+            <span class="text-xs font-bold text-slate-500">{{ missing_members|length }} học sinh</span>
+        </div>
+        <div class="divide-y divide-slate-100">
+            {% for member in missing_members %}
+            <div class="px-4 py-3 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                    {{ member.student.username|first|upper }}
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-slate-900">{{ member.student.get_full_name|default:member.student.username }}</p>
+                    <p class="text-xs text-slate-500">{{ member.student.email|default:member.student.username }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% elif submissions %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="quick_grade">
+        <div class="table-wrapper bg-white">
+            <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="select-all-submissions" class="rounded border-slate-300 text-primary focus:ring-primary">
+                    <label for="select-all-submissions" class="text-sm font-bold text-slate-700">Chọn tất cả trang này</label>
+                </div>
+                <button type="submit" class="inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors">
+                    <span class="material-symbols-outlined text-sm">done_all</span>
+                    Lưu chấm nhanh
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[1100px]">
+                    <thead>
+                        <tr class="bg-white text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                            <th class="px-4 py-3 text-left">Chọn</th>
+                            <th class="px-4 py-3 text-left">Sinh viên</th>
+                            <th class="px-4 py-3 text-left">File</th>
+                            <th class="px-4 py-3 text-center">Điểm</th>
+                            <th class="px-4 py-3 text-center">Tests</th>
+                            <th class="px-4 py-3 text-center">Trạng thái</th>
+                            <th class="px-4 py-3 text-center">Thời gian</th>
+                            <th class="px-4 py-3 text-left">Chấm nhanh</th>
+                            <th class="px-4 py-3 text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for sub in submissions %}
+                        <tr class="hover:bg-primary-50/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <input type="checkbox" name="selected_submission" value="{{ sub.pk }}" class="submission-checkbox rounded border-slate-300 text-primary focus:ring-primary">
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                        {{ sub.student.username|first|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-bold text-slate-900">{{ sub.student.get_full_name|default:sub.student.username }}</p>
+                                        <p class="text-[11px] text-slate-500">{{ sub.student.username }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 min-w-[220px]">
+                                {% if sub.files.all %}
+                                <div class="space-y-1.5">
+                                    {% for file in sub.files.all %}
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="material-symbols-outlined text-sm text-primary">{% if file.extension == '.pdf' %}picture_as_pdf{% elif file.extension == '.png' or file.extension == '.jpg' or file.extension == '.jpeg' %}image{% elif file.extension == '.zip' or file.extension == '.rar' %}folder_zip{% else %}description{% endif %}</span>
+                                        <button type="button" class="text-left font-semibold text-slate-700 hover:text-primary truncate max-w-[150px]" data-preview-url="{% url 'submissions:open_file' file_pk=file.pk %}" data-preview-name="{{ file.file_name }}" data-preview-type="{{ file.mime_type }}">
+                                            {{ file.file_name }}
+                                        </button>
+                                        <a href="{% url 'submissions:open_file' file_pk=file.pk %}" target="_blank" class="text-slate-400 hover:text-primary" title="Mở file">
+                                            <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                        </a>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <span class="text-xs text-slate-400">Không có file</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="text-sm font-black text-primary">{{ sub.total_score|floatformat:1 }}</span>
+                                <span class="text-xs text-slate-500">/{{ sub.max_score }}</span>
+                                {% if sub.manual_score is not None %}
+                                <br><span class="text-[10px] text-amber-600">Thủ công: {{ sub.manual_score|floatformat:1 }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center text-sm font-medium {% if sub.passed_testcases == sub.total_testcases and sub.total_testcases > 0 %}text-success-600{% else %}text-slate-700{% endif %}">
+                                {% if assignment.submission_mode == 'code' %}{{ sub.passed_testcases }}/{{ sub.total_testcases }}{% else %}<span class="text-slate-400">--</span>{% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
+                                    {% if sub.status == 'finished' %}bg-success-100 text-success-600
+                                    {% elif sub.status == 'running' %}bg-primary-100 text-primary-600
+                                    {% else %}bg-slate-100 text-slate-500{% endif %}">
+                                    {{ sub.status }}
+                                </span>
+                                {% if sub.is_late %}
+                                <span class="ml-1 text-[10px] text-warning-600">Muộn</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center text-xs text-slate-500">{{ sub.submitted_at|date:"d/m H:i" }}</td>
+                            <td class="px-4 py-3 min-w-[240px]">
+                                <div class="flex items-center gap-2">
+                                    <input type="number" step="0.5" min="0" max="{{ sub.max_score }}" name="quick_score_{{ sub.pk }}" value="{% if sub.manual_score is not None %}{{ sub.manual_score|floatformat:1 }}{% endif %}" placeholder="Điểm" class="w-20 h-9 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                                    <input type="text" name="quick_comment_{{ sub.pk }}" value="{{ sub.teacher_comment|default:'' }}" placeholder="Nhận xét ngắn" class="w-36 h-9 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <a href="{% url 'submissions:detail' pk=sub.pk %}" class="p-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 text-slate-500 hover:text-primary transition-colors" title="Xem chi tiết">
+                                        <span class="material-symbols-outlined text-sm">visibility</span>
+                                    </a>
+                                    <a href="{% url 'submissions:grade' pk=sub.pk %}" class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-slate-500 hover:text-amber-600 transition-colors" title="Chấm bài">
+                                        <span class="material-symbols-outlined text-sm">grading</span>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
     {% else %}
-    <div class="text-center py-16">
-        <span class="material-symbols-outlined text-6xl text-slate-500 mb-4">inbox</span>
-        <p class="text-slate-500 text-lg">Chưa có bài nộp nào.</p>
+    <div class="frontend-empty">
+        <span class="material-symbols-outlined text-6xl text-slate-400 mb-4">inbox</span>
+        <p class="text-slate-500 text-lg font-bold">Chưa có bài nộp nào.</p>
     </div>
     {% endif %}
 </div>
+
+<div id="file-preview-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4">
+    <div class="w-full max-w-5xl rounded-xl bg-white shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+            <h3 id="file-preview-title" class="font-bold text-slate-900 truncate">Preview</h3>
+            <button type="button" id="file-preview-close" class="p-2 rounded-lg hover:bg-slate-100">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div id="file-preview-body" class="h-[70vh] bg-slate-50"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const selectAll = document.getElementById('select-all-submissions');
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        document.querySelectorAll('.submission-checkbox').forEach((checkbox) => {
+            checkbox.checked = selectAll.checked;
+        });
+    });
+}
+
+const modal = document.getElementById('file-preview-modal');
+const modalTitle = document.getElementById('file-preview-title');
+const modalBody = document.getElementById('file-preview-body');
+const closePreview = document.getElementById('file-preview-close');
+
+function hidePreview() {
+    if (!modal || !modalBody) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modalBody.innerHTML = '';
+}
+
+document.querySelectorAll('[data-preview-url]').forEach((button) => {
+    button.addEventListener('click', function() {
+        const url = this.dataset.previewUrl;
+        const name = this.dataset.previewName || 'Preview';
+        const type = this.dataset.previewType || '';
+        if (!modal || !modalBody || !url) return;
+        modalTitle.textContent = name;
+        if (type.includes('image')) {
+            modalBody.innerHTML = `<div class="h-full flex items-center justify-center p-4"><img src="${url}" alt="" class="max-h-full max-w-full rounded-lg shadow"></div>`;
+        } else if (type.includes('pdf') || name.toLowerCase().endsWith('.pdf')) {
+            modalBody.innerHTML = `<iframe src="${url}" class="w-full h-full" title="${name}"></iframe>`;
+        } else {
+            modalBody.innerHTML = `<div class="h-full flex flex-col items-center justify-center gap-3 text-slate-600"><span class="material-symbols-outlined text-5xl">open_in_new</span><p class="text-sm font-semibold">Định dạng này mở bằng tab mới sẽ ổn hơn.</p><a href="${url}" target="_blank" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold">Mở file</a></div>`;
+        }
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    });
+});
+if (closePreview) closePreview.addEventListener('click', hidePreview);
+if (modal) {
+    modal.addEventListener('click', function(event) {
+        if (event.target === modal) hidePreview();
+    });
+}
+</script>
 {% endblock %}

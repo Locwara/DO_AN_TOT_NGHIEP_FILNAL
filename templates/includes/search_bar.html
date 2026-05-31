@@ -1,0 +1,193 @@
+<div class="search-container {{ extra_search_class }}">
+    <div class="search-input-group">
+        <span class="material-symbols-outlined">search</span>
+        <input 
+            type="text" 
+            id="global-search-input-{{ search_id|default:'hero' }}" 
+            class="search-main-input" 
+            placeholder="Tìm kiếm lớp học, môn học, bài tập..."
+            autocomplete="off"
+        >
+    </div>
+    
+    <div id="search-suggestions-{{ search_id|default:'hero' }}" class="search-dropdown">
+        <div class="search-filter-bar">
+            <button type="button" class="search-filter-btn active" data-filter="all">Tất cả</button>
+            <button type="button" class="search-filter-btn" data-filter="classroom">Lớp</button>
+            <button type="button" class="search-filter-btn" data-filter="subject">Môn</button>
+            <button type="button" class="search-filter-btn" data-filter="assignment">Bài tập</button>
+            <button type="button" class="search-filter-btn" data-filter="exam">Bài thi</button>
+        </div>
+        <div class="search-dropdown-content" id="search-suggestions-content-{{ search_id|default:'hero' }}">
+            <!-- Suggestions will be injected here -->
+        </div>
+        <div id="search-history-footer-{{ search_id|default:'hero' }}" class="search-history-clear hidden">
+            <button type="button" id="clear-history-btn-{{ search_id|default:'hero' }}" class="search-history-clear-btn">Xóa lịch sử</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const searchId = "{{ search_id|default:'hero' }}";
+    const searchInput = document.getElementById('global-search-input-' + searchId);
+    const suggestions = document.getElementById('search-suggestions-' + searchId);
+    const content = document.getElementById('search-suggestions-content-' + searchId);
+    const clearBtn = document.getElementById('clear-history-btn-' + searchId);
+    const historyFooter = document.getElementById('search-history-footer-' + searchId);
+    const filterBtns = document.querySelectorAll('.search-filter-btn');
+    
+    let debounceTimer;
+    let currentFilter = 'all';
+
+    function renderSuggestions(data) {
+        content.innerHTML = '';
+        
+        if (data.history && data.history.length > 0 && searchInput.value.trim() === '') {
+            content.innerHTML += '<div class="search-section-header">Lịch sử tìm kiếm</div>';
+            data.history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'search-history-item';
+                div.innerHTML = `
+                    <div class="search-history-text">
+                        <span class="material-symbols-outlined text-sm">history</span>
+                        <span>${item.query}</span>
+                    </div>
+                `;
+                div.onclick = () => {
+                    searchInput.value = item.query;
+                    performSearch(item.query);
+                };
+                content.appendChild(div);
+            });
+            historyFooter.classList.remove('hidden');
+        } else {
+            historyFooter.classList.add('hidden');
+        }
+
+        if (data.results && data.results.length > 0) {
+            content.innerHTML += '<div class="search-section-header">Gợi ý kết quả</div>';
+            data.results.forEach(item => {
+                const iconMap = {
+                    'classroom': 'school',
+                    'subject': 'menu_book',
+                    'assignment': 'assignment',
+                    'exam': 'quiz'
+                };
+                const icon = iconMap[item.type] || 'search';
+                const badge = item.is_joined ? '<span class="search-item-badge search-item-badge--joined">Đã tham gia</span>' : '';
+                
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.className = 'search-item';
+                a.innerHTML = `
+                    <div class="search-item-icon">
+                        <span class="material-symbols-outlined">${icon}</span>
+                    </div>
+                    <div class="search-item-info">
+                        <div class="search-item-title">${item.title}</div>
+                        <div class="search-item-subtitle">${item.subtitle}</div>
+                    </div>
+                    ${badge}
+                `;
+                a.onclick = () => {
+                    saveHistory(item.title);
+                };
+                content.appendChild(a);
+            });
+        }
+
+        if ((!data.results || data.results.length === 0) && searchInput.value.trim() !== '') {
+            content.innerHTML = '<div class="p-8 text-center text-slate-500">Không tìm thấy kết quả nào phù hợp</div>';
+        }
+
+        if (content.innerHTML !== '' || searchInput.value.trim() !== '') {
+            suggestions.classList.add('is-active');
+        } else {
+            suggestions.classList.remove('is-active');
+        }
+    }
+
+    function performSearch(query) {
+        fetch(`/classrooms/api/search/suggestions/?q=${encodeURIComponent(query)}&type=${currentFilter}`)
+            .then(res => res.json())
+            .then(data => renderSuggestions(data));
+    }
+
+    function saveHistory(query) {
+        const formData = new FormData();
+        formData.append('q', query);
+        fetch('/classrooms/api/search/history/save/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+    }
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const query = searchInput.value.trim();
+        debounceTimer = setTimeout(() => {
+            performSearch(query);
+        }, 300);
+    });
+
+    searchInput.addEventListener('focus', () => {
+        performSearch(searchInput.value.trim());
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            suggestions.classList.remove('is-active');
+        }
+    });
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            performSearch(searchInput.value.trim());
+        });
+    });
+
+    clearBtn.addEventListener('click', () => {
+        fetch('/classrooms/api/search/history/clear/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        }).then(() => {
+            performSearch('');
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) {
+                saveHistory(query);
+                window.location.href = `/classrooms/search/results/?q=${encodeURIComponent(query)}&type=${currentFilter}`;
+            }
+        }
+    });
+})();
+</script>

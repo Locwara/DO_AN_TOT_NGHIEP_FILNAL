@@ -22,13 +22,64 @@
                 <span class="material-symbols-outlined text-sm">add_circle</span>
                 Tạo môn mới
             </a>
-            <a href="{% url 'classrooms:subject_assign' pk=classroom.pk %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-3 px-6 rounded-lg hover:bg-slate-200 transition-colors">
+            <button type="button" id="toggle-assign-btn" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-3 px-6 rounded-lg hover:bg-slate-200 transition-colors">
                 <span class="material-symbols-outlined text-sm">playlist_add</span>
                 Gán môn có sẵn
-            </a>
+            </button>
         </div>
         {% endif %}
     </div>
+
+    {% if can_manage_subjects and assign_form %}
+    <!-- Inline Assign Form -->
+    <div id="inline-assign-section" class="hidden mb-8 p-6 bg-primary-50 border border-primary-100 rounded-xl">
+        <div class="flex flex-col md:flex-row md:items-end gap-4">
+            <div class="flex-1">
+                <label class="block text-sm font-bold text-primary-900 mb-2">Chọn môn học muốn gán vào lớp</label>
+                <form id="inline-assign-form" method="post" action="{% url 'classrooms:subject_assign' pk=classroom.pk %}" class="flex flex-col md:flex-row gap-3">
+                    {% csrf_token %}
+                    <div class="flex-1">
+                        <select name="subject" required class="w-full rounded-lg border border-primary-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900">
+                            <option value="">-- Danh sách môn đã duyệt --</option>
+                            {% for value, label in assign_form.subject.field.choices %}
+                                {% if value %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary h-[46px] px-8">
+                        Xác nhận gán
+                    </button>
+                    <button type="button" id="cancel-assign-btn" class="btn btn-ghost h-[46px]">Hủy</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.getElementById('toggle-assign-btn');
+            const cancelBtn = document.getElementById('cancel-assign-btn');
+            const section = document.getElementById('inline-assign-section');
+            
+            if (toggleBtn && section) {
+                toggleBtn.addEventListener('click', () => {
+                    section.classList.toggle('hidden');
+                    if (!section.classList.contains('hidden')) {
+                        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            }
+            
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    section.classList.add('hidden');
+                });
+            }
+        });
+    </script>
+    {% endif %}
 
     <!-- Semester filter tabs -->
     <div class="flex border-b border-slate-200 gap-4 overflow-x-auto mb-8">
@@ -116,9 +167,14 @@
                             <span class="material-symbols-outlined text-sm">edit</span>
                         </a>
                         {% endif %}
-                        <a href="{% url 'classrooms:subject_delete' classroom_pk=classroom.pk subject_pk=subject.pk %}?link={{ link.pk }}" class="text-slate-500 hover:text-danger-600 transition-colors" title="Gỡ môn khỏi lớp (chỉ kỳ này)">
-                            <span class="material-symbols-outlined text-sm">link_off</span>
-                        </a>
+                        <form method="post" action="{% url 'classrooms:subject_delete' classroom_pk=classroom.pk subject_pk=subject.pk %}" class="inline-form unassign-subject-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="link" value="{{ link.pk }}">
+                            <input type="hidden" name="subject_name" value="{{ subject.name }}">
+                            <button type="button" class="text-slate-500 hover:text-danger-600 transition-colors trigger-unassign-btn" title="Gỡ môn khỏi lớp (chỉ kỳ này)">
+                                <span class="material-symbols-outlined text-sm">link_off</span>
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
                 </div>
@@ -142,4 +198,78 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Custom Confirmation Modal -->
+<div id="unassign-modal" class="custom-modal-overlay">
+    <div class="custom-modal-card">
+        <div class="custom-modal-header">
+            <div class="custom-modal-icon">
+                <span class="material-symbols-outlined">warning</span>
+            </div>
+            <h3 class="custom-modal-title">Xác nhận gỡ môn học</h3>
+        </div>
+        <div class="custom-modal-body">
+            Bạn có chắc chắn muốn gỡ môn học <strong id="modal-subject-name" class="text-slate-900"></strong> khỏi lớp này không? Thao tác này sẽ không xóa dữ liệu bài tập nhưng sẽ làm môn học không còn hiển thị trong lớp.
+        </div>
+        <div class="custom-modal-footer">
+            <button type="button" id="close-modal-btn" class="btn btn-ghost px-6">Hủy</button>
+            <button type="button" id="confirm-unassign-btn" class="btn bg-danger-600 text-white hover:bg-danger-700 px-6 shadow-lg shadow-danger-200">Gỡ môn học</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle assign form
+        const toggleBtn = document.getElementById('toggle-assign-btn');
+        const cancelBtn = document.getElementById('cancel-assign-btn');
+        const section = document.getElementById('inline-assign-section');
+        
+        if (toggleBtn && section) {
+            toggleBtn.addEventListener('click', () => {
+                section.classList.toggle('hidden');
+                if (!section.classList.contains('hidden')) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                section.classList.add('hidden');
+            });
+        }
+
+        // Custom Modal Logic
+        const modal = document.getElementById('unassign-modal');
+        const modalSubjectName = document.getElementById('modal-subject-name');
+        const confirmBtn = document.getElementById('confirm-unassign-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        let currentForm = null;
+
+        document.querySelectorAll('.trigger-unassign-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const form = btn.closest('form');
+                const subjectName = form.querySelector('input[name="subject_name"]').value;
+                currentForm = form;
+                modalSubjectName.textContent = subjectName;
+                modal.classList.add('is-active');
+            });
+        });
+
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                if (currentForm) currentForm.submit();
+            });
+        }
+
+        const closeModal = () => modal.classList.remove('is-active');
+        if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+    });
+</script>
 {% endblock %}

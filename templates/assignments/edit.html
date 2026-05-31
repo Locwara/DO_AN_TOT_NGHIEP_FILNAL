@@ -16,6 +16,6 @@
         <p class="text-slate-600 text-lg">{{ assignment.title }}</p>
     </div>
 
-    {% include 'assignments/_assignment_form.html' with is_edit=True %}
+    {% include 'assignments/_assignment_form.html' with is_edit=True enctype="multipart/form-data" %}
 </div>
 {% endblock %}

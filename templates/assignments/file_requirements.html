@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Yêu cầu file - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1080px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-4">
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
+        <span>/</span>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
+        <span>/</span>
+        <span class="text-slate-700 font-medium">Yêu cầu file</span>
+    </nav>
+
+    <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-8">
+        <div>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h1 class="text-3xl font-black tracking-tight">Yêu cầu nộp file</h1>
+                <span class="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-xs font-bold">
+                    <span class="material-symbols-outlined text-sm">rule_folder</span>
+                    {{ assignment.title }}
+                </span>
+            </div>
+            <p class="text-sm text-slate-500">Cấu hình này quyết định file học sinh được chọn, số file, dung lượng và điều kiện nộp.</p>
+        </div>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Quay lại bài
+        </a>
+    </div>
+
+    <form method="post" class="grid grid-cols-1 lg:grid-cols-3 gap-8" data-loading-text="Đang lưu yêu cầu file...">
+        {% csrf_token %}
+        <main class="lg:col-span-2 space-y-6">
+            {% if form.errors %}
+            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <p class="font-bold mb-2">Vui lòng kiểm tra lại cấu hình.</p>
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <p>{{ field.label }}: {{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <section class="rounded-xl border border-slate-200 bg-white p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 mb-5">
+                    <span class="material-symbols-outlined text-primary">extension</span>
+                    Định dạng cho phép
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {% for value,label in form.fields.allowed_extensions.choices %}
+                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm hover:border-primary hover:bg-primary/5 transition-colors">
+                        <input type="checkbox" name="allowed_extensions" value="{{ value }}"
+                               {% if value in selected_extensions %}checked{% endif %}
+                               class="rounded border-slate-300 text-primary focus:ring-primary">
+                        <span class="font-semibold">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="rounded-xl border border-slate-200 bg-white p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 mb-5">
+                    <span class="material-symbols-outlined text-primary">tune</span>
+                    Chính sách nộp
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label for="max-file-size" class="block text-sm font-bold text-slate-700 mb-2">Dung lượng tối đa mỗi file (MB)</label>
+                        <input id="max-file-size" type="number" name="max_file_size_mb" min="1" max="100" value="{{ form.max_file_size_mb.value|default:'20' }}" class="w-full h-11 rounded-lg border-slate-200 bg-slate-50 px-3 text-sm focus:border-primary focus:ring-primary">
+                    </div>
+                    <div>
+                        <label for="max-files" class="block text-sm font-bold text-slate-700 mb-2">Số file tối đa</label>
+                        <input id="max-files" type="number" name="max_files" min="1" max="20" value="{{ form.max_files.value|default:'1' }}" class="w-full h-11 rounded-lg border-slate-200 bg-slate-50 px-3 text-sm focus:border-primary focus:ring-primary">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                        <input type="checkbox" name="require_comment" {% if form.require_comment.value %}checked{% endif %} class="mt-0.5 rounded border-slate-300 text-primary focus:ring-primary">
+                        <span><span class="font-bold block">Yêu cầu ghi chú</span><span class="text-xs text-slate-500">Phù hợp khi cần link GitHub hoặc mô tả file.</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                        <input type="checkbox" name="allow_resubmit" {% if form.allow_resubmit.value %}checked{% endif %} class="mt-0.5 rounded border-slate-300 text-primary focus:ring-primary">
+                        <span><span class="font-bold block">Cho phép nộp lại</span><span class="text-xs text-slate-500">Nếu tắt, bài chỉ nhận một lần nộp.</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                        <input type="checkbox" name="require_all_files_before_submit" {% if form.require_all_files_before_submit.value %}checked{% endif %} class="mt-0.5 rounded border-slate-300 text-primary focus:ring-primary">
+                        <span><span class="font-bold block">Yêu cầu đủ file</span><span class="text-xs text-slate-500">Dùng cho bài cần báo cáo và source kèm nhau.</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                        <input type="checkbox" name="scan_required" {% if form.scan_required.value %}checked{% endif %} class="mt-0.5 rounded border-slate-300 text-primary focus:ring-primary">
+                        <span><span class="font-bold block">Yêu cầu quét file</span><span class="text-xs text-slate-500">Đánh dấu file cần kiểm tra trước khi chấm.</span></span>
+                    </label>
+                </div>
+            </section>
+        </main>
+
+        <aside class="space-y-6">
+            <section class="rounded-xl border border-primary-200 bg-primary-50 p-6 lg:sticky lg:top-24">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="material-symbols-outlined text-primary">save</span>
+                    <h2 class="text-lg font-black text-primary-950">Lưu cấu hình</h2>
+                </div>
+                <p class="text-sm text-slate-600 mb-5">Học sinh sẽ thấy thay đổi này ngay ở trang nộp file và phòng thi file.</p>
+                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 h-11 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">save</span>
+                    Lưu yêu cầu
+                </button>
+                <a href="{% url 'assignments:edit' pk=assignment.pk %}" class="mt-3 inline-flex w-full items-center justify-center gap-2 h-11 rounded-lg border border-primary-200 bg-white text-primary-700 text-sm font-bold hover:bg-primary-50 transition-colors">
+                    <span class="material-symbols-outlined text-sm">edit</span>
+                    Sửa thông tin bài
+                </a>
+            </section>
+        </aside>
+    </form>
+</div>
+{% endblock %}

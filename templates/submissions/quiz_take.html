@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% block title %}Đang làm quiz - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 lg:pb-8">
+    <div class="sticky top-16 z-30 rounded-xl border border-primary-100 bg-white/95 backdrop-blur px-4 py-3 shadow-sm flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+            <div class="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold text-primary mb-3">
+                <span class="material-symbols-outlined text-sm">{% if is_exam_attempt %}timer{% else %}quiz{% endif %}</span>
+                {% if is_exam_attempt %}Phòng thi trắc nghiệm{% else %}Lượt #{{ attempt.attempt_no }}{% endif %}
+            </div>
+            <h1 class="text-3xl font-black tracking-tight text-slate-950">{{ assignment.title }}</h1>
+            <p class="text-sm text-slate-600 mt-2">Tự lưu khi trả lời{% if is_exam_attempt %} · giờ thi tính trên server{% endif %}.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="autosaveStatus" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500">
+                Chưa có thay đổi
+            </div>
+            {% if remaining_seconds != None %}
+            <div id="quizTimer" data-remaining="{{ remaining_seconds }}" class="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-black text-primary">
+                --:--
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form id="quizForm" method="post" action="{% url 'submissions:quiz_submit' attempt_pk=attempt.pk %}" data-loading-text="Đang nộp quiz...">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
+            <main class="space-y-5">
+                {% for question in questions %}
+                <section id="question-{{ question.pk }}" class="quiz-question bg-white border border-slate-200 rounded-xl p-6" data-question-id="{{ question.pk }}" data-question-type="{{ question.question_type }}">
+                    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">{{ forloop.counter }}</span>
+                            <div>
+                                <p class="text-xs font-bold uppercase text-slate-500">{{ question.get_question_type_display }}</p>
+                                <p class="text-xs text-slate-500">{{ question.points|floatformat:2 }} điểm</p>
+                            </div>
+                        </div>
+                        <span class="question-state inline-flex rounded-full px-2.5 py-1 text-xs font-bold {% if question.answer_state.answered %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}" data-state-for="{{ question.pk }}">
+                            {% if question.answer_state.answered %}Đã trả lời{% else %}Chưa trả lời{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="prose max-w-none text-slate-800 whitespace-pre-wrap font-semibold mb-5">{{ question.question_text }}</div>
+                    {% if question.media_url %}
+                    <div class="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <a href="{{ question.media_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm font-bold text-primary">
+                            <span class="material-symbols-outlined text-sm">open_in_new</span>
+                            Mở tài liệu câu hỏi
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if question.question_type == 'short_text' %}
+                    <textarea name="question_{{ question.pk }}" rows="5" class="quiz-answer w-full rounded-lg border border-slate-300 px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="Nhập câu trả lời ngắn...">{{ question.answer_state.text_answer }}</textarea>
+                    {% else %}
+                    <div class="space-y-3">
+                        {% for choice in question.ordered_choices %}
+                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 hover:border-primary/40 hover:bg-primary/5 transition">
+                            <input
+                                type="{% if question.question_type == 'multiple_choice' %}checkbox{% else %}radio{% endif %}"
+                                name="question_{{ question.pk }}"
+                                value="{{ choice.pk }}"
+                                class="quiz-answer mt-1 h-4 w-4 accent-primary"
+                                {% if choice.pk in question.answer_state.selected_choice_ids %}checked{% endif %}
+                            >
+                            <span class="text-sm font-medium text-slate-700">{{ choice.choice_text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </section>
+                {% endfor %}
+            </main>
+
+            <aside class="lg:sticky lg:top-24 space-y-4">
+                <section class="bg-white border border-slate-200 rounded-xl p-5">
+                    <h2 class="font-bold text-slate-950 mb-3">Tiến độ</h2>
+                    <div class="flex items-center justify-between text-sm mb-3">
+                        <span class="text-slate-600">Đã trả lời</span>
+                        <span id="answeredCounter" class="font-black text-primary">{{ answered_count }}/{{ total_questions }}</span>
+                    </div>
+                    <div class="h-2 rounded-full bg-slate-100 overflow-hidden mb-5">
+                        <div id="answeredBar" class="h-full bg-primary transition-all" style="width: 0%"></div>
+                    </div>
+                    <div class="grid grid-cols-5 gap-2" id="questionNav">
+                        {% for question in questions %}
+                        <a href="#question-{{ question.pk }}" data-nav-for="{{ question.pk }}" class="quiz-nav flex h-10 items-center justify-center rounded-lg border text-sm font-bold transition {% if question.answer_state.answered %}border-emerald-200 bg-emerald-50 text-emerald-700{% else %}border-slate-200 bg-slate-50 text-slate-500 hover:border-primary/40{% endif %}">
+                            {{ forloop.counter }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="bg-primary/5 border border-primary/20 rounded-xl p-5">
+                    <h2 class="font-bold text-slate-950 mb-2">Nộp bài</h2>
+                    <p class="text-sm text-slate-600 mb-4">Nộp xong lượt này sẽ khóa lại.</p>
+                    <button type="submit" data-quiz-submit class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90">
+                        <span class="material-symbols-outlined text-base">task_alt</span>
+                        Nộp quiz
+                    </button>
+                </section>
+            </aside>
+        </div>
+        <div class="lg:hidden fixed left-4 right-4 bottom-4 z-40 rounded-xl border border-primary-200 bg-white p-3 shadow-xl">
+            <button type="submit" data-quiz-submit class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white">
+                <span class="material-symbols-outlined text-base">task_alt</span>
+                Nộp quiz
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+(() => {
+    const form = document.getElementById('quizForm');
+    const statusEl = document.getElementById('autosaveStatus');
+    const counterEl = document.getElementById('answeredCounter');
+    const barEl = document.getElementById('answeredBar');
+    const totalQuestions = Number('{{ total_questions }}') || 0;
+    const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+    const autosaveUrl = "{% url 'submissions:quiz_autosave' attempt_pk=attempt.pk %}";
+    const isExamAttempt = {% if is_exam_attempt %}true{% else %}false{% endif %};
+    const examEventUrl = "{% if is_exam_attempt %}{% url 'submissions:exam_event' assignment_pk=assignment.pk %}{% endif %}";
+    const submitButtons = Array.from(document.querySelectorAll('[data-quiz-submit]'));
+    let saveTimers = new Map();
+    let submitted = false;
+
+    async function logExamEvent(eventType, metadata = {}) {
+        if (!isExamAttempt || !examEventUrl) return;
+        try {
+            await fetch(examEventUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({event_type: eventType, metadata}),
+                keepalive: true,
+            });
+        } catch (error) {
+            // Best-effort event logging; autosave/submit remain the source of truth.
+        }
+    }
+
+    function questionAnswered(section) {
+        const type = section.dataset.questionType;
+        if (type === 'short_text') {
+            const textarea = section.querySelector('textarea');
+            return Boolean(textarea && textarea.value.trim());
+        }
+        return Boolean(section.querySelector('input:checked'));
+    }
+
+    function refreshProgress() {
+        const sections = Array.from(document.querySelectorAll('.quiz-question'));
+        const answered = sections.filter(questionAnswered).length;
+        counterEl.textContent = `${answered}/${totalQuestions}`;
+        barEl.style.width = totalQuestions ? `${Math.round(answered / totalQuestions * 100)}%` : '0%';
+        sections.forEach((section) => {
+            const qid = section.dataset.questionId;
+            const answeredState = questionAnswered(section);
+            const badge = document.querySelector(`[data-state-for="${qid}"]`);
+            const nav = document.querySelector(`[data-nav-for="${qid}"]`);
+            if (badge) {
+                badge.textContent = answeredState ? 'Đã trả lời' : 'Chưa trả lời';
+                badge.className = `question-state inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${answeredState ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`;
+            }
+            if (nav) {
+                nav.className = `quiz-nav flex h-10 items-center justify-center rounded-lg border text-sm font-bold transition ${answeredState ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-primary/40'}`;
+            }
+        });
+    }
+
+    function payloadFor(section) {
+        const type = section.dataset.questionType;
+        const payload = {
+            question_id: Number(section.dataset.questionId),
+            selected_choice_ids: [],
+            text_answer: '',
+        };
+        if (type === 'short_text') {
+            payload.text_answer = section.querySelector('textarea')?.value || '';
+        } else {
+            payload.selected_choice_ids = Array.from(section.querySelectorAll('input:checked')).map((input) => Number(input.value));
+        }
+        return payload;
+    }
+
+    function queueAutosave(section) {
+        const qid = section.dataset.questionId;
+        if (saveTimers.has(qid)) {
+            clearTimeout(saveTimers.get(qid));
+        }
+        statusEl.textContent = 'Đang lưu...';
+        statusEl.className = 'rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary';
+        saveTimers.set(qid, setTimeout(async () => {
+            try {
+                const response = await fetch(autosaveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(payloadFor(section)),
+                });
+                const data = await response.json();
+                if (data.status === 'expired') {
+                    window.location.reload();
+                    return;
+                }
+                if (!response.ok || data.status !== 'ok') {
+                    throw new Error(data.message || 'Save failed');
+                }
+                statusEl.textContent = `Đã lưu ${data.saved_at}`;
+                statusEl.className = 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700';
+            } catch (error) {
+                statusEl.textContent = 'Lưu lỗi, thử lại khi đổi đáp án';
+                statusEl.className = 'rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700';
+            }
+        }, 350));
+    }
+
+    document.querySelectorAll('.quiz-answer').forEach((input) => {
+        input.addEventListener('input', (event) => {
+            const section = event.target.closest('.quiz-question');
+            refreshProgress();
+            queueAutosave(section);
+        });
+        input.addEventListener('change', (event) => {
+            const section = event.target.closest('.quiz-question');
+            refreshProgress();
+            queueAutosave(section);
+        });
+    });
+
+    form.addEventListener('submit', (event) => {
+        if (submitted) return;
+        const ok = window.confirm('Bạn chắc chắn muốn nộp lượt quiz này?');
+        if (!ok) {
+            event.preventDefault();
+            return;
+        }
+        submitted = true;
+        submitButtons.forEach((button) => {
+            button.disabled = true;
+            button.classList.add('opacity-70', 'cursor-wait');
+            button.innerHTML = '<span class="material-symbols-outlined text-base animate-spin">progress_activity</span>Đang nộp...';
+        });
+        logExamEvent('submit_clicked', {attempt_id: {{ attempt.pk }}});
+    });
+
+    const timer = document.getElementById('quizTimer');
+    if (timer) {
+        let remaining = Number(timer.dataset.remaining || 0);
+        const renderTimer = () => {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            timer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            if (remaining <= 60) {
+                timer.className = 'rounded-lg border border-danger-100 bg-danger-100 px-4 py-2 text-sm font-black text-danger-600';
+            }
+            if (remaining <= 0) {
+                submitted = true;
+                logExamEvent('auto_submit', {reason: 'client_timer_zero', attempt_id: {{ attempt.pk }}});
+                form.submit();
+                return;
+            }
+            remaining -= 1;
+            setTimeout(renderTimer, 1000);
+        };
+        renderTimer();
+    }
+
+    refreshProgress();
+    if (isExamAttempt) {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                logExamEvent('tab_hidden', {attempt_id: {{ attempt.pk }}});
+            }
+        });
+        window.addEventListener('blur', () => {
+            logExamEvent('focus_lost', {attempt_id: {{ attempt.pk }}});
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                logExamEvent('fullscreen_exit', {attempt_id: {{ attempt.pk }}});
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

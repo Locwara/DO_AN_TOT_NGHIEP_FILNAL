@@ -3,241 +3,78 @@
 
 {% block content %}
 <div class="home-shell max-w-[1200px] mx-auto w-full overflow-hidden">
-    <div class="@container">
-        <div class="hero-light rounded-b-[22px] flex flex-col gap-10 px-4 sm:px-6 py-12 md:py-20 @[864px]:flex-row items-center">
-            <div class="flex flex-col gap-8 flex-1 min-w-0 w-full">
-                <div class="flex flex-col gap-4 text-left">
-                    <p class="eyebrow">
-                        {% if home_role == 'student' %}Trang học sinh
-                        {% elif home_role == 'teacher' %}Trang giáo viên
-                        {% elif home_role == 'admin' %}Trang quản trị
-                        {% else %}DevLearn Platform{% endif %}
-                    </p>
-                    <h1 class="home-hero-title text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tight max-w-full break-words">
-                        {% if home_role == 'student' %}
-                        Theo dõi lớp, bài tập và <span class="text-primary">điểm số</span>
-                        {% elif home_role == 'teacher' %}
-                        Quản lý lớp, giao bài và <span class="text-primary">chấm nhanh</span>
-                        {% elif home_role == 'admin' %}
-                        Kiểm soát hệ thống và <span class="text-primary">hàng chờ duyệt</span>
-                        {% else %}
-                        Học lập trình với <br class="home-mobile-break"><span class="text-primary">Web IDE</span><br class="home-mobile-break"> và chấm điểm tự động
-                        {% endif %}
-                    </h1>
-                    <p class="home-hero-copy text-base sm:text-lg md:text-xl font-normal leading-relaxed text-slate-600 max-w-[600px]">
-                        {% if home_role == 'student' %}
-                        Vào thẳng lớp đang học, xem deadline gần nhất, tiếp tục bài thi/bài tập và kiểm tra kết quả mới.
-                        {% elif home_role == 'teacher' %}
-                        Mở nhanh lớp đang dạy, xử lý bài nộp, theo dõi phiên thi và tạo bài mới theo đúng lớp.
-                        {% elif home_role == 'admin' %}
-                        Xem nhanh user, lớp, môn, đơn giáo viên, cảnh báo thi và trạng thái sandbox của nền tảng.
-                        {% else %}
-                        Nền tảng học lập trình cho sinh viên, giáo viên và admin: lớp học theo môn, bài tập có testcase, bài thi có phiên làm bài, phản hồi và thống kê rõ ràng.
-                        {% endif %}
-                    </p>
-                </div>
-                <div class="home-hero-actions flex flex-wrap gap-3 sm:gap-4">
-                    <a href="{{ primary_cta_url }}" class="btn btn-primary min-h-12 px-6 text-base">
-                        <span class="material-symbols-outlined text-sm">{{ primary_cta_icon }}</span>
-                        {{ primary_cta_label }}
-                    </a>
-                    {% if secondary_cta_url %}
-                    <a href="{{ secondary_cta_url }}" class="btn btn-outline min-h-12 px-6 text-base">
-                        <span class="material-symbols-outlined text-sm">{{ secondary_cta_icon }}</span>
-                        {{ secondary_cta_label }}
-                    </a>
-                    {% endif %}
-                    {% if home_role == 'anonymous' %}
-                    <a href="{% url 'accounts:google_login' %}" class="btn btn-outline min-h-12 px-6 text-base">
-                        <svg class="google-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-                            <path fill="#FFC107" d="M43.61 20.08H42V20H24v8h11.3C33.65 32.66 29.22 36 24 36c-6.63 0-12-5.37-12-12s5.37-12 12-12c3.06 0 5.84 1.15 7.96 3.04l5.66-5.66C34.05 6.05 29.27 4 24 4 12.95 4 4 12.95 4 24s8.95 20 20 20 20-8.95 20-20c0-1.34-.14-2.65-.39-3.92Z"/>
-                            <path fill="#FF3D00" d="m6.31 14.69 6.57 4.82C14.66 15.11 18.96 12 24 12c3.06 0 5.84 1.15 7.96 3.04l5.66-5.66C34.05 6.05 29.27 4 24 4 16.32 4 9.66 8.34 6.31 14.69Z"/>
-                            <path fill="#4CAF50" d="M24 44c5.17 0 9.86-1.98 13.41-5.19l-6.19-5.24C29.21 35.09 26.72 36 24 36c-5.2 0-9.62-3.31-11.28-7.94l-6.52 5.02C9.51 39.56 16.23 44 24 44Z"/>
-                            <path fill="#1976D2" d="M43.61 20.08H42V20H24v8h11.3a12.04 12.04 0 0 1-4.09 5.57l.01-.01 6.19 5.24C36.97 39.21 44 34 44 24c0-1.34-.14-2.65-.39-3.92Z"/>
-                        </svg>
-                        Đăng nhập với Google
-                    </a>
-                    {% endif %}
+    {% if not user.is_authenticated %}
+    <!-- Hero Section (Legacy/Public) -->
+    <section class="hero text-center md:text-left">
+        <div class="container-md grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div>
+                <p class="eyebrow">Nền tảng học lập trình thế hệ mới</p>
+                <h1 class="text-4xl md:text-6xl font-black mt-4 leading-[1.1]">DevLearn <br/><span class="text-primary-400">Code. Test. Master.</span></h1>
+                <p class="text-lg mt-6 text-primary-200">Hệ thống quản lý học tập tích hợp Web IDE, chấm điểm tự động và giám sát thi trực tuyến dành riêng cho sinh viên CNTT.</p>
+                <div class="hero-actions mt-10">
+                    <a href="{% url 'accounts:register' %}" class="btn btn-primary h-14 px-8 text-lg font-bold shadow-2xl">Bắt đầu ngay</a>
+                    <a href="#features" class="btn btn-ghost h-14 px-8 text-lg font-bold text-white">Khám phá tính năng</a>
                 </div>
             </div>
-            <div class="w-full flex-1 relative min-w-0" id="ide">
-                <div class="home-ide-preview w-full aspect-video rounded-[14px] bg-primary-950 border border-primary-900 shadow-2xl overflow-hidden">
-                    <div class="h-8 bg-primary-900 flex items-center px-4 gap-2">
-                        <div class="size-3 rounded-full bg-danger-500"></div>
-                        <div class="size-3 rounded-full bg-warning-500"></div>
-                        <div class="size-3 rounded-full bg-success-500"></div>
-                        <div class="ml-4 h-4 w-32 bg-primary-800 rounded"></div>
+            <div class="hidden md:block relative">
+                <div class="home-ide-preview bg-primary-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl aspect-video relative overflow-hidden">
+                    <div class="flex items-center gap-2 mb-4 border-b border-white/5 pb-2">
+                        <div class="flex gap-1.5">
+                            <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                        </div>
+                        <div class="bg-white/5 px-3 py-1 rounded text-[10px] text-primary-300 font-mono">solution.py</div>
                     </div>
-                    <div class="home-ide-code p-4 sm:p-6 font-mono text-xs sm:text-sm">
-                        <div class="flex gap-4">
-                            <span class="text-slate-400">1</span>
-                            <span class="text-primary-300">def</span> <span class="text-green-400">grade_submission</span>(code):
-                        </div>
-                        <div class="flex gap-4">
-                            <span class="text-slate-400">2</span>
-                            <span class="ml-4 text-slate-300"># Initializing AI grader...</span>
-                        </div>
-                        <div class="flex gap-4">
-                            <span class="text-slate-400">3</span>
-                            <span class="ml-4 text-primary">devlearn.analyze</span>(code)
-                        </div>
-                        <div class="mt-8 p-4 rounded bg-primary/10 border border-primary/20">
-                            <div class="flex items-center gap-2 text-primary font-bold mb-2">
-                                <span class="material-symbols-outlined text-sm">check_circle</span>
-                                Testcases passed
-                            </div>
-                            <div class="home-test-grid grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                                <span class="rounded bg-success-100 text-success-600 px-2 py-1 font-bold">8/8 pass</span>
-                                <span class="rounded bg-primary-100 text-primary-700 px-2 py-1 font-bold">95/100</span>
-                                <span class="rounded bg-warning-100 text-warning-600 px-2 py-1 font-bold">1 gợi ý</span>
-                            </div>
-                            <div class="text-slate-200 mt-3">Tối ưu vòng lặp ở dòng 12 để giảm thời gian chạy.</div>
-                        </div>
+                    <div class="home-ide-code font-mono text-sm leading-relaxed">
+                        <p class="text-primary-400">def <span class="text-amber-400">factorial</span>(n):</p>
+                        <p class="pl-4 text-slate-200">if n == <span class="text-emerald-400">0</span>: return <span class="text-emerald-400">1</span></p>
+                        <p class="pl-4 text-slate-200">return n * factorial(n - <span class="text-emerald-400">1</span>)</p>
+                        <p class="mt-4 text-slate-500"># Chấm bài tự động...</p>
+                    </div>
+                    <div class="absolute bottom-4 right-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">check_circle</span>
+                        Passed 10/10 Testcases
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
+    {% endif %}
 
-    {% if home_role == 'student' %}
-    <section class="px-6 py-10">
-        <div class="flex flex-col gap-3 mb-6">
-            <p class="eyebrow">Không gian học tập</p>
-            <h2 class="text-3xl font-bold">Chào {{ request.user.first_name|default:request.user.username }}, hôm nay mình học gì?</h2>
-            <p class="text-slate-600 max-w-[760px]">
-                Tổng quan nhanh các lớp đang học, bài sắp đến hạn, bài thi và điểm gần đây của bạn.
-            </p>
-        </div>
-
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.classrooms_count }}</div>
-                        <div class="stat-label">Lớp đang tham gia</div>
-                    </div>
-                    <span class="material-symbols-outlined text-primary text-3xl">school</span>
-                </div>
+    {% if user.is_authenticated %}
+    <!-- Logged In Portal (Teacher/Student) -->
+    <section class="py-8 px-4 md:px-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+            <div>
+                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Chào quay trở lại, {{ user.first_name|default:user.username }}!</h1>
+                <p class="text-slate-500 mt-1 font-medium">{% if user.is_teacher %}Bắt đầu quản lý lớp học và bài nộp của sinh viên.{% else %}Tiếp tục hành trình chinh phục các thử thách lập trình.{% endif %}</p>
             </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.missing_count }}</div>
-                        <div class="stat-label">Bài chưa hoàn thành</div>
-                    </div>
-                    <span class="material-symbols-outlined text-warning-600 text-3xl">pending_actions</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.upcoming_count }}</div>
-                        <div class="stat-label">Bài đến hạn 7 ngày</div>
-                    </div>
-                    <span class="material-symbols-outlined text-primary text-3xl">event_upcoming</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.avg_score }}</div>
-                        <div class="stat-label">Điểm trung bình</div>
-                    </div>
-                    <span class="material-symbols-outlined text-success-600 text-3xl">workspace_premium</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="course-card p-5 mb-8">
-            <div class="flex flex-wrap gap-3">
-                <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-primary">
-                    <span class="material-symbols-outlined text-sm">school</span>
-                    Vào lớp học
+            <div class="flex items-center gap-3">
+                {% if user.is_teacher %}
+                <a href="{% url 'classrooms:create' %}" class="btn btn-outline border-2 border-primary text-primary h-12 px-6 font-bold">
+                    <span class="material-symbols-outlined text-sm">add_circle</span>
+                    Tạo lớp học
                 </a>
-                <a href="{% url 'assignments:calendar' %}" class="btn btn-outline">
-                    <span class="material-symbols-outlined text-sm">calendar_month</span>
-                    Xem lịch deadline
+                <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-primary h-12 px-6 font-bold shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    Dashboard Giáo viên
                 </a>
-                <a href="{% url 'accounts:student_dashboard' %}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">fact_check</span>
-                    Xem điểm của tôi
-                </a>
-                <a href="{% url 'classrooms:search' %}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">travel_explore</span>
-                    Khám phá lớp học
-                </a>
-                <a href="{% url 'classrooms:join' %}" class="btn btn-ghost">
+                {% else %}
+                <a href="{% url 'classrooms:join' %}" class="btn btn-outline border-2 border-primary text-primary h-12 px-6 font-bold">
                     <span class="material-symbols-outlined text-sm">vpn_key</span>
-                    Nhập mã mời
+                    Vào lớp mới
                 </a>
+                <a href="{% url 'accounts:student_dashboard' %}" class="btn btn-primary h-12 px-6 font-bold shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">person</span>
+                    Dashboard cá nhân
+                </a>
+                {% endif %}
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <section class="course-card p-6 lg:col-span-2">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div class="min-w-0">
-                        <p class="eyebrow">Tiếp tục học</p>
-                        {% if home_sections.continue_learning %}
-                        <h3 class="text-xl font-bold line-clamp-1">{{ home_sections.continue_learning.title }}</h3>
-                        <p class="caption mt-1">{{ home_sections.continue_learning.meta }}</p>
-                        {% else %}
-                        <h3 class="text-xl font-bold">Bạn đang rất gọn deadline</h3>
-                        <p class="caption mt-1">Khi có bản nháp hoặc bài cần làm, hệ thống sẽ đưa vào đây.</p>
-                        {% endif %}
-                    </div>
-                    {% if home_sections.continue_learning %}
-                    <a href="{{ home_sections.continue_learning.url }}" class="btn btn-primary flex-shrink-0">
-                        <span class="material-symbols-outlined text-sm">{{ home_sections.continue_learning.icon }}</span>
-                        {{ home_sections.continue_learning.button_label }}
-                    </a>
-                    {% else %}
-                    <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-outline flex-shrink-0">
-                        <span class="material-symbols-outlined text-sm">school</span>
-                        Xem lớp học
-                    </a>
-                    {% endif %}
-                </div>
-            </section>
-
-            <section class="course-card p-6">
-                <div class="mb-4">
-                    <p class="eyebrow">Deadline 7 ngày</p>
-                    <h3 class="text-xl font-bold">Heat strip</h3>
-                </div>
-                <div class="grid grid-cols-7 gap-2">
-                    {% for day in home_sections.deadline_heat_strip %}
-                    <div class="rounded-lg p-2 text-center {% if day.tone == 'danger' %}bg-danger-100 text-danger-600{% elif day.tone == 'warning' %}bg-warning-100 text-warning-600{% else %}bg-success-100 text-success-600{% endif %}">
-                        <p class="text-[11px] font-bold leading-tight">{{ day.day_label }}</p>
-                        <p class="text-lg font-black leading-tight mt-1">{{ day.count }}</p>
-                    </div>
-                    {% endfor %}
-                </div>
-            </section>
-        </div>
-
-        {% if not home_summary.classrooms_count %}
-        <div class="hero-light border border-primary-200 rounded-[18px] p-8 mb-8">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
-                <div>
-                    <p class="eyebrow">Bắt đầu</p>
-                    <h3 class="text-2xl font-bold mt-1">Bạn chưa tham gia lớp nào</h3>
-                    <p class="text-slate-600 mt-2">Khám phá lớp học hoặc nhập mã mời giáo viên gửi để bắt đầu học.</p>
-                </div>
-                <div class="flex flex-wrap gap-3">
-                    <a href="{% url 'classrooms:search' %}" class="btn btn-primary">
-                        <span class="material-symbols-outlined text-sm">travel_explore</span>
-                        Khám phá lớp học
-                    </a>
-                    <a href="{% url 'classrooms:join' %}" class="btn btn-outline">
-                        <span class="material-symbols-outlined text-sm">vpn_key</span>
-                        Nhập mã mời
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
+        {% if not user.is_teacher %}
+        <!-- Student Dashboard Quick View -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 flex flex-col gap-6">
                 <section class="course-card p-6">
@@ -246,11 +83,13 @@
                             <p class="eyebrow">Sắp đến hạn</p>
                             <h3 class="text-xl font-bold">Bài sắp đến hạn</h3>
                         </div>
-                        <a href="{% url 'assignments:calendar' %}" class="btn btn-sm">Xem lịch</a>
+                        {% if home_sections.upcoming_assignments|length > 3 %}
+                        <a href="{% url 'assignments:calendar' %}" class="btn btn-sm">Xem tất cả</a>
+                        {% endif %}
                     </div>
                     {% if home_sections.upcoming_assignments %}
                     <div class="space-y-3">
-                        {% for row in home_sections.upcoming_assignments %}
+                        {% for row in home_sections.upcoming_assignments|slice:":3" %}
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border border-primary-100 rounded-lg">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2 mb-1">
@@ -259,9 +98,9 @@
                                     <span class="badge badge-general">{{ row.subject.code }}</span>
                                     {% endif %}
                                 </div>
-                                <a href="{{ row.action_url }}" class="font-bold text-primary-900 hover:text-primary-600">{{ row.assignment.title }}</a>
+                                <a href="{{ row.action_url }}" class="font-bold text-primary-900 hover:text-primary-600 truncate block">{{ row.assignment.title }}</a>
                                 <p class="caption mt-1">
-                                    {{ row.assignment.classroom.name }} · Hạn {{ row.assignment.due_date|date:"d/m/Y H:i" }} · còn {{ row.assignment.due_date|timeuntil }}
+                                    {{ row.assignment.classroom.name }} · Hạn {{ row.assignment.due_date|date:"d/m/Y H:i" }}
                                 </p>
                             </div>
                             <a href="{{ row.action_url }}" class="btn btn-primary flex-shrink-0">
@@ -284,30 +123,30 @@
                     <div class="flex items-center justify-between gap-4 mb-4">
                         <div>
                             <p class="eyebrow">Bài thi</p>
-                            <h3 class="text-xl font-bold">Bài thi đang hoặc gần mở</h3>
+                            <h3 class="text-xl font-bold">Bài thi của bạn</h3>
                         </div>
+                        {% if home_sections.exam_assignments|length > 3 %}
+                        <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-sm">Chi tiết</a>
+                        {% endif %}
                     </div>
                     {% if home_sections.exam_assignments %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {% for row in home_sections.exam_assignments %}
+                        {% for row in home_sections.exam_assignments|slice:":3" %}
                         <a href="{{ row.action_url }}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
                                 <span class="material-symbols-outlined text-primary">quiz</span>
                             </div>
-                            <p class="font-bold mt-3 line-clamp-2">{{ row.assignment.title }}</p>
-                            <p class="caption mt-1">{{ row.assignment.classroom.name }}</p>
+                            <p class="font-bold mt-3 line-clamp-1">{{ row.assignment.title }}</p>
+                            <p class="caption mt-1 truncate">{{ row.assignment.classroom.name }}</p>
                             {% if row.assignment.exam_start_time %}
-                            <p class="caption mt-2">Mở: {{ row.assignment.exam_start_time|date:"d/m/Y H:i" }}</p>
-                            {% endif %}
-                            {% if row.assignment.exam_end_time %}
-                            <p class="caption">Đóng: {{ row.assignment.exam_end_time|date:"d/m/Y H:i" }}</p>
+                            <p class="caption mt-2 font-bold text-amber-600">Mở: {{ row.assignment.exam_start_time|date:"H:i d/m" }}</p>
                             {% endif %}
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Hiện chưa có bài thi nào đang hoặc gần mở trong các lớp của bạn.</p>
+                    <p class="caption">Hiện chưa có bài thi nào đang hoặc gần mở.</p>
                     {% endif %}
                 </section>
 
@@ -321,24 +160,23 @@
                     </div>
                     {% if home_sections.classrooms %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% for row in home_sections.classrooms %}
+                        {% for row in home_sections.classrooms|slice:":3" %}
                         <a href="{% url 'classrooms:classroom_detail' pk=row.classroom.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <h4 class="font-bold text-primary-900 truncate">{{ row.classroom.name }}</h4>
-                                    <p class="caption mt-1">{{ row.subject_count }} môn · {{ row.completed_count }}/{{ row.assignment_count }} bài hoàn thành</p>
+                                    <p class="caption mt-1">{{ row.subject_count }} môn · {{ row.completed_count }}/{{ row.assignment_count }} bài</p>
                                 </div>
                                 <span class="material-symbols-outlined text-primary">chevron_right</span>
                             </div>
                             <div class="h-2 bg-primary-100 rounded-full overflow-hidden mt-4">
                                 <div class="h-full bg-primary" style="width: {{ row.completion_rate }}%"></div>
                             </div>
-                            <p class="caption mt-2">{{ row.completion_rate }}% tiến độ</p>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Chưa có lớp đang học. Hãy khám phá lớp học hoặc nhập mã mời.</p>
+                    <p class="caption">Chưa có lớp đang học.</p>
                     {% endif %}
                 </section>
             </div>
@@ -350,10 +188,13 @@
                             <p class="eyebrow">Điểm số</p>
                             <h3 class="text-xl font-bold">Điểm gần đây</h3>
                         </div>
+                        {% if home_sections.recent_submissions|length > 3 %}
+                        <a href="{% url 'accounts:student_dashboard' %}" class="btn btn-sm text-[10px]">Tất cả</a>
+                        {% endif %}
                     </div>
                     {% if home_sections.recent_submissions %}
                     <div class="space-y-3">
-                        {% for row in home_sections.recent_submissions %}
+                        {% for row in home_sections.recent_submissions|slice:":3" %}
                         <a href="{% url 'submissions:detail' pk=row.submission.pk %}" class="block p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
                             <p class="font-bold text-sm line-clamp-1">{{ row.submission.assignment.title }}</p>
                             <p class="caption mt-1">{{ row.submission.assignment.classroom.name }}</p>
@@ -365,7 +206,7 @@
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Bạn chưa có bài nộp nào để hiển thị điểm.</p>
+                    <p class="caption">Chưa có bài nộp nào.</p>
                     {% endif %}
                 </section>
 
@@ -373,178 +214,45 @@
                     <div class="flex items-center justify-between gap-4 mb-4">
                         <div>
                             <p class="eyebrow">Thông báo</p>
-                            <h3 class="text-xl font-bold">Mini inbox</h3>
+                            <h3 class="text-xl font-bold">Thông báo mới</h3>
                         </div>
-                        <a href="{% url 'notifications:list' %}" class="btn btn-sm">Mở hộp thư</a>
+                        <a href="{% url 'notifications:list' %}" class="btn btn-sm">Mở</a>
                     </div>
                     {% if home_sections.notifications %}
                     <div class="space-y-2">
-                        {% for notification in home_sections.notifications %}
+                        {% for notification in home_sections.notifications|slice:":3" %}
                         <div class="p-3 rounded-lg {% if notification.is_read %}bg-white border border-primary-100{% else %}bg-primary-50 border border-primary-200{% endif %}">
                             <div class="flex items-start gap-2">
                                 <span class="material-symbols-outlined text-primary text-lg mt-0.5">{% if notification.is_read %}notifications{% else %}notifications_active{% endif %}</span>
                                 <div class="min-w-0 flex-1">
-                                    <a href="{% url 'notifications:open' pk=notification.pk %}" class="font-bold text-sm line-clamp-1 hover:text-primary">{{ notification.title }}</a>
+                                    <a href="{% url 'notifications:open' pk=notification.pk %}" class="font-bold text-xs line-clamp-1 hover:text-primary">{{ notification.title }}</a>
                                     <p class="caption line-clamp-2">{{ notification.message }}</p>
-                                    <div class="flex items-center justify-between gap-2 mt-1">
-                                        <p class="caption">{{ notification.created_at|timesince }} trước</p>
-                                        {% if not notification.is_read %}
-                                        <form method="post" action="{% url 'notifications:mark_read' pk=notification.pk %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.path }}">
-                                            <button type="submit" class="text-xs font-bold text-primary hover:text-primary-700">Đã đọc</button>
-                                        </form>
-                                        {% endif %}
-                                    </div>
+                                    <p class="caption mt-1">{{ notification.created_at|timesince }} trước</p>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Chưa có thông báo mới.</p>
+                    <p class="caption">Không có thông báo mới.</p>
                     {% endif %}
                 </section>
 
                 <section class="course-card p-6">
                     <div class="mb-4">
-                        <p class="eyebrow">Shortcut theo môn</p>
-                        <h3 class="text-xl font-bold">Môn nên vào trước</h3>
+                        <p class="eyebrow">Support</p>
+                        <h3 class="text-xl font-bold">Hỗ trợ kỹ thuật</h3>
                     </div>
-                    {% if home_sections.subject_shortcut %}
-                    <div class="rounded-lg border border-primary-100 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <span class="badge bg-primary-100 text-primary-700">{{ home_sections.subject_shortcut.subject_code }}</span>
-                                <h4 class="font-bold mt-3 line-clamp-2">{{ home_sections.subject_shortcut.subject_name }}</h4>
-                                <p class="caption mt-1">{{ home_sections.subject_shortcut.classroom_name }} · {{ home_sections.subject_shortcut.unfinished_count }} bài chưa xong</p>
-                            </div>
-                            <span class="material-symbols-outlined text-primary">menu_book</span>
-                        </div>
-                        <a href="{{ home_sections.subject_shortcut.url }}" class="btn btn-outline w-full mt-4">
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                            Vào môn học
-                        </a>
-                    </div>
-                    {% else %}
-                    <p class="caption">Chưa có môn nào đang tồn bài chưa làm.</p>
-                    {% endif %}
+                    <p class="caption mb-4">Gặp lỗi trong quá trình chạy code hoặc thi cử? Hãy báo cáo ngay với chúng tôi.</p>
+                    <a href="mailto:support@devlearn.edu.vn" class="flex items-center justify-center gap-2 w-full py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold text-sm hover:bg-slate-100 transition-colors">
+                        <span class="material-symbols-outlined text-sm">bug_report</span>
+                        Báo lỗi hệ thống
+                    </a>
                 </section>
-
-                {% if home_sections.drafts %}
-                <section class="course-card p-6">
-                    <div class="mb-4">
-                        <p class="eyebrow">Bản nháp</p>
-                        <h3 class="text-xl font-bold">Khôi phục bản nháp</h3>
-                    </div>
-                    <div class="space-y-2">
-                        {% for draft in home_sections.drafts %}
-                        <a href="{% url 'assignments:detail' pk=draft.assignment.pk %}" class="flex items-center justify-between gap-3 p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
-                            <div class="min-w-0">
-                                <p class="font-bold text-sm truncate">{{ draft.assignment.title }}</p>
-                                <p class="caption">{{ draft.language|default:"code" }} · {{ draft.last_saved_at|timesince }} trước</p>
-                            </div>
-                            <span class="material-symbols-outlined text-primary">edit_note</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </section>
-                {% endif %}
             </div>
         </div>
-    </section>
-    {% endif %}
-
-    {% if home_role == 'teacher' %}
-    <section class="px-6 py-10">
-        <div class="flex flex-col gap-3 mb-6">
-            <p class="eyebrow">Không gian giảng dạy</p>
-            <h2 class="text-3xl font-bold">Chào {{ request.user.first_name|default:request.user.username }}, lớp nào cần mình ghé trước?</h2>
-            <p class="text-slate-600 max-w-[760px]">
-                Tổng quan nhanh lớp đang dạy, bài nộp cần xem, phiên thi đang chạy và hiệu suất 7 ngày gần đây.
-            </p>
-        </div>
-
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.classrooms_count }}</div>
-                        <div class="stat-label">Lớp đang dạy · {{ home_summary.members_count }} học sinh</div>
-                    </div>
-                    <span class="material-symbols-outlined text-primary text-3xl">co_present</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.published_assignments_count }}</div>
-                        <div class="stat-label">Bài đã công bố / {{ home_summary.assignments_count }} tổng</div>
-                    </div>
-                    <span class="material-symbols-outlined text-primary text-3xl">assignment</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.submissions_7d }}</div>
-                        <div class="stat-label">Bài nộp 7 ngày gần đây</div>
-                    </div>
-                    <span class="material-symbols-outlined text-success-600 text-3xl">assignment_turned_in</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.pending_members_count }}</div>
-                        <div class="stat-label">Thành viên chờ duyệt</div>
-                    </div>
-                    <span class="material-symbols-outlined text-warning-600 text-3xl">how_to_reg</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="course-card p-5 mb-8">
-            <div class="flex flex-wrap gap-3">
-                <a href="{% url 'classrooms:create' %}" class="btn btn-primary">
-                    <span class="material-symbols-outlined text-sm">add_circle</span>
-                    Tạo lớp học
-                </a>
-                <a href="{{ teacher_actions.create_assignment_url }}" class="btn btn-outline">
-                    <span class="material-symbols-outlined text-sm">assignment_add</span>
-                    Tạo bài tập
-                </a>
-                <a href="{{ teacher_actions.create_exam_url }}" class="btn btn-outline">
-                    <span class="material-symbols-outlined text-sm">quiz</span>
-                    Tạo bài thi
-                </a>
-                <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">dashboard</span>
-                    Xem dashboard giáo viên
-                </a>
-                <a href="{{ teacher_actions.grade_queue_url }}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">fact_check</span>
-                    Chấm bài chờ
-                </a>
-            </div>
-        </div>
-
-        {% if not home_summary.classrooms_count %}
-        <div class="hero-light border border-primary-200 rounded-[18px] p-8 mb-8">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
-                <div>
-                    <p class="eyebrow">Bắt đầu</p>
-                    <h3 class="text-2xl font-bold mt-1">Bạn chưa có lớp đang hoạt động</h3>
-                    <p class="text-slate-600 mt-2">Tạo lớp đầu tiên, chờ admin duyệt, rồi bắt đầu gán môn và giao bài.</p>
-                </div>
-                <a href="{% url 'classrooms:create' %}" class="btn btn-primary">
-                    <span class="material-symbols-outlined text-sm">add_circle</span>
-                    Tạo lớp học
-                </a>
-            </div>
-        </div>
-        {% endif %}
-
+        {% else %}
+        <!-- Teacher Dashboard Quick View -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 flex flex-col gap-6">
                 <section class="course-card p-6">
@@ -553,25 +261,25 @@
                             <p class="eyebrow">Hàng chờ chấm</p>
                             <h3 class="text-xl font-bold">Bài nộp cần xem</h3>
                         </div>
+                        {% if home_sections.needs_review|length > 3 %}
                         <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-sm">Mở dashboard</a>
+                        {% endif %}
                     </div>
                     {% if home_sections.needs_review %}
                     <div class="space-y-3">
-                        {% for sub in home_sections.needs_review %}
+                        {% for sub in home_sections.needs_review|slice:":3" %}
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border border-primary-100 rounded-lg">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2 mb-1">
                                     <span class="badge {% if sub.status == 'error' %}bg-danger-100 text-danger-600{% elif sub.status == 'finished' %}bg-success-100 text-success-600{% else %}bg-warning-100 text-warning-600{% endif %}">{{ sub.status }}</span>
-                                    <span class="badge badge-general">{{ sub.assignment.type }}</span>
+                                    <span class="badge badge-general truncate max-w-[80px]">{{ sub.assignment.type }}</span>
                                 </div>
-                                <p class="font-bold text-primary-900 line-clamp-1">{{ sub.assignment.title }}</p>
-                                <p class="caption mt-1">
-                                    {{ sub.student.get_full_name|default:sub.student.username }} · {{ sub.assignment.classroom.name }} · {{ sub.submitted_at|timesince }} trước
+                                <p class="font-bold text-primary-900 line-clamp-1 text-sm">{{ sub.assignment.title }}</p>
+                                <p class="caption mt-1 truncate text-[11px]">
+                                    {{ sub.student.get_full_name|default:sub.student.username }} · {{ sub.assignment.classroom.name }}
                                 </p>
-                                <p class="caption">Auto score: {{ sub.total_score|floatformat:1 }}/{{ sub.max_score|floatformat:0 }}</p>
                             </div>
-                            <a href="{% url 'submissions:grade' pk=sub.pk %}" class="btn btn-primary flex-shrink-0">
-                                <span class="material-symbols-outlined text-sm">fact_check</span>
+                            <a href="{% url 'submissions:grade' pk=sub.pk %}" class="btn btn-primary flex-shrink-0 btn-sm">
                                 Chấm bài
                             </a>
                         </div>
@@ -581,11 +289,6 @@
                     <div class="text-center py-8">
                         <span class="material-symbols-outlined text-4xl text-success-600">task_alt</span>
                         <p class="font-bold mt-2">Không có bài nào cần xử lý ngay.</p>
-                        {% if home_summary.classrooms_count %}
-                        <p class="caption">Khi có bài lỗi, bài đang chạy hoặc bài chấm tay, hệ thống sẽ đưa vào đây.</p>
-                        {% else %}
-                        <p class="caption">Sau khi có lớp, bạn có thể tạo bài tập đầu tiên từ nút phía trên.</p>
-                        {% endif %}
                     </div>
                     {% endif %}
                 </section>
@@ -600,21 +303,21 @@
                     </div>
                     {% if home_sections.classrooms %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% for classroom in home_sections.classrooms %}
+                        {% for classroom in home_sections.classrooms|slice:":3" %}
                         <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <h4 class="font-bold text-primary-900 truncate">{{ classroom.name }}</h4>
-                                    <p class="caption mt-1">{{ classroom.member_count }} học sinh · {{ classroom.subject_count }} môn · {{ classroom.assignment_count }} bài</p>
+                                    <p class="caption mt-1">{{ classroom.member_count }} HS · {{ classroom.assignment_count }} bài</p>
                                 </div>
                                 <span class="material-symbols-outlined text-primary">chevron_right</span>
                             </div>
-                            <p class="caption mt-3">Mã mời: <span class="font-bold text-primary">{{ classroom.invite_code }}</span></p>
+                            <p class="caption mt-3">Mã: <span class="font-bold text-primary">{{ classroom.invite_code }}</span></p>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Chưa có lớp active. Tạo lớp và chờ admin duyệt để bắt đầu.</p>
+                    <p class="caption">Chưa có lớp đang hoạt động.</p>
                     {% endif %}
                 </section>
 
@@ -631,28 +334,26 @@
                             <p class="stat-label">Bài nộp</p>
                         </div>
                         <div class="rounded-lg bg-success-100 p-4">
-                            <p class="stat-number text-success-600">{{ home_summary.pass_rate_7d }}%</p>
-                            <p class="stat-label">Pass rate</p>
+                            <p class="stat-number text-success-600 text-base md:text-xl">{{ home_summary.pass_rate_7d }}%</p>
+                            <p class="stat-label">Pass</p>
                         </div>
                         <div class="rounded-lg bg-warning-100 p-4">
-                            <p class="stat-number text-warning-600">{{ home_summary.avg_score_7d }}</p>
-                            <p class="stat-label">Điểm TB</p>
+                            <p class="stat-number text-warning-600 text-base md:text-xl">{{ home_summary.avg_score_7d }}</p>
+                            <p class="stat-label">TB</p>
                         </div>
                     </div>
                     {% if home_sections.weak_assignments %}
                     <div class="space-y-2">
-                        {% for stat in home_sections.weak_assignments %}
+                        {% for stat in home_sections.weak_assignments|slice:":3" %}
                         <a href="{% url 'assignments:statistics' pk=stat.assignment.pk %}" class="flex items-center justify-between gap-3 p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
                             <div class="min-w-0">
-                                <p class="font-bold text-sm truncate">{{ stat.assignment.title }}</p>
-                                <p class="caption">{{ stat.assignment.classroom.name }} · {{ stat.unique_students }} học sinh nộp</p>
+                                <p class="font-bold text-xs truncate">{{ stat.assignment.title }}</p>
+                                <p class="caption text-[10px]">{{ stat.assignment.classroom.name }}</p>
                             </div>
-                            <span class="badge {% if stat.pass_rate < 50 %}bg-danger-100 text-danger-600{% else %}bg-warning-100 text-warning-600{% endif %}">{{ stat.pass_rate|floatformat:0 }}%</span>
+                            <span class="badge {% if stat.pass_rate < 50 %}bg-danger-100 text-danger-600{% else %}bg-warning-100 text-warning-600{% endif %} text-[10px]">{{ stat.pass_rate|floatformat:0 }}%</span>
                         </a>
                         {% endfor %}
                     </div>
-                    {% else %}
-                    <p class="caption">Chưa có thống kê bài nào cần chú ý.</p>
                     {% endif %}
                 </section>
             </div>
@@ -662,52 +363,24 @@
                     <div class="flex items-center justify-between gap-4 mb-4">
                         <div>
                             <p class="eyebrow">Theo dõi thi</p>
-                            <h3 class="text-xl font-bold">Bài thi đang diễn ra</h3>
+                            <h3 class="text-xl font-bold">Bài thi đang chạy</h3>
                         </div>
                     </div>
                     {% if home_sections.running_exam_sessions %}
                     <div class="space-y-3">
-                        {% for session in home_sections.running_exam_sessions %}
+                        {% for session in home_sections.running_exam_sessions|slice:":3" %}
                         <a href="{% url 'submissions:exam_monitor' assignment_pk=session.assignment.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="badge bg-primary-100 text-primary-700">Đang thi</span>
                                 <span class="badge {% if session.violation_count %}bg-danger-100 text-danger-600{% else %}bg-success-100 text-success-600{% endif %}">{{ session.violation_count }} cảnh báo</span>
                             </div>
-                            <p class="font-bold mt-3 line-clamp-2">{{ session.assignment.title }}</p>
-                            <p class="caption mt-1">{{ session.student.get_full_name|default:session.student.username }} · {{ session.assignment.classroom.name }}</p>
-                            {% if session.ends_at %}
-                            <p class="caption mt-1">Còn {{ session.ends_at|timeuntil }}</p>
-                            {% endif %}
+                            <p class="font-bold mt-3 line-clamp-1 text-sm">{{ session.assignment.title }}</p>
+                            <p class="caption mt-1 truncate text-[11px]">{{ session.student.get_full_name|default:session.student.username }}</p>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Hiện không có phiên thi nào đang chạy.</p>
-                    {% endif %}
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Cảnh báo thi</p>
-                            <h3 class="text-xl font-bold">Phiên có violation cao</h3>
-                        </div>
-                    </div>
-                    {% if home_sections.exam_warning_sessions %}
-                    <div class="space-y-3">
-                        {% for session in home_sections.exam_warning_sessions %}
-                        <a href="{% url 'submissions:exam_monitor' assignment_pk=session.assignment.pk %}" class="block p-4 border border-danger-100 bg-danger-100/40 rounded-lg hover:border-danger-300 transition-colors">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="badge bg-danger-100 text-danger-600">{{ session.violation_count }} cảnh báo</span>
-                                <span class="badge bg-primary-100 text-primary-700">{{ session.status }}</span>
-                            </div>
-                            <p class="font-bold mt-3 line-clamp-2">{{ session.assignment.title }}</p>
-                            <p class="caption mt-1">{{ session.student.get_full_name|default:session.student.username }} · {{ session.assignment.classroom.name }}</p>
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="caption">Chưa có phiên thi nào phát sinh cảnh báo.</p>
+                    <p class="caption">Không có phiên thi nào đang chạy.</p>
                     {% endif %}
                 </section>
 
@@ -715,496 +388,91 @@
                     <div class="flex items-center justify-between gap-4 mb-4">
                         <div>
                             <p class="eyebrow">Duyệt vào lớp</p>
-                            <h3 class="text-xl font-bold">Chờ duyệt thành viên</h3>
+                            <h3 class="text-xl font-bold">Thành viên mới</h3>
                         </div>
+                        {% if home_sections.pending_members|length > 3 %}
+                        <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-sm">Tất cả</a>
+                        {% endif %}
                     </div>
                     {% if home_sections.pending_members %}
                     <div class="space-y-3">
-                        {% for member in home_sections.pending_members %}
+                        {% for member in home_sections.pending_members|slice:":3" %}
                         <a href="{% url 'classrooms:classroom_detail' pk=member.classroom.pk %}" class="block p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
                             <p class="font-bold text-sm line-clamp-1">{{ member.student.get_full_name|default:member.student.username }}</p>
-                            <p class="caption">{{ member.classroom.name }} · {{ member.joined_at|timesince }} trước</p>
+                            <p class="caption text-[11px]">{{ member.classroom.name }} · {{ member.joined_at|timesince }} trước</p>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Không có học sinh nào đang chờ duyệt vào lớp.</p>
+                    <p class="caption">Không có học sinh chờ duyệt.</p>
                     {% endif %}
                 </section>
 
                 <section class="course-card p-6">
                     <div class="mb-4">
-                        <p class="eyebrow">Bước tiếp theo</p>
-                        <h3 class="text-xl font-bold">Gợi ý thao tác tiếp theo</h3>
+                        <p class="eyebrow">Quick Links</p>
+                        <h3 class="text-xl font-bold">Phím tắt nhanh</h3>
                     </div>
-                    {% if home_summary.classrooms_count and not home_summary.assignments_count %}
-                    <p class="caption mb-4">Bạn đã có lớp nhưng chưa có bài tập. Tạo bài đầu tiên để học sinh bắt đầu làm bài.</p>
-                    <a href="{{ teacher_actions.create_assignment_url }}" class="btn btn-primary w-full">
-                        <span class="material-symbols-outlined text-sm">assignment_add</span>
-                        Tạo bài tập đầu tiên
-                    </a>
-                    {% elif not home_summary.classrooms_count %}
-                    <p class="caption mb-4">Bắt đầu bằng một lớp học mới, sau đó gán môn và tạo bài.</p>
-                    <a href="{% url 'classrooms:create' %}" class="btn btn-primary w-full">
-                        <span class="material-symbols-outlined text-sm">add_circle</span>
-                        Tạo lớp đầu tiên
-                    </a>
-                    {% else %}
-                    <p class="caption mb-4">Mọi thứ đang ổn. Bạn có thể kiểm tra dashboard chi tiết hoặc tạo bài thi mới.</p>
-                    <a href="{{ teacher_actions.create_exam_url }}" class="btn btn-outline w-full">
-                        <span class="material-symbols-outlined text-sm">quiz</span>
-                        Tạo bài thi mới
-                    </a>
-                    {% endif %}
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="mb-4">
-                        <p class="eyebrow">Teacher checklist</p>
-                        <h3 class="text-xl font-bold">Checklist giảng dạy</h3>
-                    </div>
-                    <div class="space-y-2">
-                        {% for item in home_sections.teacher_checklist %}
-                        <a href="{{ item.url }}" class="flex items-center justify-between gap-3 p-3 rounded-lg border {% if item.done %}border-success-100 bg-success-100/45{% else %}border-warning-100 bg-warning-100/45{% endif %}">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="material-symbols-outlined text-lg {% if item.done %}text-success-600{% else %}text-warning-600{% endif %}">{% if item.done %}check_circle{% else %}radio_button_unchecked{% endif %}</span>
-                                <p class="font-bold text-sm truncate">{{ item.label }}</p>
-                            </div>
-                            <span class="material-symbols-outlined text-primary text-lg">{{ item.icon }}</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <a href="{% url 'assignments:calendar' %}" class="flex flex-col items-center justify-center p-4 bg-primary-50 rounded-xl hover:bg-primary-100 transition-colors">
+                            <span class="material-symbols-outlined text-primary mb-2">calendar_month</span>
+                            <span class="text-xs font-bold text-primary-950">Lịch học</span>
                         </a>
-                        {% endfor %}
+                        <a href="{% url 'administation:activity_logs' %}" class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-slate-500 mb-2">history</span>
+                            <span class="text-xs font-bold text-primary-950">Nhật ký</span>
+                        </a>
                     </div>
                 </section>
             </div>
         </div>
+        {% endif %}
     </section>
     {% endif %}
 
-    {% if home_role == 'admin' %}
-    <section class="px-6 py-10">
-        <div class="flex flex-col gap-3 mb-6">
-            <p class="eyebrow">Trung tâm quản trị</p>
-            <h2 class="text-3xl font-bold">Chào {{ request.user.first_name|default:request.user.username }}, hệ thống hôm nay cần gì?</h2>
-            <p class="text-slate-600 max-w-[760px]">
-                Tổng quan nhanh người dùng, hàng chờ duyệt, cảnh báo thi và sức khỏe nền tảng DevLearn.
-            </p>
-        </div>
-
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.total_users }}</div>
-                        <div class="stat-label">{{ home_summary.total_teachers }} GV · {{ home_summary.total_students }} HS</div>
+    {% if not user.is_authenticated %}
+    <!-- Public Landing Sections -->
+    <section id="features" class="py-20 px-4 bg-slate-50 border-t border-slate-100">
+        <div class="container-md">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+                <p class="eyebrow">Tại sao chọn DevLearn?</p>
+                <h2 class="text-3xl md:text-4xl font-black mt-4">Giải pháp toàn diện cho đào tạo lập trình</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-primary-100">
+                    <div class="size-12 rounded-xl bg-primary-500 text-white flex items-center justify-center mb-6 shadow-lg">
+                        <span class="material-symbols-outlined">code</span>
                     </div>
-                    <span class="material-symbols-outlined text-primary text-3xl">group</span>
+                    <h3 class="text-xl font-bold mb-4">Web IDE Hiện Đại</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed">Viết và chạy code trực tiếp trên trình duyệt với đầy đủ tính năng highlight, autocomplete mà không cần cài đặt môi trường.</p>
                 </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.total_classrooms }}</div>
-                        <div class="stat-label">Tổng lớp học</div>
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-primary-100">
+                    <div class="size-12 rounded-xl bg-success-500 text-white flex items-center justify-center mb-6 shadow-lg">
+                        <span class="material-symbols-outlined">verified</span>
                     </div>
-                    <span class="material-symbols-outlined text-primary text-3xl">school</span>
+                    <h3 class="text-xl font-bold mb-4">Chấm Điểm Tự Động</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed">Hệ thống sandbox Docker an toàn giúp kiểm tra code qua hàng loạt testcase và trả kết quả ngay lập tức cho sinh viên.</p>
                 </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.pending_teachers_count }}</div>
-                        <div class="stat-label">Giáo viên chờ duyệt</div>
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-primary-100">
+                    <div class="size-12 rounded-xl bg-amber-500 text-white flex items-center justify-center mb-6 shadow-lg">
+                        <span class="material-symbols-outlined">security</span>
                     </div>
-                    <span class="material-symbols-outlined text-warning-600 text-3xl">person_check</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <div class="stat-number">{{ home_summary.exam_warning_count }}</div>
-                        <div class="stat-label">Phiên thi có cảnh báo</div>
-                    </div>
-                    <span class="material-symbols-outlined text-danger-600 text-3xl">gpp_maybe</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="course-card p-5 mb-8">
-            <div class="flex flex-wrap gap-3">
-                <a href="{% url 'administation:dashboard' %}" class="btn btn-primary">
-                    <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
-                    Admin dashboard
-                </a>
-                <a href="{% url 'administation:teacher_management' %}?approval_status=pending" class="btn btn-outline">
-                    <span class="material-symbols-outlined text-sm">person_check</span>
-                    Duyệt giáo viên
-                </a>
-                <a href="{% url 'administation:classroom_management' %}" class="btn btn-outline">
-                    <span class="material-symbols-outlined text-sm">school</span>
-                    Duyệt lớp học
-                </a>
-                <a href="{% url 'administation:user_management' %}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">group</span>
-                    Quản lý user
-                </a>
-                <a href="{% url 'administation:system_settings' %}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">settings</span>
-                    Cấu hình hệ thống
-                </a>
-                <a href="{% url 'administation:exam_events' %}" class="btn btn-ghost">
-                    <span class="material-symbols-outlined text-sm">gpp_maybe</span>
-                    Xem sự kiện thi
-                </a>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 flex flex-col gap-6">
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Hàng chờ duyệt</p>
-                            <h3 class="text-xl font-bold">Cần xử lý</h3>
-                        </div>
-                        <a href="{% url 'administation:dashboard' %}" class="btn btn-sm">Mở admin</a>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {% for item in home_sections.approval_items %}
-                        <a href="{{ item.url }}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <span class="badge {% if item.tone == 'danger' %}bg-danger-100 text-danger-600{% elif item.tone == 'warning' %}bg-warning-100 text-warning-600{% else %}bg-primary-100 text-primary-700{% endif %}">{{ item.total }}</span>
-                                    <h4 class="font-bold text-primary-900 mt-3">{{ item.title }}</h4>
-                                    <p class="caption mt-1">{{ item.description }}</p>
-                                </div>
-                                <span class="material-symbols-outlined text-primary">{{ item.icon }}</span>
-                            </div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Cảnh báo thi</p>
-                            <h3 class="text-xl font-bold">Sự kiện thi cần xem</h3>
-                        </div>
-                        <a href="{% url 'administation:exam_events' %}" class="btn btn-sm">Xem tất cả</a>
-                    </div>
-                    {% if home_sections.warning_exam_sessions %}
-                    <div class="space-y-3">
-                        {% for session in home_sections.warning_exam_sessions %}
-                        <a href="{% url 'administation:exam_events' %}?search={{ session.student.username|urlencode }}" class="flex items-center justify-between gap-3 p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-center gap-2 mb-1">
-                                    <span class="badge bg-danger-100 text-danger-600">{{ session.violation_count }} cảnh báo</span>
-                                    <span class="badge bg-primary-100 text-primary-700">{{ session.status }}</span>
-                                </div>
-                                <p class="font-bold text-primary-900 line-clamp-1">{{ session.assignment.title }}</p>
-                                <p class="caption mt-1">{{ session.student.get_full_name|default:session.student.username }} · {{ session.assignment.classroom.name }}</p>
-                            </div>
-                            <span class="material-symbols-outlined text-primary">chevron_right</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-8">
-                        <span class="material-symbols-outlined text-4xl text-success-600">verified_user</span>
-                        <p class="font-bold mt-2">Chưa có phiên thi cảnh báo.</p>
-                        <p class="caption">Các session có violation sẽ hiện ở đây để admin kiểm tra nhanh.</p>
-                    </div>
-                    {% endif %}
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Tăng trưởng</p>
-                            <h3 class="text-xl font-bold">Tăng trưởng</h3>
-                        </div>
-                        <a href="{% url 'administation:analytics' %}" class="btn btn-sm">Analytics</a>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="rounded-lg bg-primary-50 p-4">
-                            <p class="stat-number">{{ home_summary.new_users_7d }}</p>
-                            <p class="stat-label">User mới 7 ngày</p>
-                        </div>
-                        <div class="rounded-lg bg-success-100 p-4">
-                            <p class="stat-number text-success-600">{{ home_summary.submissions_7d }}</p>
-                            <p class="stat-label">Bài nộp 7 ngày</p>
-                        </div>
-                        <div class="rounded-lg bg-warning-100 p-4">
-                            <p class="stat-number text-warning-600">{{ home_summary.new_classrooms_30d }}</p>
-                            <p class="stat-label">Lớp mới 30 ngày</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <div class="flex flex-col gap-6">
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Sức khỏe hệ thống</p>
-                            <h3 class="text-xl font-bold">Sức khỏe hệ thống</h3>
-                        </div>
-                        <a href="{% url 'administation:sandbox_monitor' %}" class="btn btn-sm">Monitor</a>
-                    </div>
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-50">
-                            <div>
-                                <p class="font-bold text-sm">Hàng đợi chấm</p>
-                                <p class="caption">Pending/running submissions</p>
-                            </div>
-                            <span class="font-bold text-primary">{{ home_summary.queue_count }}</span>
-                        </div>
-                        <div class="flex items-center justify-between gap-3 p-3 rounded-lg {% if home_summary.zombie_count %}bg-danger-100{% else %}bg-success-100{% endif %}">
-                            <div>
-                                <p class="font-bold text-sm">Zombie task</p>
-                                <p class="caption">Quá ngưỡng sandbox</p>
-                            </div>
-                            <span class="font-bold {% if home_summary.zombie_count %}text-danger-600{% else %}text-success-600{% endif %}">{{ home_summary.zombie_count }}</span>
-                        </div>
-                        <div class="flex items-center justify-between gap-3 p-3 rounded-lg bg-primary-50">
-                            <div>
-                                <p class="font-bold text-sm">Sandbox active</p>
-                                <p class="caption">Cấu hình đang bật</p>
-                            </div>
-                            <span class="font-bold text-primary">{{ home_summary.active_sandboxes }}</span>
-                        </div>
-                        {% if home_sections.latest_metrics %}
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="rounded-lg border border-primary-100 p-3">
-                                <p class="caption">CPU</p>
-                                <p class="font-bold text-primary">{{ home_sections.latest_metrics.cpu_usage|default:"N/A" }}%</p>
-                            </div>
-                            <div class="rounded-lg border border-primary-100 p-3">
-                                <p class="caption">Memory</p>
-                                <p class="font-bold text-primary">{{ home_sections.latest_metrics.memory_usage|default:"N/A" }}%</p>
-                            </div>
-                        </div>
-                        {% else %}
-                        <p class="caption">Chưa có bản ghi server metrics.</p>
-                        {% endif %}
-                    </div>
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="mb-4">
-                        <p class="eyebrow">Admin health checklist</p>
-                        <h3 class="text-xl font-bold">Checklist hệ thống</h3>
-                    </div>
-                    <div class="space-y-2">
-                        {% for item in home_sections.admin_health_checklist %}
-                        <a href="{{ item.url }}" class="flex items-center justify-between gap-3 p-3 rounded-lg border {% if item.done %}border-success-100 bg-success-100/45{% else %}border-warning-100 bg-warning-100/45{% endif %}">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="material-symbols-outlined text-lg {% if item.done %}text-success-600{% else %}text-warning-600{% endif %}">{% if item.done %}check_circle{% else %}error{% endif %}</span>
-                                <div class="min-w-0">
-                                    <p class="font-bold text-sm truncate">{{ item.label }}</p>
-                                    <p class="caption">{{ item.total }} mục</p>
-                                </div>
-                            </div>
-                            <span class="material-symbols-outlined text-primary text-lg">{{ item.icon }}</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Hoạt động</p>
-                            <h3 class="text-xl font-bold">Log gần đây</h3>
-                        </div>
-                        <a href="{% url 'administation:activity_logs' %}" class="btn btn-sm">Xem log</a>
-                    </div>
-                    {% if home_sections.recent_logs %}
-                    <div class="space-y-2">
-                        {% for log in home_sections.recent_logs %}
-                        <a href="{% url 'administation:activity_logs' %}" class="block p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
-                            <p class="font-bold text-sm line-clamp-1">{{ log.action }}</p>
-                            <p class="caption">{{ log.user.username|default:"System" }} · {{ log.created_at|timesince }} trước</p>
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="caption">Chưa có activity log.</p>
-                    {% endif %}
-                </section>
-
-                <section class="course-card p-6">
-                    <div class="mb-4">
-                        <p class="eyebrow">Hàng chờ mới</p>
-                        <h3 class="text-xl font-bold">Hàng chờ mới nhất</h3>
-                    </div>
-                    <div class="space-y-3">
-                        {% for reg in home_sections.pending_teachers %}
-                        <a href="{% url 'administation:teacher_management' %}?approval_status=pending" class="block p-3 rounded-lg border border-warning-100 bg-warning-100/50">
-                            <p class="font-bold text-sm line-clamp-1">{{ reg.user.get_full_name|default:reg.user.username }}</p>
-                            <p class="caption">Đăng ký giáo viên · {{ reg.created_at|timesince }} trước</p>
-                        </a>
-                        {% endfor %}
-                        {% for classroom in home_sections.pending_classrooms %}
-                        <a href="{% url 'administation:classroom_management' %}" class="block p-3 rounded-lg border border-primary-100">
-                            <p class="font-bold text-sm line-clamp-1">{{ classroom.name }}</p>
-                            <p class="caption">Lớp chờ duyệt · {{ classroom.teacher.username|default:"Không rõ" }}</p>
-                        </a>
-                        {% endfor %}
-                        {% for subject in home_sections.pending_subjects %}
-                        <a href="{% url 'administation:subject_approvals' %}" class="block p-3 rounded-lg border border-primary-100">
-                            <p class="font-bold text-sm line-clamp-1">{{ subject.code }} - {{ subject.name }}</p>
-                            <p class="caption">Môn chờ duyệt · {{ subject.created_by.username|default:"Không rõ" }}</p>
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% if not home_sections.pending_teachers and not home_sections.pending_classrooms and not home_sections.pending_subjects %}
-                    <p class="caption">Không có hàng chờ duyệt mới.</p>
-                    {% endif %}
-                </section>
-            </div>
-        </div>
-    </section>
-    {% endif %}
-
-    {% if home_role == 'anonymous' %}
-    <!-- Workflow Section -->
-    <section class="flex flex-col gap-10 px-6 py-16">
-        <div class="flex flex-col gap-4 text-center items-center">
-            <p class="eyebrow">Luồng học tập</p>
-            <h2 class="text-3xl md:text-5xl font-bold leading-tight max-w-[800px]">
-                Từ lớp học đến điểm số <br class="home-mobile-break">trong một luồng liền mạch
-            </h2>
-            <p class="text-slate-600 text-lg max-w-[720px]">
-                DevLearn gom lớp học, môn học, bài tập, bài thi và điểm số vào một nơi.
-            </p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="course-card p-5">
-                <span class="material-symbols-outlined text-primary text-3xl">school</span>
-                <h3 class="text-base font-bold mt-3">Lớp học</h3>
-                <p class="caption mt-1">Tổ chức học sinh, giáo viên và tiến độ.</p>
-            </div>
-            <div class="course-card p-5">
-                <span class="material-symbols-outlined text-primary text-3xl">menu_book</span>
-                <h3 class="text-base font-bold mt-3">Môn học</h3>
-                <p class="caption mt-1">Gắn môn vào từng lớp và từng kỳ học.</p>
-            </div>
-            <div class="course-card p-5">
-                <span class="material-symbols-outlined text-primary text-3xl">assignment</span>
-                <h3 class="text-base font-bold mt-3">Bài tập</h3>
-                <p class="caption mt-1">Tạo đề, testcase, file và deadline.</p>
-            </div>
-            <div class="course-card p-5">
-                <span class="material-symbols-outlined text-primary text-3xl">quiz</span>
-                <h3 class="text-base font-bold mt-3">Bài thi</h3>
-                <p class="caption mt-1">Phiên thi, giới hạn thời gian và cảnh báo.</p>
-            </div>
-            <div class="course-card p-5">
-                <span class="material-symbols-outlined text-primary text-3xl">fact_check</span>
-                <h3 class="text-base font-bold mt-3">Xem điểm</h3>
-                <p class="caption mt-1">Điểm tự động, chấm tay và phản hồi.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Role Section -->
-    <section class="bg-alt px-6 py-16">
-        <div class="flex flex-col gap-10">
-            <div class="flex flex-col gap-4 text-center items-center">
-                <p class="eyebrow">Theo vai trò</p>
-                <h2 class="text-3xl md:text-5xl font-bold leading-tight max-w-[780px]">
-                    Mỗi vai trò có đúng công cụ cần dùng
-                </h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="course-card p-8">
-                    <span class="material-symbols-outlined text-primary text-4xl">person</span>
-                    <h3 class="text-xl font-bold mt-4">Học sinh</h3>
-                    <p class="text-slate-600 text-sm leading-relaxed mt-2">
-                        Tham gia lớp, học theo môn, làm bài trong IDE, thi và xem điểm sau khi nộp.
-                    </p>
-                </div>
-                <div class="course-card p-8">
-                    <span class="material-symbols-outlined text-primary text-4xl">co_present</span>
-                    <h3 class="text-xl font-bold mt-4">Giáo viên</h3>
-                    <p class="text-slate-600 text-sm leading-relaxed mt-2">
-                        Tạo lớp, gán môn, giao bài, tạo bài thi, chấm bài và xem thống kê lớp.
-                    </p>
-                </div>
-                <div class="course-card p-8">
-                    <span class="material-symbols-outlined text-primary text-4xl">admin_panel_settings</span>
-                    <h3 class="text-xl font-bold mt-4">Admin</h3>
-                    <p class="text-slate-600 text-sm leading-relaxed mt-2">
-                        Duyệt giáo viên, lớp, môn học, quản lý user, cấu hình hệ thống và theo dõi log.
-                    </p>
+                    <h3 class="text-xl font-bold mb-4">Giám Sát Thi Cử</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed">Công nghệ chống gian lận thông minh theo dõi tab focus, yêu cầu fullscreen và cảnh báo hành vi bất thường trong kỳ thi.</p>
                 </div>
             </div>
         </div>
     </section>
-    {% endif %}
 
-    <!-- Features Section -->
-    <div class="flex flex-col gap-10 px-6 py-20" id="features">
-        <div class="flex flex-col gap-4 text-center items-center">
-            <p class="eyebrow">Quy trình chính</p>
-            <h2 class="text-3xl md:text-5xl font-bold leading-tight max-w-[800px]">
-                Đúng việc cho lớp học lập trình
-            </h2>
-            <p class="text-slate-600 text-lg max-w-[720px]">
-                Nền tảng tối ưu cho việc dạy và học lập trình với các công cụ mạnh mẽ.
-            </p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="course-card flex flex-col gap-4 p-8">
-                <div class="text-primary bg-primary/10 size-12 rounded-lg flex items-center justify-center">
-                    <span class="material-symbols-outlined text-3xl">check_circle</span>
+    <section class="py-20 px-4">
+        <div class="container-md bg-primary-900 rounded-[2.5rem] p-10 md:p-16 text-center relative overflow-hidden">
+            <div class="relative z-10">
+                <h2 class="text-3xl md:text-5xl font-black text-white leading-tight">Sẵn sàng nâng tầm <br/>kỹ năng lập trình?</h2>
+                <p class="text-primary-200 mt-6 max-w-xl mx-auto">Tham gia cùng hàng nghìn sinh viên và giáo viên đang sử dụng DevLearn mỗi ngày.</p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
+                    <a href="{% url 'accounts:register' %}" class="btn btn-primary h-14 px-10 text-lg font-bold min-w-48">Tạo tài khoản</a>
+                    <a href="{% url 'accounts:login' %}" class="btn bg-white/10 text-white hover:bg-white/20 h-14 px-10 text-lg font-bold min-w-48">Đăng nhập</a>
                 </div>
-                <h3 class="text-xl font-bold">Chấm điểm tự động</h3>
-                <p class="text-slate-600 text-sm leading-relaxed">
-                    Phản hồi tức thì với test cases tự động, metrics hiệu suất và kiểm tra style code.
-                </p>
-            </div>
-            <div class="course-card flex flex-col gap-4 p-8" id="community">
-                <div class="text-primary bg-primary/10 size-12 rounded-lg flex items-center justify-center">
-                    <span class="material-symbols-outlined text-3xl">code</span>
-                </div>
-                <h3 class="text-xl font-bold">Web IDE tương tác</h3>
-                <p class="text-slate-600 text-sm leading-relaxed">
-                    Môi trường code đầy đủ ngay trên trình duyệt, không cần cài đặt, hỗ trợ nhiều ngôn ngữ.
-                </p>
-            </div>
-            <div class="course-card flex flex-col gap-4 p-8">
-                <div class="text-primary bg-primary/10 size-12 rounded-lg flex items-center justify-center">
-                    <span class="material-symbols-outlined text-3xl">forum</span>
-                </div>
-                <h3 class="text-xl font-bold">Thảo luận cộng tác</h3>
-                <p class="text-slate-600 text-sm leading-relaxed">
-                    Diễn đàn thảo luận và peer review giúp sinh viên học hỏi và phát triển cùng nhau.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    {% if home_role == 'anonymous' %}
-    <section class="px-6 pb-20">
-        <div class="hero-light border border-primary-200 rounded-[18px] p-8 md:p-12 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div>
-                <p class="eyebrow">Bắt đầu</p>
-                <h2 class="text-3xl font-bold text-primary-950 mt-1">Sẵn sàng tạo lớp học lập trình đầu tiên?</h2>
-                <p class="text-slate-600 mt-2 max-w-[640px]">
-                    Tạo tài khoản để vào lớp, giao bài, làm bài và thử luồng chấm tự động của DevLearn.
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <a href="{% url 'accounts:register' %}" class="btn btn-primary min-h-12 px-6">
-                    <span class="material-symbols-outlined text-sm">person_add</span>
-                    Tạo tài khoản
-                </a>
-                <a href="{% url 'accounts:login' %}" class="btn btn-outline min-h-12 px-6">
-                    <span class="material-symbols-outlined text-sm">login</span>
-                    Đăng nhập
-                </a>
             </div>
         </div>
     </section>

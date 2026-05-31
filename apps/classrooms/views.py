@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Q, Count
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -100,7 +100,8 @@ def _is_classroom_member(user, classroom):
 
 
 def _classroom_join_requires_approval(classroom):
-    return bool((classroom.settings or {}).get('join_requires_approval'))
+    # Mặc định là True nếu chưa được thiết lập trong settings
+    return bool((classroom.settings or {}).get('join_requires_approval', True))
 
 
 def _apply_classroom_form_settings(classroom, form):
@@ -124,6 +125,23 @@ def _submission_grade_value(submission):
     if submission.manual_score is not None:
         return submission.manual_score
     return submission.total_score
+
+
+def _assignment_mode_meta(assignment):
+    mode = getattr(assignment, 'submission_mode', 'code') or 'code'
+    return {
+        'mode': mode,
+        'label': {
+            'code': 'Lập trình',
+            'file': 'Nộp file',
+            'quiz': 'Trắc nghiệm',
+        }.get(mode, mode),
+        'icon': {
+            'code': 'code',
+            'file': 'upload_file',
+            'quiz': 'quiz',
+        }.get(mode, 'assignment'),
+    }
 
 
 def _csv_response(filename):
@@ -251,6 +269,7 @@ def _build_gradebook_data(classroom, request):
 
             cells.append({
                 'assignment': assignment,
+                'mode_meta': _assignment_mode_meta(assignment),
                 'submission': display_submission,
                 'score': score,
                 'has_score': score is not None,
@@ -339,7 +358,8 @@ def classroom_list_view(request):
 
     # Lớp user đang có quan hệ (teacher sở hữu hoặc student đã approved)
     if role == 'teacher':
-        my_classrooms = Classrooms.objects.filter(teacher=request.user, is_active=True)
+        # Giáo viên được xem cả lớp đã duyệt và lớp đang chờ duyệt của mình
+        my_classrooms = Classrooms.objects.filter(teacher=request.user)
         joined_ids = set(my_classrooms.values_list('id', flat=True))
         pending_ids = set()
     else:
@@ -349,6 +369,7 @@ def classroom_list_view(request):
         pending_ids = set(ClassroomMembers.objects.filter(
             student=request.user, status='pending'
         ).values_list('classroom_id', flat=True))
+        # Học sinh chỉ được thấy lớp đã duyệt và active
         my_classrooms = Classrooms.objects.filter(id__in=approved_ids, is_active=True)
         joined_ids = approved_ids
 
@@ -403,14 +424,21 @@ def classroom_list_view(request):
         'pending_ids': pending_ids,
         'role': role,
         'query': query,
+        'breadcrumbs': [{'label': 'Lớp học'}],
     }
     return render(request, 'classrooms/list.html', context)
 
 
 @login_required
 def classroom_detail_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    # Lấy lớp học (không bắt buộc is_active=True để teacher vào chỉnh sửa trước)
+    classroom = get_object_or_404(Classrooms, pk=pk)
     is_teacher = _is_classroom_teacher(request.user, classroom)
+    
+    # Nếu không phải giáo viên của lớp, yêu cầu lớp phải active
+    if not is_teacher and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     is_member = _is_classroom_member(request.user, classroom)
 
     if not is_teacher and not is_member:
@@ -460,13 +488,21 @@ def classroom_detail_view(request, pk):
         'subject_links': subject_links_qs,
         'assignments': assignments,
         'member_count': members.count(),
+        'assign_form': ClassroomSubjectForm() if is_teacher else None,
+        'breadcrumbs': [
+            {'label': 'Lớp học', 'url': reverse('classrooms:classroom_list')},
+            {'label': classroom.name},
+        ],
     }
     return render(request, 'classrooms/detail.html', context)
 
 
 @login_required
 def gradebook_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền xem sổ điểm lớp này.')
         return redirect('classrooms:classroom_list')
@@ -480,7 +516,10 @@ def gradebook_view(request, pk):
 
 @login_required
 def gradebook_export_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền xuất sổ điểm lớp này.')
         return redirect('classrooms:classroom_list')
@@ -504,7 +543,7 @@ def gradebook_export_view(request, pk):
         'Bai nop tre',
     ]
     header.extend([
-        f'{assignment.title} ({assignment.max_score:g} diem)'
+        f"{assignment.title} [{_assignment_mode_meta(assignment)['label']}] ({assignment.max_score:g} diem)"
         for assignment in data['assignments']
     ])
     writer.writerow(header)
@@ -540,7 +579,10 @@ def gradebook_export_view(request, pk):
 
 @login_required
 def gradebook_missing_export_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền xuất danh sách thiếu bài lớp này.')
         return redirect('classrooms:classroom_list')
@@ -555,7 +597,7 @@ def gradebook_missing_export_view(request, pk):
     ))
     writer = csv.writer(response)
     writer.writerow([
-        'Username', 'Họ tên', 'Email', 'Bài tập', 'Môn học', 'Học kỳ',
+        'Username', 'Họ tên', 'Email', 'Bài tập', 'Loại bài', 'Môn học', 'Học kỳ',
         'Deadline', 'Công bố', 'Trạng thái ô điểm',
     ])
 
@@ -571,6 +613,7 @@ def gradebook_missing_export_view(request, pk):
                 student.get_full_name() or student.username,
                 student.email,
                 assignment.title,
+                _assignment_mode_meta(assignment)['label'],
                 subject_link.subject.name if subject_link and subject_link.subject else 'Chưa gắn môn',
                 subject_link.semester.name if subject_link and subject_link.semester else '',
                 timezone.localtime(assignment.due_date).strftime('%d/%m/%Y %H:%M') if assignment.due_date else '',
@@ -582,7 +625,10 @@ def gradebook_missing_export_view(request, pk):
 
 @login_required
 def classroom_members_export_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền xuất danh sách học sinh lớp này.')
         return redirect('classrooms:classroom_list')
@@ -793,7 +839,10 @@ def _apply_member_import(classroom, results):
 
 @teacher_required
 def import_members_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền import học sinh vào lớp này.')
         return redirect('classrooms:classroom_list')
@@ -973,7 +1022,9 @@ def join_classroom_view(request):
 @require_POST
 def quick_join_classroom_view(request, pk):
     """Tham gia lớp trực tiếp từ danh sách khám phá (không cần mã mời)."""
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
 
     if classroom.teacher == request.user:
         messages.info(request, 'Bạn là giáo viên của lớp này.')
@@ -1104,7 +1155,10 @@ def _can_manage_subjects(user, classroom):
 
 @login_required
 def classroom_subjects_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     is_teacher = _is_classroom_teacher(request.user, classroom)
     is_member = _is_classroom_member(request.user, classroom)
     if not is_teacher and not is_member:
@@ -1157,12 +1211,16 @@ def classroom_subjects_view(request, pk):
         'semester_filter': semester_filter,
         'is_teacher': is_teacher,
         'can_manage_subjects': _can_manage_subjects(request.user, classroom),
+        'assign_form': ClassroomSubjectForm() if is_teacher else None,
     })
 
 
 @login_required
 def classroom_subject_detail_view(request, pk, link_pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     is_teacher = _is_classroom_teacher(request.user, classroom)
     is_member = _is_classroom_member(request.user, classroom)
     if not is_teacher and not is_member:
@@ -1275,7 +1333,12 @@ def classroom_subject_detail_view(request, pk, link_pk):
         'is_teacher': is_teacher,
         'is_member': is_member,
         'can_manage_subjects': _can_manage_subjects(request.user, classroom),
-        'query': query,
+        'assign_form': ClassroomSubjectForm() if is_teacher else None,
+        'breadcrumbs': [
+            {'label': 'Lớp học', 'url': reverse('classrooms:classroom_list')},
+            {'label': classroom.name, 'url': reverse('classrooms:classroom_detail', kwargs={'pk': classroom.pk})},
+            {'label': link.subject.name},
+        ],
         'assignment_type': assignment_type,
         'published_count': published_count,
         'draft_count': draft_count,
@@ -1289,7 +1352,10 @@ def classroom_subject_detail_view(request, pk, link_pk):
 
 @teacher_required
 def create_subject_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+
     if not _can_manage_subjects(request.user, classroom):
         messages.error(request, 'Bạn không có quyền tạo môn học cho lớp này.')
         return redirect('classrooms:classroom_detail', pk=pk)
@@ -1365,7 +1431,10 @@ def create_subject_view(request, pk):
 
 @teacher_required
 def edit_subject_view(request, classroom_pk, subject_pk):
-    classroom = get_object_or_404(Classrooms, pk=classroom_pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=classroom_pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     subject = get_object_or_404(Subjects, pk=subject_pk)
     subject_is_linked_to_classroom = ClassroomSubjects.objects.filter(
         classroom=classroom,
@@ -1462,7 +1531,10 @@ def check_subject_name_view(request):
 @teacher_required
 def delete_subject_view(request, classroom_pk, subject_pk):
     """Gỡ một môn khỏi lớp. Nếu có nhiều kỳ, gỡ theo link_id."""
-    classroom = get_object_or_404(Classrooms, pk=classroom_pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=classroom_pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     subject = get_object_or_404(Subjects, pk=subject_pk)
     link_id = request.GET.get('link') or request.POST.get('link')
     if link_id and str(link_id).isdigit():
@@ -1481,6 +1553,11 @@ def delete_subject_view(request, classroom_pk, subject_pk):
         sem = f' ({link.semester})' if link.semester_id else ''
         link.delete()
         messages.success(request, f'Đã gỡ môn học "{name}"{sem} khỏi lớp.')
+        
+        # Quay lại trang trước đó (detail hoặc subjects list)
+        next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
+        if next_url:
+            return redirect(next_url)
         return redirect('classrooms:subjects', pk=classroom_pk)
 
     return render(request, 'classrooms/delete_confirm.html', {
@@ -1494,7 +1571,10 @@ def delete_subject_view(request, classroom_pk, subject_pk):
 
 @teacher_required
 def assign_subject_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     if not _can_manage_subjects(request.user, classroom):
         messages.error(request, 'Bạn không có quyền gán môn học cho lớp này.')
         return redirect('classrooms:classroom_detail', pk=pk)
@@ -1503,11 +1583,10 @@ def assign_subject_view(request, pk):
         form = ClassroomSubjectForm(request.POST)
         if form.is_valid():
             subject = form.cleaned_data['subject']
-            semester = form.cleaned_data.get('semester')
+            # Không cần lấy semester từ form nữa
             link, created = ClassroomSubjects.objects.get_or_create(
                 classroom=classroom,
                 subject=subject,
-                semester=semester,
                 defaults={
                     'assigned_by': request.user,
                     'is_active': True,
@@ -1517,12 +1596,17 @@ def assign_subject_view(request, pk):
                 link.is_active = True
                 link.assigned_by = request.user
                 link.save(update_fields=['is_active', 'assigned_by', 'updated_at'])
-            sem_suffix = f' ({semester})' if semester else ''
+            
             if created:
-                messages.success(request, f'Đã gán môn học "{subject.name}"{sem_suffix} cho lớp.')
+                messages.success(request, f'Đã gán môn học "{subject.name}" cho lớp.')
             else:
-                messages.info(request, f'Môn học "{subject.name}"{sem_suffix} đã có trong lớp.')
-            return redirect('classrooms:subjects', pk=pk)
+                messages.info(request, f'Môn học "{subject.name}" đã có trong lớp.')
+            
+            # Quay lại trang trước đó (thường là detail hoặc subjects list)
+            next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
+            if next_url:
+                return redirect(next_url)
+            return redirect('classrooms:classroom_detail', pk=pk)
     else:
         form = ClassroomSubjectForm()
 
@@ -1653,7 +1737,10 @@ def semester_delete_view(request, pk):
 
 @login_required
 def leaderboard_view(request, pk):
-    classroom = get_object_or_404(Classrooms, pk=pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     is_teacher = _is_classroom_teacher(request.user, classroom)
     is_member = _is_classroom_member(request.user, classroom)
 

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Preview quiz - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1000px] mx-auto px-6 py-8 space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <a href="{% url 'assignments:quiz_manage' pk=assignment.pk %}" class="text-sm font-bold text-primary hover:text-primary/80">← Quản lý quiz</a>
+            <h1 class="text-3xl font-black text-primary-950 mt-2">{{ assignment.title }}</h1>
+            <p class="text-sm text-slate-600">Bản preview dành cho giáo viên trước khi công bố.</p>
+        </div>
+        {% if settings %}
+        <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 rounded-full bg-primary-50 text-primary text-xs font-bold">{{ settings.get_question_order_mode_display }}</span>
+            <span class="px-3 py-1 rounded-full bg-primary-50 text-primary text-xs font-bold">{{ settings.get_choice_order_mode_display }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <section class="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+        {% for question in questions %}
+        <article class="p-6">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <p class="text-xs font-black text-primary uppercase">Câu {{ forloop.counter }} · {{ question.points|floatformat:1 }} điểm</p>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">{{ question.question_text }}</h2>
+                </div>
+                <span class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-600">{{ question.get_question_type_display }}</span>
+            </div>
+            <div class="space-y-2">
+                {% for choice in question.choices.all %}
+                <div class="rounded-lg border {% if choice.is_correct %}border-emerald-200 bg-emerald-50{% else %}border-slate-200 bg-white{% endif %} p-3 text-sm">
+                    <span class="font-bold text-slate-500">{{ forloop.counter }}.</span>
+                    {{ choice.choice_text }}
+                    {% if choice.is_correct %}<span class="text-emerald-600 font-bold ml-2">Đáp án đúng</span>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% if question.explanation %}
+            <div class="mt-4 rounded-lg bg-primary-50 border border-primary-200 p-3 text-sm text-slate-700">
+                <span class="font-bold text-primary">Giải thích:</span> {{ question.explanation }}
+            </div>
+            {% endif %}
+        </article>
+        {% empty %}
+        <div class="text-center py-16 text-slate-500">
+            <span class="material-symbols-outlined text-5xl mb-3">quiz</span>
+            <p class="font-bold">Chưa có câu hỏi để preview.</p>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

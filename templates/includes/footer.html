@@ -1,38 +1,67 @@
-<footer class="site-footer">
+<footer class="site-footer" role="contentinfo">
     <div class="footer-inner">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-                <div class="footer-logo"><span class="mono">&lt;/&gt;</span> DevLearn</div>
-                <p class="footer-desc">Nền tảng học lập trình với Web IDE, chấm điểm tự động và quản lý lớp học theo môn.</p>
+        <div class="footer-grid">
+            <div class="footer-brand-section">
+                <a href="{% url 'home' %}" class="footer-logo">
+                    <span class="logo-icon">&lt;/&gt;</span>
+                    <span class="logo-text">Dev<span class="accent">Learn</span></span>
+                </a>
+                <p class="footer-desc">
+                    Hệ thống quản lý học tập tối ưu cho lập trình viên. 
+                    Tích hợp Web IDE, chấm điểm tự động và theo dõi tiến độ thời gian thực.
+                </p>
+                <div class="footer-socials">
+                    <a href="#" class="social-link" aria-label="Facebook"><span class="material-symbols-outlined">facebook</span></a>
+                    <a href="#" class="social-link" aria-label="GitHub"><span class="material-symbols-outlined">code</span></a>
+                    <a href="#" class="social-link" aria-label="YouTube"><span class="material-symbols-outlined">play_circle</span></a>
+                </div>
             </div>
-            <div class="footer-links">
-                <h4 class="footer-heading">Sản phẩm</h4>
-                <a href="#features">Features</a>
-                <a href="#ide">Web IDE</a>
-                <a href="{% url 'classrooms:classroom_list' %}">Lớp học</a>
+
+            <div class="footer-links-group">
+                <h4 class="footer-heading">Khám phá</h4>
+                <ul class="footer-list">
+                    <li><a href="{% url 'home' %}#features">Tính năng</a></li>
+                    <li><a href="{% url 'home' %}#ide">Web IDE</a></li>
+                    <li><a href="{% url 'classrooms:classroom_list' %}">Lớp học</a></li>
+                    <li><a href="{% url 'classrooms:classroom_list' %}">Môn học</a></li>
+                </ul>
             </div>
-            <div class="footer-links">
-                <h4 class="footer-heading">Học tập</h4>
-                <a href="{% url 'assignments:calendar' %}">Lịch bài tập</a>
-                <a href="{% url 'classrooms:classroom_list' %}">Khám phá lớp</a>
-                <a href="#community">Cộng đồng</a>
+
+            <div class="footer-links-group">
+                <h4 class="footer-heading">Hỗ trợ</h4>
+                <ul class="footer-list">
+                    <li><a href="{% url 'assignments:calendar' %}">Lịch deadline</a></li>
+                    <li><a href="#">Hướng dẫn sử dụng</a></li>
+                    <li><a href="#">Quy định & Chính sách</a></li>
+                    <li><a href="#">Báo lỗi hệ thống</a></li>
+                </ul>
             </div>
-            <div class="footer-links">
+
+            <div class="footer-links-group">
                 <h4 class="footer-heading">Tài khoản</h4>
-                {% if user.is_authenticated %}
-                <a href="{% url 'accounts:profile' %}">Hồ sơ</a>
-                <a href="{% url 'notifications:list' %}">Thông báo</a>
-                <a href="{% url 'accounts:logout' %}">Đăng xuất</a>
-                {% else %}
-                <a href="{% url 'accounts:login' %}">Đăng nhập</a>
-                <a href="{% url 'accounts:register' %}">Đăng ký</a>
-                <a href="{% url 'accounts:password_reset' %}">Quên mật khẩu</a>
-                {% endif %}
+                <ul class="footer-list">
+                    {% if user.is_authenticated %}
+                    <li><a href="{% url 'accounts:profile' %}">Hồ sơ cá nhân</a></li>
+                    <li><a href="{% url 'notifications:list' %}">Thông báo</a></li>
+                    <li><a href="{% url 'accounts:logout' %}" class="text-danger-400">Đăng xuất</a></li>
+                    {% else %}
+                    <li><a href="{% url 'accounts:login' %}">Đăng nhập</a></li>
+                    <li><a href="{% url 'accounts:register' %}">Đăng ký thành viên</a></li>
+                    <li><a href="{% url 'accounts:password_reset' %}">Khôi phục mật khẩu</a></li>
+                    {% endif %}
+                </ul>
             </div>
         </div>
+
         <div class="footer-bottom">
-            <span>© 2026 DevLearn Programming Platform.</span>
-            <span>Built for teaching, learning, and thoughtful code review.</span>
+            <div class="footer-copyright">
+                © 2026 <strong>DevLearn</strong>. Tất cả quyền được bảo lưu.
+            </div>
+            <div class="footer-meta">
+                <span>Phiên bản 2.4.0</span>
+                <span class="dot"></span>
+                <span>LH Programming Team</span>
+            </div>
         </div>
     </div>
 </footer>

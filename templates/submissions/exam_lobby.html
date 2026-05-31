@@ -14,7 +14,9 @@
     <div class="bg-white border border-slate-200 rounded-xl p-8">
         <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-red-500 mb-2">Exam mode</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-red-500 mb-2">
+                    Exam mode{% if assignment.submission_mode == 'file' %} · Nộp file{% elif assignment.submission_mode == 'quiz' %} · Trắc nghiệm{% endif %}
+                </p>
                 <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
                 <p class="text-slate-600 mt-2">{{ classroom.name }}</p>
             </div>
@@ -43,11 +45,69 @@
             </div>
         </div>
 
+        {% if assignment.submission_mode == 'file' and file_requirements %}
+        <div class="rounded-xl bg-primary/5 border border-primary/20 p-5 mb-8">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="material-symbols-outlined text-primary">rule_folder</span>
+                <p class="font-bold text-slate-900">Yêu cầu nộp file</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <p class="text-xs font-bold uppercase text-slate-500 mb-2">Định dạng</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for ext in file_requirements.allowed_extensions %}
+                        <span class="px-2 py-1 rounded bg-white border border-primary/20 text-xs font-bold text-slate-700">{{ ext }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Dung lượng</p>
+                    <p class="text-lg font-black text-primary">{{ file_requirements.max_file_size_mb }}MB/file</p>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Số file</p>
+                    <p class="text-lg font-black text-primary">{{ file_requirements.max_files }} file</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if assignment.submission_mode == 'quiz' %}
+        <div class="rounded-xl bg-primary/5 border border-primary/20 p-5 mb-8">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="material-symbols-outlined text-primary">quiz</span>
+                <p class="font-bold text-slate-900">Thông tin bài thi trắc nghiệm</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Số câu</p>
+                    <p class="text-lg font-black text-primary">{{ quiz_question_count }} câu</p>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Số lượt</p>
+                    <p class="text-lg font-black text-primary">1 lần</p>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase text-slate-500">Xem điểm</p>
+                    <p class="text-lg font-black text-primary">{% if quiz_settings and quiz_settings.show_score_after_submit %}Sau khi nộp{% else %}Theo giáo viên{% endif %}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="rounded-xl bg-amber-50 border border-amber-200 p-5 text-sm text-amber-800 mb-8">
             <p class="font-bold mb-2">Quy chế phiên thi</p>
             <ul class="list-disc list-inside space-y-1">
                 <li>Thời gian thi được tính trên server, refresh trang không đặt lại giờ.</li>
+                {% if assignment.submission_mode == 'file' %}
+                <li>Bài thi nộp file chỉ cho phép nộp chính thức một lần.</li>
+                <li>File được giữ trên trình duyệt cho tới khi bạn bấm nộp; hệ thống không tự upload file nháp trước đó.</li>
+                {% elif assignment.submission_mode == 'quiz' %}
+                <li>Bài thi trắc nghiệm chỉ cho phép một lượt làm chính thức.</li>
+                <li>Đáp án được autosave từng câu; hết giờ hệ thống tự nộp các đáp án đã lưu.</li>
+                {% else %}
                 <li>Hệ thống tự lưu nháp định kỳ và ghi lại các sự kiện rời tab/focus/paste để giáo viên review khi cần.</li>
+                {% endif %}
                 <li>Similarity, warning hoặc event chỉ là tín hiệu hỗ trợ, không tự động kết luận gian lận.</li>
                 {% if not assignment.exam_allow_custom_input %}<li>Bài thi này không cho phép custom input.</li>{% endif %}
                 {% if not assignment.exam_allow_sample_run %}<li>Bài thi này không cho phép chạy testcase mẫu.</li>{% endif %}
@@ -58,13 +118,20 @@
         {% if session and session.status == 'running' %}
         <a href="{% url 'submissions:exam_ide' assignment_pk=assignment.pk %}" class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-primary text-white font-bold hover:bg-primary/90">
             <span class="material-symbols-outlined">play_arrow</span>
-            Tiếp tục làm bài
+            {% if assignment.submission_mode == 'file' %}Tiếp tục nộp file{% elif assignment.submission_mode == 'quiz' %}Tiếp tục làm quiz{% else %}Tiếp tục làm bài{% endif %}
         </a>
         {% elif session and session.final_submission %}
+        {% if assignment.submission_mode == 'quiz' and quiz_attempt %}
+        <a href="{% url 'submissions:quiz_result' attempt_pk=quiz_attempt.pk %}" class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-primary text-white font-bold hover:bg-primary/90">
+            <span class="material-symbols-outlined">visibility</span>
+            Xem kết quả quiz
+        </a>
+        {% else %}
         <a href="{% url 'submissions:detail' pk=session.final_submission.pk %}" class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-primary text-white font-bold hover:bg-primary/90">
             <span class="material-symbols-outlined">visibility</span>
             Xem bài đã nộp
         </a>
+        {% endif %}
         {% elif session and session.status == 'expired' %}
         <div class="rounded-xl border border-danger-100 bg-danger-100 p-5 text-sm text-danger-600 mb-4">
             <p class="font-bold">Phiên thi của bạn đã hết giờ.</p>
@@ -98,7 +165,7 @@
             {% csrf_token %}
             <button type="submit" class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-lg bg-red-500 text-white font-bold hover:bg-red-600">
                 <span class="material-symbols-outlined">timer</span>
-                Bắt đầu thi
+                {% if assignment.submission_mode == 'file' %}Bắt đầu thi nộp file{% elif assignment.submission_mode == 'quiz' %}Bắt đầu thi trắc nghiệm{% else %}Bắt đầu thi{% endif %}
             </button>
         </form>
         {% endif %}

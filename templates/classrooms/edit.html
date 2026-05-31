@@ -44,6 +44,24 @@
                             class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
                             required/>
                     </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Năm học</label>
+                            <select name="school_year" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm" required>
+                                {% for val, label in form.school_year.field.choices %}
+                                    <option value="{{ val }}" {% if form.school_year.value == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Học kỳ</label>
+                            <select name="semester_term" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm" required>
+                                {% for val, label in form.semester_term.field.choices %}
+                                    <option value="{{ val }}" {% if form.semester_term.value == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Mô tả</label>
                         <textarea name="description" rows="4"

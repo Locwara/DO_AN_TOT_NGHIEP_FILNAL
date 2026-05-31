@@ -3,7 +3,11 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import Profiles, TeacherRegistrations
-from apps.administation.models import ActivityLogs
+from apps.administation.forms import SystemSettingForm
+from apps.administation.models import ActivityLogs, SystemSettings
+from apps.assignments.forms import AssignmentForm
+from apps.assignments.models import Assignments
+from apps.classrooms.models import Classrooms
 
 
 class UserBulkActionSafetyTests(TestCase):
@@ -125,6 +129,140 @@ class UserBulkActionSafetyTests(TestCase):
         response = self.client.get(reverse('administation:dashboard'))
 
         self.assertEqual(response.status_code, 200)
+
+    def test_assignment_v2_system_settings_drive_defaults(self):
+        SystemSettings.objects.create(
+            setting_key='uploads.submission_allowed_extensions',
+            setting_value=['.pdf', '.py'],
+            updated_by=self.role_admin,
+        )
+        SystemSettings.objects.create(
+            setting_key='uploads.submission_default_max_mb',
+            setting_value=12,
+            updated_by=self.role_admin,
+        )
+        SystemSettings.objects.create(
+            setting_key='uploads.submission_default_max_files',
+            setting_value=3,
+            updated_by=self.role_admin,
+        )
+        SystemSettings.objects.create(
+            setting_key='uploads.submission_scan_required_default',
+            setting_value=True,
+            updated_by=self.role_admin,
+        )
+        SystemSettings.objects.create(
+            setting_key='quiz.default_max_attempts',
+            setting_value=4,
+            updated_by=self.role_admin,
+        )
+        SystemSettings.objects.create(
+            setting_key='quiz.random_choices_default',
+            setting_value=True,
+            updated_by=self.role_admin,
+        )
+
+        file_form = AssignmentForm(initial={'submission_mode': Assignments.SUBMISSION_FILE})
+        self.assertEqual(file_form.initial['file_allowed_extensions'], ['.pdf', '.py'])
+        self.assertEqual(file_form.initial['file_max_size_mb'], 12)
+        self.assertEqual(file_form.initial['file_max_files'], 3)
+        self.assertTrue(file_form.initial['file_scan_required'])
+
+        quiz_form = AssignmentForm(data={
+            'title': 'Quiz defaults',
+            'description': 'Mo ta',
+            'instructions': 'Lam quiz',
+            'submission_mode': Assignments.SUBMISSION_QUIZ,
+            'grading_mode': Assignments.GRADING_AUTO,
+            'type': 'auto_grade',
+            'difficulty': 'easy',
+            'late_penalty_percent': '0',
+            'max_score': '100',
+            'show_testcase_result': '',
+            'exam_grace_seconds': '30',
+            'classroom_subject': '',
+            'quiz_random_choices': 'on',
+            'quiz_show_score_after_submit': 'on',
+            'quiz_allow_review': 'on',
+        })
+        self.assertTrue(quiz_form.is_valid(), quiz_form.errors)
+        self.assertEqual(quiz_form.cleaned_data['max_attempts'], 4)
+
+    def test_system_setting_form_accepts_upload_extension_array(self):
+        form = SystemSettingForm(data={
+            'setting_key': 'uploads.submission_allowed_extensions',
+            'setting_value': '[".pdf", ".docx", ".py"]',
+            'description': 'Default extensions',
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['setting_value'], ['.pdf', '.docx', '.py'])
+
+    def test_upload_and_quiz_policy_setting_changes_are_audited(self):
+        quiz_response = self.client.post(
+            reverse('administation:setting_create'),
+            {
+                'setting_key': 'quiz.random_questions_default',
+                'setting_value': 'true',
+                'description': 'Random quiz questions',
+            },
+        )
+        upload_response = self.client.post(
+            reverse('administation:setting_create'),
+            {
+                'setting_key': 'uploads.submission_default_max_files',
+                'setting_value': '3',
+                'description': 'Default file count',
+            },
+        )
+
+        self.assertEqual(quiz_response.status_code, 302)
+        self.assertEqual(upload_response.status_code, 302)
+        quiz_log = ActivityLogs.objects.get(
+            action='ADMIN_POLICY_SETTING_CREATE',
+            metadata__policy_category='quiz',
+        )
+        upload_log = ActivityLogs.objects.get(
+            action='ADMIN_POLICY_SETTING_CREATE',
+            metadata__policy_category='uploads',
+        )
+        self.assertTrue(quiz_log.metadata['is_upload_or_quiz_policy'])
+        self.assertTrue(upload_log.metadata['is_upload_or_quiz_policy'])
+
+    def test_admin_can_hide_and_publish_assignment(self):
+        teacher = User.objects.create_user(username='teacher2', password='pass12345')
+        Profiles.objects.create(id=teacher, role='teacher', status='approved')
+        classroom = Classrooms.objects.create(
+            name='Audit class',
+            invite_code='AUDIT123',
+            teacher=teacher,
+            status='approved',
+            is_active=True,
+        )
+        assignment = Assignments.objects.create(
+            classroom=classroom,
+            title='File exam audit',
+            submission_mode=Assignments.SUBMISSION_FILE,
+            is_exam=True,
+            is_published=True,
+            created_by=teacher,
+        )
+
+        hide = self.client.post(
+            reverse('administation:assignment_visibility_toggle', kwargs={'pk': assignment.pk}),
+            {'action': 'hide'},
+        )
+        assignment.refresh_from_db()
+        self.assertEqual(hide.status_code, 302)
+        self.assertFalse(assignment.is_published)
+        self.assertTrue(ActivityLogs.objects.filter(action='ADMIN_ASSIGNMENT_HIDE', resource_id=assignment.pk).exists())
+
+        publish = self.client.post(
+            reverse('administation:assignment_visibility_toggle', kwargs={'pk': assignment.pk}),
+            {'action': 'publish'},
+        )
+        assignment.refresh_from_db()
+        self.assertEqual(publish.status_code, 302)
+        self.assertTrue(assignment.is_published)
 
     def test_activity_logs_export_has_utf8_bom_and_filters(self):
         ActivityLogs.objects.create(

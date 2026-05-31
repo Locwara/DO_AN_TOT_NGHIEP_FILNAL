@@ -118,6 +118,7 @@
                     <p class="eyebrow">Phân tích bài tập</p>
                     <h1 class="text-2xl sm:text-3xl font-black text-primary-950 leading-tight mt-1 break-words">{{ assignment.title }}</h1>
                     <p class="caption mt-2">
+                        {% if assignment.submission_mode == 'file' %}Nộp file{% elif assignment.submission_mode == 'quiz' %}Trắc nghiệm{% else %}Lập trình{% endif %} ·
                         {{ classroom.name }} · {{ assignment.max_score }} điểm
                         {% if assignment.due_date %} · Hạn {{ assignment.due_date|date:"d/m/Y H:i" }}{% endif %}
                     </p>
@@ -137,10 +138,18 @@
                     <span class="material-symbols-outlined text-base">print</span>
                     In/PDF
                 </a>
+                {% if assignment.submission_mode == 'file' %}
+                <a href="{% url 'submissions:download_files_zip' assignment_pk=assignment.pk %}" class="btn btn-primary">
+                    <span class="material-symbols-outlined text-base">folder_zip</span>
+                    Tải file ZIP
+                </a>
+                {% endif %}
+                {% if assignment.submission_mode != 'file' %}
                 <a href="{% url 'assignments:bulk_regrade' pk=assignment.pk %}" class="btn btn-primary">
                     <span class="material-symbols-outlined text-base">refresh</span>
                     Chấm lại
                 </a>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -203,6 +212,52 @@
             <p class="text-2xl font-black text-warning-600 mt-1">{{ late_count }}</p>
         </div>
     </section>
+    {% if file_stats %}
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="stats-mini-card">
+            <p class="stat-label">Chưa nộp</p>
+            <p class="text-2xl font-black text-danger-600 mt-1">{{ file_stats.missing_students }}</p>
+        </div>
+        <div class="stats-mini-card">
+            <p class="stat-label">Đã chấm</p>
+            <p class="text-2xl font-black text-success-600 mt-1">{{ file_stats.graded_count }}</p>
+        </div>
+        <div class="stats-mini-card">
+            <p class="stat-label">Chưa chấm</p>
+            <p class="text-2xl font-black text-warning-600 mt-1">{{ file_stats.ungraded_count }}</p>
+        </div>
+        <div class="stats-mini-card">
+            <p class="stat-label">Tổng file</p>
+            <p class="text-2xl font-black text-primary-900 mt-1">{{ file_stats.file_count }}</p>
+            <p class="caption mt-1">TB {{ file_stats.avg_files_per_submission }} file/lượt</p>
+        </div>
+    </section>
+    {% endif %}
+    {% if quiz_stats %}
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="stats-mini-card">
+            <p class="stat-label">Điểm TB quiz</p>
+            <p class="text-2xl font-black text-primary-900 mt-1">{{ quiz_stats.avg_score|floatformat:1 }}</p>
+        </div>
+        <div class="stats-mini-card">
+            <p class="stat-label">Attempt TB</p>
+            <p class="text-2xl font-black text-primary-900 mt-1">{{ quiz_stats.avg_attempts }}</p>
+        </div>
+        <div class="stats-mini-card">
+            <p class="stat-label">Tỷ lệ hoàn thành</p>
+            <p class="text-2xl font-black text-success-600 mt-1">{{ quiz_stats.completion_rate }}%</p>
+        </div>
+        <div class="stats-mini-card">
+            <p class="stat-label">Câu khó nhất</p>
+            {% if quiz_stats.hardest_question %}
+            <p class="text-lg font-black text-warning-600 mt-1">Sai {{ quiz_stats.hardest_question.wrong_rate }}%</p>
+            <p class="caption mt-1">{{ quiz_stats.hardest_question.question.question_text|truncatechars:48 }}</p>
+            {% else %}
+            <p class="text-2xl font-black text-neutral-400 mt-1">-</p>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
     {% else %}
     <section class="stats-panel stats-empty mb-6 p-8">
         <span class="material-symbols-outlined text-4xl text-primary mb-2">bar_chart</span>
@@ -229,6 +284,7 @@
             </div>
         </div>
 
+        {% if assignment.submission_mode == 'code' %}
         <div class="stats-panel p-5 sm:p-6">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <div>
@@ -245,6 +301,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -260,9 +317,13 @@
                     <div class="size-8 rounded-full bg-success-100 text-success-600 flex items-center justify-center font-bold text-xs flex-shrink-0">{{ forloop.counter }}</div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-bold text-neutral-900 truncate">{{ s.student.get_full_name|default:s.student.username }}</p>
+                        {% if assignment.submission_mode == 'code' %}
                         <p class="caption">{{ s.passed_testcases }}/{{ s.total_testcases }} testcase pass</p>
+                        {% else %}
+                        <p class="caption">{{ s.status }} · {{ s.submitted_at|date:"d/m H:i" }}</p>
+                        {% endif %}
                     </div>
-                    <span class="font-black text-success-600">{{ s.total_score|floatformat:1 }}</span>
+                    <span class="font-black text-success-600">{{ s.final_score|floatformat:1 }}</span>
                 </a>
                 {% endfor %}
             </div>
@@ -286,9 +347,13 @@
                     <div class="size-8 rounded-full bg-warning-100 text-warning-600 flex items-center justify-center font-bold text-xs flex-shrink-0">{{ forloop.counter }}</div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-bold text-neutral-900 truncate">{{ s.student.get_full_name|default:s.student.username }}</p>
+                        {% if assignment.submission_mode == 'code' %}
                         <p class="caption">{{ s.passed_testcases }}/{{ s.total_testcases }} testcase pass</p>
+                        {% else %}
+                        <p class="caption">{{ s.status }} · {{ s.submitted_at|date:"d/m H:i" }}</p>
+                        {% endif %}
                     </div>
-                    <span class="font-black text-warning-600">{{ s.total_score|floatformat:1 }}</span>
+                    <span class="font-black text-warning-600">{{ s.final_score|floatformat:1 }}</span>
                 </a>
                 {% endfor %}
             </div>
@@ -301,6 +366,7 @@
         </div>
     </section>
 
+    {% if assignment.submission_mode == 'code' %}
     <section class="stats-panel p-5 sm:p-6 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
@@ -355,6 +421,50 @@
         </div>
         {% endif %}
     </section>
+    {% elif assignment.submission_mode == 'quiz' %}
+    <section class="stats-panel p-5 sm:p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <p class="eyebrow">Question analysis</p>
+                <h2 class="text-xl font-bold text-primary-900">Câu hỏi cần xem lại</h2>
+            </div>
+            <span class="badge badge-general">{{ question_analysis|length }} câu</span>
+        </div>
+        {% if question_analysis %}
+        <div class="overflow-x-auto rounded-lg border border-primary-100">
+            <table class="stats-table w-full text-sm">
+                <thead>
+                    <tr>
+                        <th class="text-left">Câu hỏi</th>
+                        <th class="text-right">Lượt trả lời</th>
+                        <th class="text-right">Đúng</th>
+                        <th class="text-right">Sai</th>
+                        <th class="text-right">Tỷ lệ sai</th>
+                        <th class="text-right">Điểm TB</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in question_analysis %}
+                    <tr>
+                        <td class="font-semibold text-primary-900">{{ item.question.question_text|truncatechars:96 }}</td>
+                        <td class="text-right">{{ item.answers }}</td>
+                        <td class="text-right text-success-600 font-bold">{{ item.correct }}</td>
+                        <td class="text-right text-danger-600 font-bold">{{ item.wrong }}</td>
+                        <td class="text-right font-bold">{{ item.wrong_rate }}%</td>
+                        <td class="text-right">{{ item.avg_score|floatformat:1 }}/{{ item.question.points|floatformat:1 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="stats-empty">
+            <span class="material-symbols-outlined text-4xl text-primary mb-2">quiz</span>
+            <p class="caption">Chưa có câu trả lời quiz để phân tích.</p>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
 
     <section class="stats-panel p-5 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -370,10 +480,10 @@
                 <thead>
                     <tr>
                         <th class="text-left">Sinh viên</th>
-                        <th class="text-left">Ngôn ngữ</th>
+                        <th class="text-left">{% if assignment.submission_mode == 'file' %}Kiểu nộp{% elif assignment.submission_mode == 'quiz' %}Attempt{% else %}Ngôn ngữ{% endif %}</th>
                         <th class="text-left">Trạng thái</th>
                         <th class="text-right">Điểm</th>
-                        <th class="text-right">Testcase</th>
+                        <th class="text-right">{% if assignment.submission_mode == 'code' %}Testcase{% else %}Chấm{% endif %}</th>
                         <th class="text-left">Thời gian</th>
                     </tr>
                 </thead>
@@ -388,15 +498,31 @@
                                 <span class="font-semibold text-neutral-900 truncate">{{ sub.student.get_full_name|default:sub.student.username }}</span>
                             </div>
                         </td>
-                        <td><code>{{ sub.language }}</code></td>
+                        <td>
+                            {% if assignment.submission_mode == 'file' %}
+                            <span class="badge badge-general">Nộp file</span>
+                            {% elif assignment.submission_mode == 'quiz' %}
+                            <span class="badge badge-general">Quiz</span>
+                            {% else %}
+                            <code>{{ sub.language }}</code>
+                            {% endif %}
+                        </td>
                         <td>
                             <span class="badge {% if sub.status == 'finished' %}bg-success-100 text-success-600{% elif sub.status == 'error' or sub.status == 'failed' %}bg-danger-100 text-danger-600{% elif sub.status == 'pending' %}bg-warning-100 text-warning-600{% else %}bg-primary-100 text-primary-700{% endif %}">
                                 {{ sub.status }}
                             </span>
                             {% if sub.is_late %}<span class="caption ml-1 text-danger-600">Muộn</span>{% endif %}
                         </td>
-                        <td class="text-right font-bold text-primary-900">{{ sub.total_score|floatformat:0 }}/{{ sub.max_score|floatformat:0 }}</td>
-                        <td class="text-right text-neutral-500">{{ sub.passed_testcases }}/{{ sub.total_testcases }}</td>
+                        <td class="text-right font-bold text-primary-900">{{ sub.final_score|floatformat:0 }}/{{ sub.max_score|floatformat:0 }}</td>
+                        <td class="text-right text-neutral-500">
+                            {% if assignment.submission_mode == 'code' %}
+                            {{ sub.passed_testcases }}/{{ sub.total_testcases }}
+                            {% elif sub.manual_score is not None or sub.graded_at %}
+                            Đã chấm
+                            {% else %}
+                            Chưa chấm
+                            {% endif %}
+                        </td>
                         <td class="text-neutral-500">{{ sub.submitted_at|date:"d/m H:i" }}</td>
                     </tr>
                     {% endfor %}
@@ -451,8 +577,9 @@ if (hasChartData(scoreDist.data)) {
     document.getElementById('scoreChartEmpty').classList.remove('hidden');
 }
 
-if (hasChartData(errorDist.data)) {
-    new Chart(document.getElementById('errorChart'), {
+const errorChartCanvas = document.getElementById('errorChart');
+if (errorChartCanvas && hasChartData(errorDist.data)) {
+    new Chart(errorChartCanvas, {
         type: 'doughnut',
         data: {
             labels: errorDist.labels,
@@ -470,7 +597,7 @@ if (hasChartData(errorDist.data)) {
             },
         },
     });
-} else {
+} else if (errorChartCanvas) {
     document.getElementById('errorChart').classList.add('hidden');
     document.getElementById('errorChartEmpty').classList.remove('hidden');
 }

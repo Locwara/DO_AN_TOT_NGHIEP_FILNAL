@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Kết quả tìm kiếm cho "{{ query }}" - DevLearn{% endblock %}
+
+{% block content %}
+<div class="container py-10">
+    <div class="flex flex-col gap-2 mb-8">
+        <p class="eyebrow">Kết quả tìm kiếm</p>
+        <h1 class="text-3xl font-bold">Kết quả cho "{{ query }}"</h1>
+        <p class="text-slate-600">Tìm thấy kết quả trong các mục lớp học, môn học, bài tập và bài thi.</p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-10">
+        <a href="?q={{ query }}&type=all" class="btn {% if search_type == 'all' %}btn-primary{% else %}btn-outline{% endif %}">Tất cả</a>
+        <a href="?q={{ query }}&type=classroom" class="btn {% if search_type == 'classroom' %}btn-primary{% else %}btn-outline{% endif %}">Lớp học</a>
+        <a href="?q={{ query }}&type=subject" class="btn {% if search_type == 'subject' %}btn-primary{% else %}btn-outline{% endif %}">Môn học</a>
+        <a href="?q={{ query }}&type=assignment" class="btn {% if search_type == 'assignment' %}btn-primary{% else %}btn-outline{% endif %}">Bài tập</a>
+        <a href="?q={{ query }}&type=exam" class="btn {% if search_type == 'exam' %}btn-primary{% else %}btn-outline{% endif %}">Bài thi</a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {% if results.classrooms %}
+        <section class="flex flex-col gap-4">
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">school</span>
+                Lớp học
+            </h2>
+            <div class="space-y-3">
+                {% for c in results.classrooms %}
+                <div class="course-card p-4 flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <h3 class="font-bold text-lg truncate">{{ c.name }}</h3>
+                            {% if c.id in joined_classroom_ids %}
+                            <span class="badge bg-success-100 text-success-600">Đã tham gia</span>
+                            {% endif %}
+                        </div>
+                        <p class="caption">Mã mời: <span class="text-primary font-bold">{{ c.invite_code }}</span> · GV: {{ c.teacher.get_full_name|default:c.teacher.username }}</p>
+                    </div>
+                    <a href="{% url 'classrooms:classroom_detail' pk=c.id %}" class="btn btn-sm">Chi tiết</a>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if results.subjects %}
+        <section class="flex flex-col gap-4">
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">menu_book</span>
+                Môn học
+            </h2>
+            <div class="space-y-3">
+                {% for s in results.subjects %}
+                <div class="course-card p-4">
+                    <span class="badge badge-general mb-2">{{ s.code }}</span>
+                    <h3 class="font-bold text-lg">{{ s.name }}</h3>
+                    <p class="caption mt-1 line-clamp-2">{{ s.description|default:"Không có mô tả." }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if results.assignments %}
+        <section class="flex flex-col gap-4">
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">assignment</span>
+                Bài tập
+            </h2>
+            <div class="space-y-3">
+                {% for a in results.assignments %}
+                <a href="{% url 'assignments:detail' pk=a.id %}" class="course-card p-4 block hover:border-primary transition-colors">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="badge bg-primary-100 text-primary-700">Bài tập</span>
+                        <span class="caption">Hạn: {{ a.due_date|date:"d/m/Y" }}</span>
+                    </div>
+                    <h3 class="font-bold text-lg">{{ a.title }}</h3>
+                    <p class="caption mt-1">Lớp: {{ a.classroom.name }}</p>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if results.exams %}
+        <section class="flex flex-col gap-4">
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-danger-600">quiz</span>
+                Bài thi
+            </h2>
+            <div class="space-y-3">
+                {% for a in results.exams %}
+                <a href="{% url 'submissions:exam_lobby' assignment_pk=a.id %}" class="course-card p-4 block border-danger-100 bg-danger-100/10 hover:border-danger-300 transition-colors">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="badge bg-danger-100 text-danger-600">Bài thi</span>
+                        <span class="caption">Bắt đầu: {{ a.exam_start_time|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <h3 class="font-bold text-lg">{{ a.title }}</h3>
+                    <p class="caption mt-1">Lớp: {{ a.classroom.name }}</p>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    </div>
+
+    {% if not results.classrooms and not results.subjects and not results.assignments and not results.exams %}
+    <div class="py-20 text-center">
+        <span class="material-symbols-outlined text-6xl text-slate-300">search_off</span>
+        <h2 class="text-2xl font-bold mt-4">Không tìm thấy kết quả nào</h2>
+        <p class="text-slate-500 mt-2">Thử thay đổi từ khóa hoặc bộ lọc để tìm kiếm lại.</p>
+        <a href="{% url 'home' %}" class="btn btn-primary mt-6">Quay về trang chủ</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

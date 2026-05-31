@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load assignment_extras %}
+{% block title %}Quản lý quiz - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1280px] mx-auto px-6 py-8 space-y-6">
+    <nav class="flex items-center gap-2 text-sm text-slate-500">
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary">{{ assignment.title }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="font-bold text-slate-900">Quản lý trắc nghiệm</span>
+    </nav>
+
+    <section class="rounded-xl border border-primary-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-primary font-bold text-sm mb-2">
+                    <span class="material-symbols-outlined">quiz</span>
+                    Quiz Builder
+                </div>
+                <h1 class="text-3xl font-black text-primary-950">{{ assignment.title }}</h1>
+                <p class="text-sm text-slate-600 mt-2">Quản lý câu hỏi, đáp án, preview đề, import/export CSV và theo dõi attempts.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'assignments:quiz_preview' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90">
+                    <span class="material-symbols-outlined text-sm">visibility</span>
+                    Preview
+                </a>
+                <a href="{% url 'assignments:import_quiz_questions' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-primary-200 text-primary text-sm font-bold hover:bg-primary-50">
+                    <span class="material-symbols-outlined text-sm">upload_file</span>
+                    Import CSV
+                </a>
+                <a href="{% url 'assignments:export_quiz_questions' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">download</span>
+                    Export CSV
+                </a>
+                <a href="{% url 'assignments:quiz_attempts' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">groups</span>
+                    Attempts
+                </a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-bold text-slate-500 uppercase">Câu đang bật</p>
+                <p class="text-2xl font-black text-primary mt-1">{{ active_questions.count }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-bold text-slate-500 uppercase">Attempts</p>
+                <p class="text-2xl font-black text-primary mt-1">{{ attempt_count }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-bold text-slate-500 uppercase">Đã nộp</p>
+                <p class="text-2xl font-black text-primary mt-1">{{ submitted_attempt_count }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-bold text-slate-500 uppercase">Điểm TB</p>
+                <p class="text-2xl font-black text-primary mt-1">{% if avg_attempt_score is not None %}{{ avg_attempt_score|floatformat:1 }}{% else %}--{% endif %}</p>
+            </div>
+        </div>
+
+        {% if settings %}
+        <div class="mt-5 flex flex-wrap gap-2">
+            <span class="px-2.5 py-1 rounded-full bg-primary-50 text-primary text-xs font-bold">Câu hỏi: {{ settings.get_question_order_mode_display }}</span>
+            <span class="px-2.5 py-1 rounded-full bg-primary-50 text-primary text-xs font-bold">Đáp án: {{ settings.get_choice_order_mode_display }}</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{% if settings.show_score_after_submit %}Hiện điểm{% else %}Ẩn điểm{% endif %}</span>
+            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{% if settings.show_correct_answers %}Hiện đáp án{% else %}Ẩn đáp án{% endif %}</span>
+        </div>
+        {% endif %}
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_390px] gap-6 items-start">
+        <main class="rounded-xl border border-slate-200 bg-white overflow-hidden lg:h-[calc(100vh-280px)] lg:overflow-y-auto form-scroll-area">
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50 sticky top-0 z-10 flex items-center justify-between">
+                <h2 class="text-lg font-bold text-slate-900">Danh sách câu hỏi</h2>
+                <span class="text-xs font-bold text-slate-500">{{ questions.count }} câu</span>
+            </div>
+            {% if questions %}
+            <div class="divide-y divide-slate-100">
+                {% for question in questions %}
+                {% with stats=question_stats|dict_get:question.pk %}
+                <article class="p-5 {% if not question.is_active %}bg-slate-50 opacity-75{% endif %}">
+                    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2 mb-2">
+                                <span class="text-xs font-black px-2 py-0.5 rounded bg-primary-50 text-primary">#{{ question.order_index }}</span>
+                                <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">{{ question.get_question_type_display }}</span>
+                                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{{ question.points|floatformat:1 }} điểm</span>
+                                {% if not question.is_active %}<span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700">Đang ẩn</span>{% endif %}
+                            </div>
+                            <h3 class="text-base font-bold text-slate-900">{{ question.question_text }}</h3>
+                            {% if question.explanation %}<p class="text-sm text-slate-500 mt-1">{{ question.explanation }}</p>{% endif %}
+                            <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {% for choice in question.choices.all %}
+                                <div class="rounded-lg border {% if choice.is_correct %}border-emerald-200 bg-emerald-50{% else %}border-slate-200 bg-white{% endif %} px-3 py-2 text-sm">
+                                    <span class="font-bold text-slate-500">{{ forloop.counter }}.</span>
+                                    <span class="text-slate-700">{{ choice.choice_text }}</span>
+                                    {% if choice.is_correct %}<span class="material-symbols-outlined text-emerald-600 text-sm align-middle">check_circle</span>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">Thống kê: {{ stats.answers|default:0 }} lượt trả lời · đúng {{ stats.correct_rate|default:0 }}%</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <a href="{% url 'assignments:edit_quiz_question' pk=assignment.pk question_pk=question.pk %}" class="p-2 rounded-lg bg-primary-50 text-primary hover:bg-primary-100" title="Sửa">
+                                <span class="material-symbols-outlined text-lg">edit</span>
+                            </a>
+                            <form method="post" action="{% url 'assignments:toggle_quiz_question' pk=assignment.pk question_pk=question.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200" title="Ẩn/hiện">
+                                    <span class="material-symbols-outlined text-lg">{% if question.is_active %}visibility_off{% else %}visibility{% endif %}</span>
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'assignments:delete_quiz_question' pk=assignment.pk question_pk=question.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" onclick="return confirm('Ẩn câu hỏi này?')" class="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100" title="Ẩn câu hỏi">
+                                    <span class="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+                {% endwith %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-14 text-slate-500">
+                <span class="material-symbols-outlined text-5xl mb-3 text-slate-400">quiz</span>
+                <p class="font-bold">Chưa có câu hỏi nào.</p>
+                <p class="text-sm">Thêm thủ công ở panel bên phải hoặc import CSV.</p>
+            </div>
+            {% endif %}
+        </main>
+
+        <aside class="rounded-xl border border-primary-200 bg-primary-50 p-5 lg:sticky lg:top-24">
+            <h2 class="text-lg font-bold text-primary-900 mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">add_circle</span>
+                Thêm câu hỏi
+            </h2>
+            <form method="post" action="{% url 'assignments:add_quiz_question' pk=assignment.pk %}" class="space-y-4">
+                {% csrf_token %}
+                {% include 'assignments/quiz_question_fields.html' with form=form %}
+                <button type="submit" class="w-full h-11 rounded-lg bg-primary text-white font-bold hover:bg-primary/90">
+                    Thêm câu hỏi
+                </button>
+            </form>
+        </aside>
+    </div>
+</div>
+{% endblock %}

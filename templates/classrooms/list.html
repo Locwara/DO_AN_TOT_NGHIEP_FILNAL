@@ -2,179 +2,149 @@
 {% block title %}Lớp học - DevLearn{% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto px-6 py-8">
-    <!-- Header -->
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <div>
-            <p class="eyebrow">Classrooms</p>
-            <h2 class="text-2xl font-bold text-primary-900 mt-1">{% if role == 'teacher' %}Lớp học của tôi{% else %}Lớp học{% endif %}</h2>
-            <p class="text-neutral-500 mt-1">{% if role == 'teacher' %}Quản lý các lớp học bạn đang giảng dạy{% else %}Lớp đang tham gia và các lớp có thể khám phá{% endif %}</p>
-        </div>
-        <div class="flex gap-3">
-            {% if role == 'teacher' %}
-            <a href="{% url 'classrooms:create' %}" class="btn btn-primary">
-                <span class="material-symbols-outlined text-sm">add_circle</span>
-                Tạo lớp mới
-            </a>
-            {% else %}
-            <a href="{% url 'classrooms:join' %}" class="btn btn-primary">
-                <span class="material-symbols-outlined text-sm">vpn_key</span>
-                Nhập mã mời
-            </a>
-            {% endif %}
-        </div>
-    </div>
+{% if role == 'teacher' %}
+    {% url 'classrooms:create' as classroom_action_url %}
+    {% include "includes/page_header.html" with eyebrow="Classrooms" title="Lớp học của tôi" subtitle="Quản lý các lớp học bạn đang giảng dạy" breadcrumbs=breadcrumbs action_url=classroom_action_url action_label="Tạo lớp mới" action_icon="add_circle" %}
+{% else %}
+    {% url 'classrooms:join' as classroom_action_url %}
+    {% include "includes/page_header.html" with eyebrow="Classrooms" title="Lớp học" subtitle="Lớp đang tham gia và các lớp có thể khám phá" breadcrumbs=breadcrumbs action_url=classroom_action_url action_label="Nhập mã mời" action_icon="vpn_key" %}
+{% endif %}
 
-    <!-- Search bar -->
-    <form method="get" class="mb-8">
-        <div class="flex w-full items-stretch rounded-lg h-12 shadow-sm">
-            <div class="text-neutral-500 flex bg-primary-50 items-center justify-center pl-5 rounded-l-lg border border-primary-200 border-r-0">
-                <span class="material-symbols-outlined">search</span>
-            </div>
-            <input type="text" name="q" value="{{ query }}" placeholder="Tìm theo tên hoặc mô tả lớp học..."
-                class="form-input rounded-none border-x-0 bg-primary-50 h-full text-base"/>
+<div class="page-body classroom-index">
+    <div class="container">
+        <form method="get" class="classroom-search" role="search">
+            <label for="classroom-search-input" class="sr-only">Tìm lớp học</label>
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input id="classroom-search-input" type="text" name="q" value="{{ query }}" placeholder="Tìm theo tên hoặc mô tả lớp học...">
             {% if query %}
-            <a href="{% url 'classrooms:classroom_list' %}" class="flex items-center justify-center px-4 bg-primary-50 text-neutral-500 hover:text-danger-600 rounded-r-lg border border-primary-200 border-l-0">
+            <a href="{% url 'classrooms:classroom_list' %}" class="search-clear" title="Xóa tìm kiếm">
                 <span class="material-symbols-outlined">close</span>
             </a>
             {% else %}
-            <button type="submit" class="flex items-center justify-center px-6 bg-primary text-white rounded-r-lg font-bold hover:bg-primary-600">
-                Tìm
-            </button>
+            <button type="submit" class="btn btn-primary">Tìm</button>
             {% endif %}
-        </div>
-    </form>
+        </form>
 
-    <!-- Section 1: Lớp đang tham gia / của mình -->
-    <section class="mb-10">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">{% if role == 'teacher' %}school{% else %}bookmark{% endif %}</span>
-                {% if role == 'teacher' %}Lớp tôi đang giảng dạy{% else %}Lớp đang tham gia{% endif %}
-                <span class="text-sm font-normal text-slate-600">({{ classrooms|length }})</span>
-            </h2>
-        </div>
+        <section class="classroom-index-section">
+            <div class="classroom-index-head">
+                <div>
+                    <p class="section-eyebrow">{% if role == 'teacher' %}Teaching{% else %}Enrolled{% endif %}</p>
+                    <h2>{% if role == 'teacher' %}Lớp tôi đang giảng dạy{% else %}Lớp đang tham gia{% endif %}</h2>
+                </div>
+                <span class="count-pill">{{ classrooms|length }} lớp</span>
+            </div>
 
-        {% if classrooms %}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {% for classroom in classrooms %}
-            <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-primary transition-all group">
-                <div class="h-2 bg-primary"></div>
-                <div class="p-6">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="flex-1">
-                            <h4 class="font-bold text-lg group-hover:text-primary transition-colors">{{ classroom.name }}</h4>
-                            <p class="text-sm text-slate-600 mt-1">{{ classroom.description|truncatechars:80|default:"Không có mô tả" }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-slate-500 mt-4">
-                        <div class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">group</span>
-                            <span>{{ classroom.member_count }} Sinh viên</span>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">menu_book</span>
-                            <span>{{ classroom.subject_count|default:0 }} Môn</span>
-                        </div>
-                        {% if role == 'teacher' %}
-                        <span class="bg-primary/10 text-primary px-2 py-1 rounded font-bold">Mã: {{ classroom.invite_code }}</span>
+            {% if classrooms %}
+            <div class="classroom-card-grid">
+                {% for classroom in classrooms %}
+                <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="classroom-course-card {% if classroom.status == 'pending' %}pending-classroom{% endif %}">
+                    <span class="course-accent"></span>
+                    <span class="course-card-body">
+                        <span class="course-card-topline">
+                            {% if role == 'teacher' %}
+                                {% if classroom.status == 'pending' %}
+                                <span class="status-chip warning">Chờ duyệt</span>
+                                {% else %}
+                                <span class="status-chip neutral">Mã: {{ classroom.invite_code }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="status-chip success">Đã tham gia</span>
+                            {% endif %}
+                            <span>{{ classroom.created_at|date:"d/m/Y" }}</span>
+                        </span>
+                        <strong>{{ classroom.name }}</strong>
+                        <span class="course-description">{{ classroom.description|truncatechars:110|default:"Không có mô tả" }}</span>
+                        <span class="course-card-meta">
+                            <span>
+                                <span class="material-symbols-outlined">group</span>
+                                {{ classroom.member_count }} sinh viên
+                            </span>
+                            <span>
+                                <span class="material-symbols-outlined">menu_book</span>
+                                {{ classroom.subject_count|default:0 }} môn
+                            </span>
+                            <span class="course-enter">
+                                Vào lớp
+                                <span class="material-symbols-outlined">chevron_right</span>
+                            </span>
+                        </span>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="classroom-empty wide">
+                <span class="material-symbols-outlined">school</span>
+                <h3>{% if role == 'teacher' %}Bạn chưa tạo lớp nào{% else %}Bạn chưa tham gia lớp nào{% endif %}</h3>
+                <p>{% if role == 'teacher' %}Tạo lớp đầu tiên để bắt đầu giảng dạy.{% else %}Khám phá lớp học bên dưới hoặc nhập mã mời để bắt đầu.{% endif %}</p>
+            </div>
+            {% endif %}
+        </section>
+
+        {% if role != 'teacher' %}
+        <section class="classroom-index-section">
+            <div class="classroom-index-head">
+                <div>
+                    <p class="section-eyebrow">Discover</p>
+                    <h2>Khám phá lớp học</h2>
+                </div>
+                <span class="count-pill">{{ discover_classrooms|length }} lớp</span>
+            </div>
+
+            {% if discover_classrooms %}
+            <div class="classroom-card-grid">
+                {% for classroom in discover_classrooms %}
+                <article class="classroom-course-card discover-card">
+                    <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="course-card-body">
+                        <span class="course-card-topline">
+                            <span class="status-chip neutral">Có thể tham gia</span>
+                            <span>{{ classroom.created_at|date:"d/m/Y" }}</span>
+                        </span>
+                        <strong>{{ classroom.name }}</strong>
+                        <span class="course-description">{{ classroom.description|truncatechars:110|default:"Không có mô tả" }}</span>
+                        <span class="course-card-meta">
+                            <span>
+                                <span class="material-symbols-outlined">person</span>
+                                {{ classroom.teacher.get_full_name|default:classroom.teacher.username|truncatechars:22 }}
+                            </span>
+                            <span>
+                                <span class="material-symbols-outlined">group</span>
+                                {{ classroom.member_count }}
+                            </span>
+                            <span>
+                                <span class="material-symbols-outlined">menu_book</span>
+                                {{ classroom.subject_count|default:0 }}
+                            </span>
+                        </span>
+                    </a>
+                    <div class="discover-card-action">
+                        {% if classroom.pk in pending_ids %}
+                        <button disabled class="btn pending-button">
+                            <span class="material-symbols-outlined text-sm">hourglass_top</span>
+                            Đang chờ duyệt
+                        </button>
                         {% else %}
-                        <span class="bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded font-bold">Đã tham gia</span>
+                        <form method="post" action="{% url 'classrooms:quick_join' pk=classroom.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary">
+                                <span class="material-symbols-outlined text-sm">add</span>
+                                Tham gia lớp
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-12 rounded-xl border border-dashed border-slate-300 bg-slate-50">
-            <div class="size-16 mx-auto rounded-full bg-primary-50 flex items-center justify-center mb-3">
-                <span class="material-symbols-outlined text-3xl text-slate-400">school</span>
+                </article>
+                {% endfor %}
             </div>
-            <h3 class="font-bold mb-1">
-                {% if role == 'teacher' %}Bạn chưa tạo lớp nào{% else %}Bạn chưa tham gia lớp nào{% endif %}
-            </h3>
-            <p class="text-sm text-slate-600">
-                {% if role == 'teacher' %}Tạo lớp đầu tiên để bắt đầu giảng dạy!{% else %}Khám phá các lớp bên dưới để bắt đầu!{% endif %}
-            </p>
-        </div>
-        {% endif %}
-    </section>
-
-    <!-- Section 2: Lớp khám phá (chỉ cho student) -->
-    {% if role != 'teacher' %}
-    <section>
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">travel_explore</span>
-                Khám phá lớp học
-                <span class="text-sm font-normal text-slate-600">({{ discover_classrooms|length }})</span>
-            </h2>
-            {% if discover_classrooms %}
-            <span class="text-xs text-slate-600">Tham gia trực tiếp không cần mã mời</span>
+            {% else %}
+            <div class="classroom-empty wide">
+                <span class="material-symbols-outlined">travel_explore</span>
+                <h3>{% if query %}Không tìm thấy lớp phù hợp với "{{ query }}"{% else %}Không có lớp mới để khám phá{% endif %}</h3>
+                <p>{% if query %}Hãy thử từ khóa khác hoặc xóa bộ lọc.{% else %}Bạn đã tham gia tất cả lớp học có sẵn.{% endif %}</p>
+            </div>
             {% endif %}
-        </div>
-
-        {% if discover_classrooms %}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {% for classroom in discover_classrooms %}
-            <div class="bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-primary/50 transition-all group flex flex-col">
-                <div class="h-2 bg-gradient-to-r from-primary to-purple-500"></div>
-                <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="p-6 flex-1">
-                    <h4 class="font-bold text-lg group-hover:text-primary transition-colors mb-1">{{ classroom.name }}</h4>
-                    <p class="text-sm text-slate-600 mb-3">{{ classroom.description|truncatechars:80|default:"Không có mô tả" }}</p>
-                    <div class="flex items-center justify-between text-xs font-medium text-slate-500 mt-4">
-                        <div class="flex items-center gap-2">
-                            {% if classroom.teacher %}
-                            <div class="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
-                                {{ classroom.teacher.first_name|first|default:classroom.teacher.username|first|upper }}
-                            </div>
-                            <span>{{ classroom.teacher.get_full_name|default:classroom.teacher.username|truncatechars:20 }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="flex items-center gap-1 uppercase tracking-wider">
-                            <span class="material-symbols-outlined text-sm">group</span>
-                            <span>{{ classroom.member_count }}</span>
-                        </div>
-                        <div class="flex items-center gap-1 uppercase tracking-wider">
-                            <span class="material-symbols-outlined text-sm">menu_book</span>
-                            <span>{{ classroom.subject_count|default:0 }}</span>
-                        </div>
-                    </div>
-                </a>
-                <div class="px-6 pb-6">
-                    {% if classroom.pk in pending_ids %}
-                    <button disabled class="w-full flex items-center justify-center gap-2 bg-amber-500/10 text-amber-500 font-bold py-2.5 px-4 rounded-lg text-sm cursor-not-allowed">
-                        <span class="material-symbols-outlined text-sm">hourglass_top</span>
-                        Đang chờ duyệt
-                    </button>
-                    {% else %}
-                    <form method="post" action="{% url 'classrooms:quick_join' pk=classroom.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-2.5 px-4 rounded-lg text-sm transition-colors">
-                            <span class="material-symbols-outlined text-sm">add</span>
-                            Tham gia lớp
-                        </button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-12 rounded-xl border border-dashed border-slate-300 bg-slate-50">
-            <div class="size-16 mx-auto rounded-full bg-primary-50 flex items-center justify-center mb-3">
-                <span class="material-symbols-outlined text-3xl text-slate-400">travel_explore</span>
-            </div>
-            <h3 class="font-bold mb-1">
-                {% if query %}Không tìm thấy lớp nào phù hợp với "{{ query }}"{% else %}Không có lớp mới nào để khám phá{% endif %}
-            </h3>
-            <p class="text-sm text-slate-600">
-                {% if query %}Hãy thử từ khóa khác hoặc xóa bộ lọc.{% else %}Bạn đã tham gia tất cả lớp học có sẵn!{% endif %}
-            </p>
-        </div>
+        </section>
         {% endif %}
-    </section>
-    {% endif %}
+    </div>
 </div>
 {% endblock %}

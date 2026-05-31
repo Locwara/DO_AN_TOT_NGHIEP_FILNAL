@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Attempts quiz - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1200px] mx-auto px-6 py-8 space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <a href="{% url 'assignments:quiz_manage' pk=assignment.pk %}" class="text-sm font-bold text-primary hover:text-primary/80">← Quản lý quiz</a>
+            <h1 class="text-3xl font-black text-primary-950 mt-2">Attempts học sinh</h1>
+            <p class="text-sm text-slate-600">{{ assignment.title }}</p>
+        </div>
+        <form method="get" class="flex items-center gap-2">
+            <select name="status" class="h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                <option value="">Tất cả trạng thái</option>
+                {% for value,label in status_choices %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button class="h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold">Lọc</button>
+        </form>
+    </div>
+
+    <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <table class="w-full min-w-[900px] text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
+                <tr>
+                    <th class="px-4 py-3 text-left">Học sinh</th>
+                    <th class="px-4 py-3 text-left">Lần</th>
+                    <th class="px-4 py-3 text-left">Trạng thái</th>
+                    <th class="px-4 py-3 text-left">Điểm</th>
+                    <th class="px-4 py-3 text-left">Thời gian</th>
+                    <th class="px-4 py-3 text-left">Bài chấm</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for attempt in attempts %}
+                <tr class="hover:bg-primary-50/40">
+                    <td class="px-4 py-3 font-bold text-slate-900">{{ attempt.student.get_full_name|default:attempt.student.username }}</td>
+                    <td class="px-4 py-3">#{{ attempt.attempt_no }}</td>
+                    <td class="px-4 py-3">{{ attempt.get_status_display }}</td>
+                    <td class="px-4 py-3">{{ attempt.score|floatformat:1 }} / {{ attempt.max_score|floatformat:1 }}</td>
+                    <td class="px-4 py-3">
+                        {% if attempt.duration_seconds %}{{ attempt.duration_seconds }} giây{% else %}--{% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if attempt.submission %}
+                        <a href="{% url 'submissions:grade' pk=attempt.submission.pk %}" class="text-primary font-bold hover:text-primary/80">Chấm/điều chỉnh</a>
+                        {% else %}
+                        <span class="text-slate-400">Chưa có submission</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-slate-500">
+                        Chưa có attempt nào. Luồng học sinh làm quiz sẽ tạo dữ liệu ở phần sau.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

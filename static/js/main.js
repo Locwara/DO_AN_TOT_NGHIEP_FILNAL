@@ -211,6 +211,8 @@
         node.style.fontSize = '13px';
         node.style.fontWeight = '700';
         node.style.boxShadow = 'var(--shadow-modal)';
+        node.setAttribute('role', 'status');
+        node.setAttribute('aria-live', 'polite');
         document.body.appendChild(node);
         window.setTimeout(() => node.remove(), 2200);
     }
@@ -307,6 +309,7 @@
         const iconNode = document.createElement('span');
         iconNode.className = 'material-symbols-outlined text-xs';
         iconNode.textContent = icon;
+        iconNode.setAttribute('aria-hidden', 'true');
         button.appendChild(iconNode);
         button.appendChild(document.createTextNode(text));
         return button;
@@ -518,8 +521,147 @@
         });
     }
 
+    function openMobileDrawer() {
+        const drawer = document.getElementById('mobile-drawer');
+        const hamburger = document.getElementById('nav-hamburger');
+        const icon = document.getElementById('hamburger-icon');
+        if (!drawer || !hamburger || !icon) return;
+        drawer.classList.remove('hidden');
+        drawer.setAttribute('aria-hidden', 'false');
+        hamburger.setAttribute('aria-expanded', 'true');
+        icon.textContent = 'close';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileDrawer() {
+        const drawer = document.getElementById('mobile-drawer');
+        const hamburger = document.getElementById('nav-hamburger');
+        const icon = document.getElementById('hamburger-icon');
+        if (!drawer || !hamburger || !icon) return;
+        drawer.classList.add('hidden');
+        drawer.setAttribute('aria-hidden', 'true');
+        hamburger.setAttribute('aria-expanded', 'false');
+        icon.textContent = 'menu';
+        document.body.style.overflow = '';
+    }
+
+    function toggleMobileDrawer() {
+        const drawer = document.getElementById('mobile-drawer');
+        if (!drawer) return;
+        if (drawer.classList.contains('hidden')) {
+            openMobileDrawer();
+        } else {
+            closeMobileDrawer();
+        }
+    }
+
+    function initMobileDrawer() {
+        const hamburger = document.getElementById('nav-hamburger');
+        const backdrop = document.getElementById('drawer-backdrop');
+        const closeButton = document.getElementById('drawer-close');
+        const drawer = document.getElementById('mobile-drawer');
+
+        hamburger?.addEventListener('click', toggleMobileDrawer);
+        backdrop?.addEventListener('click', closeMobileDrawer);
+        closeButton?.addEventListener('click', closeMobileDrawer);
+        drawer?.addEventListener('click', function (event) {
+            if (event.target.closest('a')) {
+                closeMobileDrawer();
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeMobileDrawer();
+            }
+        });
+    }
+
+    function initToasts() {
+        document.querySelectorAll('[data-autohide], .site-toast').forEach((toastNode) => {
+            const delay = parseInt(toastNode.dataset.autohide || '5000', 10);
+            window.setTimeout(() => {
+                toastNode.style.opacity = '0';
+                toastNode.style.transform = 'translateX(20px)';
+                window.setTimeout(() => toastNode.remove(), 300);
+            }, delay);
+        });
+    }
+
+    function initNotificationDropdowns() {
+        document.querySelectorAll('[data-notification-trigger]').forEach((trigger) => {
+            const wrapper = trigger.closest('.group, .relative');
+            if (!wrapper) return;
+
+            const setExpanded = (expanded) => {
+                trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            };
+
+            wrapper.addEventListener('mouseenter', () => setExpanded(true));
+            wrapper.addEventListener('mouseleave', () => setExpanded(false));
+            wrapper.addEventListener('focusin', () => setExpanded(true));
+            wrapper.addEventListener('focusout', (event) => {
+                if (!wrapper.contains(event.relatedTarget)) {
+                    setExpanded(false);
+                }
+            });
+        });
+    }
+
+    function tableLabel(table, index) {
+        if (table.getAttribute('aria-label') || table.querySelector('caption')) {
+            return table.getAttribute('aria-label') || table.querySelector('caption').textContent.trim();
+        }
+
+        const section = table.closest('section, article, .report-card, .admin-content-inner, .admin-content');
+        const heading = section ? section.querySelector('h1, h2, h3') : null;
+        const text = heading ? heading.textContent.replace(/\s+/g, ' ').trim() : '';
+        return text || `Bảng dữ liệu quản trị ${index + 1}`;
+    }
+
+    function initDataTables() {
+        document.querySelectorAll('.admin-content table').forEach((table, index) => {
+            const label = tableLabel(table, index);
+            table.classList.add('data-table');
+            if (table.querySelector('thead th:first-child input[type="checkbox"]')) {
+                table.dataset.hasCheckbox = 'true';
+            }
+            if (!table.getAttribute('aria-label') && !table.getAttribute('aria-labelledby') && !table.querySelector('caption')) {
+                table.setAttribute('aria-label', label);
+            }
+
+            table.querySelectorAll('thead th').forEach((th) => {
+                if (!th.getAttribute('scope')) th.setAttribute('scope', 'col');
+            });
+            table.querySelectorAll('tbody th').forEach((th) => {
+                if (!th.getAttribute('scope')) th.setAttribute('scope', 'row');
+            });
+
+            const parent = table.parentElement;
+            if (!parent || parent.classList.contains('table-wrapper')) return;
+            if (parent.classList.contains('overflow-x-auto') || parent.classList.contains('overflow-auto')) {
+                parent.classList.add('table-wrapper');
+                parent.setAttribute('role', 'region');
+                parent.setAttribute('aria-label', label);
+                parent.setAttribute('tabindex', '0');
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-wrapper';
+            wrapper.setAttribute('role', 'region');
+            wrapper.setAttribute('aria-label', label);
+            wrapper.setAttribute('tabindex', '0');
+            parent.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         renderSavedFilters();
         enhanceLongFilterSelects();
+        initMobileDrawer();
+        initToasts();
+        initNotificationDropdowns();
+        initDataTables();
     });
 })();

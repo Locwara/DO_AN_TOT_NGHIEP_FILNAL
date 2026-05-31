@@ -12,6 +12,8 @@ class Classrooms(models.Model):
     description = models.TextField(blank=True, null=True)
     invite_code = models.CharField(unique=True, max_length=10)
     teacher = models.ForeignKey(User, models.CASCADE, blank=True, null=True)
+    school_year = models.CharField(max_length=32, blank=True, null=True, help_text="VD: 2025-2026")
+    semester_term = models.CharField(max_length=32, blank=True, null=True, help_text="VD: Học kỳ 1")
     max_students = models.IntegerField(default=100)
     status = models.CharField(max_length=16, choices=ClassroomApprovalStatus.choices, default=ClassroomApprovalStatus.PENDING)
     approved_by = models.ForeignKey(User, models.SET_NULL, related_name='approved_classrooms', blank=True, null=True)
@@ -119,7 +121,7 @@ class ClassroomSubjects(models.Model):
 class ClassroomMembers(models.Model):
     classroom = models.ForeignKey(Classrooms, models.CASCADE, blank=True, null=True)
     student = models.ForeignKey(User, models.CASCADE, blank=True, null=True)
-    status = models.TextField(blank=True, null=True, default='approved')
+    status = models.TextField(blank=True, null=True, default='pending')
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

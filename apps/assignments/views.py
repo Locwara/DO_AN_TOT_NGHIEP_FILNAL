@@ -12,9 +12,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q, Count, Sum
-from django.db import transaction
-from django.http import HttpResponse, JsonResponse
+from django.db.models import Q, Count, Sum, Avg
+from django.db import transaction, models
+from django.http import HttpResponse, JsonResponse, Http404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -24,10 +24,24 @@ from core.decorators import teacher_required
 from apps.classrooms.models import Classrooms, ClassroomMembers, ClassroomSubjects, SubjectApprovalStatus, Semesters
 from apps.classrooms.views import _is_classroom_teacher, _is_classroom_member
 from apps.administation.models import ProgrammingLanguages
-from apps.administation.utils import csv_filename, csv_query_context, get_bool_setting, get_int_param, get_int_setting
+from apps.administation.utils import (
+    csv_filename, csv_query_context, get_bool_setting, get_int_param,
+    get_int_setting, get_list_setting, log_activity,
+)
 from apps.notifications.services import notify_users
-from .models import Assignments, Testcases, AssignmentFiles, AssignmentStatistics, Rubrics, PlagiarismReports
-from .forms import AssignmentForm, TestcaseForm, TestcaseImportForm, RubricForm
+from apps.submissions.utils import (
+    can_solve_assignment, sanitize_upload_filename, upload_to_configured_storage,
+    submission_final_score, validate_uploaded_files,
+)
+from .models import (
+    Assignments, Testcases, AssignmentFiles, AssignmentFileRequirements,
+    AssignmentStatistics, Rubrics, PlagiarismReports,
+    QuizSettings, QuizQuestions, QuizChoices, QuizQuestionImports,
+)
+from .forms import (
+    AssignmentFileRequirementsForm, AssignmentForm, TestcaseForm,
+    TestcaseImportForm, RubricForm, QuizQuestionForm,
+)
 
 
 ASSIGNMENT_UPLOAD_MAX_SIZE = 10 * 1024 * 1024
@@ -44,11 +58,74 @@ SUBMISSION_EXPORT_STATUSES = {
 logger = logging.getLogger(__name__)
 
 
+def _is_admin_user(user):
+    if user.is_superuser or user.is_staff:
+        return True
+    return _get_user_role(user) == 'admin'
+
+
+def _log_assignment_file_access(request, assignment, assignment_file, event_type):
+    logger.info(
+        'assignment_file_access event=%s file=%s assignment=%s actor=%s',
+        event_type,
+        assignment_file.pk,
+        assignment.pk,
+        request.user.pk,
+    )
+    if not assignment.is_exam or _is_classroom_teacher(request.user, assignment.classroom):
+        return
+    try:
+        from apps.submissions.models import ExamEvents, ExamSessions
+
+        session = ExamSessions.objects.filter(
+            assignment=assignment,
+            student=request.user,
+        ).first()
+        if session:
+            ExamEvents.objects.create(
+                session=session,
+                event_type=event_type,
+                metadata={
+                    'file_id': assignment_file.pk,
+                    'file_name': assignment_file.file_name,
+                    'actor_id': request.user.pk,
+                    'actor_username': request.user.username,
+                },
+            )
+    except Exception:
+        logger.exception('Failed to log assignment file access assignment=%s file=%s', assignment.pk, assignment_file.pk)
+
+
 def _get_user_role(user):
     try:
         return user.profiles.role
     except Exception:
         return 'student'
+
+
+def _assignment_publish_notification_payload(assignment, classroom):
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        title_prefix = 'Bài nộp file mới'
+        mode_label = 'nộp file'
+    elif assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        title_prefix = 'Quiz mới'
+        mode_label = 'trắc nghiệm'
+    else:
+        title_prefix = 'Bài tập mới'
+        mode_label = 'lập trình'
+    if assignment.is_exam:
+        title_prefix = f'Bài thi {mode_label} mới'
+    return {
+        'title': f'{title_prefix}: {assignment.title}',
+        'message': f'Lớp {classroom.name} vừa công bố bài {mode_label}.',
+        'notification_type': 'assignment_published',
+        'metadata': {
+            'assignment_id': assignment.pk,
+            'classroom_id': classroom.pk,
+            'submission_mode': assignment.submission_mode,
+            'is_exam': assignment.is_exam,
+        },
+    }
 
 
 def _parse_calendar_date(value, default_date):
@@ -195,7 +272,7 @@ def _build_calendar_data(request):
     start_dt, end_dt = _local_day_bounds(start_day, end_day)
 
     if is_teacher:
-        classrooms = Classrooms.objects.filter(teacher=request.user, is_active=True)
+        classrooms = Classrooms.objects.filter(teacher=request.user)
     elif is_admin:
         classrooms = Classrooms.objects.filter(is_active=True)
     else:
@@ -365,8 +442,21 @@ def _assignment_publish_errors(assignment):
         errors.append('Thiếu tên bài tập.')
     if not ((assignment.description or '').strip() or (assignment.instructions or '').strip()):
         errors.append('Nên có mô tả hoặc hướng dẫn đề bài.')
-    if assignment.type == 'auto_grade' and not Testcases.objects.filter(assignment=assignment).exists():
+    if (
+        assignment.submission_mode == Assignments.SUBMISSION_CODE
+        and assignment.grading_mode == Assignments.GRADING_AUTO
+        and not Testcases.objects.filter(assignment=assignment).exists()
+    ):
         errors.append('Bài chấm tự động cần ít nhất 1 testcase trước khi công bố.')
+    if assignment.submission_mode != Assignments.SUBMISSION_CODE:
+        if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+            if not hasattr(assignment, 'file_requirements'):
+                errors.append('Bài nộp file cần cấu hình yêu cầu file trước khi công bố.')
+        elif assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+            if not hasattr(assignment, 'quiz_settings'):
+                errors.append('Bài trắc nghiệm cần cấu hình quiz trước khi công bố.')
+            if not QuizQuestions.objects.filter(assignment=assignment, is_active=True).exists():
+                errors.append('Bài trắc nghiệm cần ít nhất 1 câu hỏi trước khi công bố.')
     if assignment.is_exam:
         if not assignment.exam_duration_minutes or assignment.exam_duration_minutes <= 0:
             errors.append('Bài thi cần thời gian làm bài hợp lệ.')
@@ -376,6 +466,14 @@ def _assignment_publish_errors(assignment):
 
 
 def _assignment_setup_checks(assignment):
+    has_file_requirements = False
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        has_file_requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).exists()
+    has_quiz_settings = False
+    has_quiz_questions = False
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        has_quiz_settings = QuizSettings.objects.filter(assignment=assignment).exists()
+        has_quiz_questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).exists()
     return [
         {
             'label': 'Có tên bài tập',
@@ -387,7 +485,31 @@ def _assignment_setup_checks(assignment):
         },
         {
             'label': 'Auto-grade có ít nhất 1 testcase',
-            'done': assignment.type != 'auto_grade' or Testcases.objects.filter(assignment=assignment).exists(),
+            'done': (
+                assignment.submission_mode != Assignments.SUBMISSION_CODE
+                or assignment.grading_mode != Assignments.GRADING_AUTO
+                or Testcases.objects.filter(assignment=assignment).exists()
+            ),
+        },
+        {
+            'label': 'Mode làm bài đã có luồng nộp',
+            'done': assignment.submission_mode in (
+                Assignments.SUBMISSION_CODE,
+                Assignments.SUBMISSION_FILE,
+                Assignments.SUBMISSION_QUIZ,
+            ),
+        },
+        {
+            'label': 'Bài nộp file có yêu cầu định dạng/dung lượng',
+            'done': assignment.submission_mode != Assignments.SUBMISSION_FILE or has_file_requirements,
+        },
+        {
+            'label': 'Bài trắc nghiệm có cấu hình quiz',
+            'done': assignment.submission_mode != Assignments.SUBMISSION_QUIZ or has_quiz_settings,
+        },
+        {
+            'label': 'Bài trắc nghiệm có ít nhất 1 câu hỏi',
+            'done': assignment.submission_mode != Assignments.SUBMISSION_QUIZ or has_quiz_questions,
         },
         {
             'label': 'Bài thi có thời gian làm bài',
@@ -398,6 +520,21 @@ def _assignment_setup_checks(assignment):
             'done': (Rubrics.objects.filter(assignment=assignment, is_active=True).aggregate(total=Sum('max_points'))['total'] or 0) <= assignment.max_score,
         },
     ]
+
+
+def _sync_quiz_grading_mode(assignment):
+    if assignment.submission_mode != Assignments.SUBMISSION_QUIZ:
+        return
+    has_short_text = QuizQuestions.objects.filter(
+        assignment=assignment,
+        is_active=True,
+        question_type=QuizQuestions.TYPE_SHORT_TEXT,
+    ).exists()
+    target_mode = Assignments.GRADING_MIXED if has_short_text else Assignments.GRADING_AUTO
+    if assignment.grading_mode != target_mode:
+        assignment.grading_mode = target_mode
+        assignment.type = 'manual_grade' if target_mode == Assignments.GRADING_MIXED else 'auto_grade'
+        assignment.save(update_fields=['grading_mode', 'type', 'updated_at'])
 
 
 @login_required
@@ -430,7 +567,10 @@ def calendar_events_view(request):
 
 @login_required
 def assignment_list_view(request, classroom_pk):
-    classroom = get_object_or_404(Classrooms, pk=classroom_pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=classroom_pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     is_teacher = _is_classroom_teacher(request.user, classroom)
     is_member = _is_classroom_member(request.user, classroom)
 
@@ -495,16 +635,24 @@ def assignment_list_view(request, classroom_pk):
         'selected_subject_link': selected_subject_link,
         'cs_filter': cs_filter,
         'sem_filter': sem_filter,
+        'breadcrumbs': [
+            {'label': 'Lớp học', 'url': reverse('classrooms:classroom_list')},
+            {'label': classroom.name, 'url': reverse('classrooms:classroom_detail', kwargs={'pk': classroom.pk})},
+            {'label': 'Bài tập'},
+        ],
     }
     return render(request, 'assignments/list.html', context)
 
 
 @login_required
 def assignment_detail_view(request, pk):
-    from apps.submissions.models import ExamSessions
+    from apps.submissions.models import ExamSessions, QuizAttempts
 
     assignment = get_object_or_404(Assignments, pk=pk)
     classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     is_teacher = _is_classroom_teacher(request.user, classroom)
     is_member = _is_classroom_member(request.user, classroom)
 
@@ -518,6 +666,9 @@ def assignment_detail_view(request, pk):
 
     all_testcases = Testcases.objects.filter(assignment=assignment).order_by('order_index')
     files = AssignmentFiles.objects.filter(assignment=assignment).order_by('-uploaded_at')
+    file_requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
+    quiz_settings = QuizSettings.objects.filter(assignment=assignment).first()
+    quiz_questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).prefetch_related('choices').order_by('order_index', 'id')
     statistics = AssignmentStatistics.objects.filter(assignment=assignment).first()
     rubrics = Rubrics.objects.filter(assignment=assignment, is_active=True).order_by('order_index', 'id')
     rubric_total = sum(r.max_points for r in rubrics)
@@ -529,11 +680,20 @@ def assignment_detail_view(request, pk):
 
     total_weight = sum(tc.weight for tc in all_testcases)
     exam_session = None
+    quiz_attempt_count = 0
+    quiz_remaining_attempts = None
     if assignment.is_exam and not is_teacher:
         exam_session = ExamSessions.objects.filter(
             assignment=assignment,
             student=request.user,
         ).select_related('final_submission').first()
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ and not is_teacher:
+        quiz_attempt_count = QuizAttempts.objects.filter(
+            assignment=assignment,
+            student=request.user,
+        ).exclude(status=QuizAttempts.STATUS_CANCELLED).count()
+        if assignment.max_attempts:
+            quiz_remaining_attempts = max(0, assignment.max_attempts - quiz_attempt_count)
 
     context = {
         'assignment': assignment,
@@ -546,13 +706,133 @@ def assignment_detail_view(request, pk):
         'total_testcases': all_testcases.count(),
         'total_weight': total_weight,
         'files': files,
+        'file_requirements': file_requirements,
+        'quiz_settings': quiz_settings,
+        'quiz_questions': quiz_questions,
         'statistics': statistics,
         'rubrics': rubrics,
         'rubric_total': rubric_total,
         'rubric_form': RubricForm(),
         'setup_checks': _assignment_setup_checks(assignment) if is_teacher else [],
+        'quiz_attempt_count': quiz_attempt_count,
+        'quiz_remaining_attempts': quiz_remaining_attempts,
     }
     return render(request, 'assignments/detail.html', context)
+
+
+def _default_file_requirements(assignment):
+    return AssignmentFileRequirements(
+        assignment=assignment,
+        allowed_extensions=get_list_setting(
+            'uploads.submission_allowed_extensions',
+            ['.pdf', '.docx', '.zip', '.py', '.cpp'],
+            allowed_values=[value for value, _label in AssignmentForm.FILE_EXTENSION_CHOICES],
+        ),
+        max_file_size_mb=get_int_setting(
+            'uploads.submission_default_max_mb',
+            20,
+            minimum=1,
+            maximum=100,
+        ),
+        max_files=get_int_setting(
+            'uploads.submission_default_max_files',
+            1,
+            minimum=1,
+            maximum=20,
+        ),
+        allow_resubmit=True,
+        require_all_files_before_submit=True,
+        scan_required=get_bool_setting('uploads.submission_scan_required_default', False),
+    )
+
+
+@teacher_required
+def file_requirements_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền chỉnh yêu cầu file của bài này.')
+        return redirect('classrooms:classroom_list')
+    if assignment.submission_mode != Assignments.SUBMISSION_FILE:
+        messages.error(request, 'Chỉ bài dạng nộp file mới có cấu hình yêu cầu file.')
+        return redirect('assignments:detail', pk=assignment.pk)
+
+    requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
+    if requirements is None:
+        requirements = _default_file_requirements(assignment)
+
+    if request.method == 'POST':
+        form = AssignmentFileRequirementsForm(request.POST, instance=requirements)
+        if form.is_valid():
+            saved = form.save(commit=False)
+            saved.assignment = assignment
+            saved.save()
+            log_activity(
+                request.user,
+                'ASSIGNMENT_FILE_REQUIREMENTS_UPDATE',
+                'assignments',
+                assignment.pk,
+                metadata={
+                    'assignment_id': assignment.pk,
+                    'classroom_id': classroom.pk,
+                    'allowed_extensions': saved.allowed_extensions,
+                    'max_file_size_mb': saved.max_file_size_mb,
+                    'max_files': saved.max_files,
+                    'require_comment': saved.require_comment,
+                    'allow_resubmit': saved.allow_resubmit,
+                    'scan_required': saved.scan_required,
+                },
+                request=request,
+            )
+            messages.success(request, 'Đã cập nhật yêu cầu nộp file.')
+            return redirect('assignments:detail', pk=assignment.pk)
+    else:
+        form = AssignmentFileRequirementsForm(instance=requirements)
+
+    context = {
+        'assignment': assignment,
+        'classroom': classroom,
+        'form': form,
+        'selected_extensions': form['allowed_extensions'].value() or [],
+    }
+    return render(request, 'assignments/file_requirements.html', context)
+
+
+@teacher_required
+@require_POST
+def release_grades_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền công bố điểm bài này.')
+        return redirect('classrooms:classroom_list')
+
+    show_feedback = request.POST.get('show_feedback_after_release', '1') == '1'
+    assignment.grades_released_at = timezone.now()
+    assignment.show_feedback_after_release = show_feedback
+    assignment.save(update_fields=['grades_released_at', 'show_feedback_after_release', 'updated_at'])
+
+    from apps.submissions.models import Submissions
+    student_ids = Submissions.objects.filter(
+        assignment=assignment,
+        student__isnull=False,
+    ).values_list('student_id', flat=True).distinct()
+    notify_users(
+        student_ids,
+        title=f'Đã công bố điểm: {assignment.title}',
+        message=f'Giáo viên đã công bố điểm bài {assignment.get_submission_mode_display().lower()} trong lớp {classroom.name}.',
+        link=f'/assignments/{assignment.pk}/',
+        notification_type='grades_released',
+        actor=request.user,
+        metadata={
+            'assignment_id': assignment.pk,
+            'classroom_id': classroom.pk,
+            'submission_mode': assignment.submission_mode,
+            'is_exam': assignment.is_exam,
+        },
+    )
+    messages.success(request, 'Đã công bố điểm và gửi thông báo cho học sinh có bài nộp.')
+    return redirect('assignments:detail', pk=assignment.pk)
 
 
 @teacher_required
@@ -600,9 +880,550 @@ def delete_rubric_view(request, pk, rubric_pk):
     return redirect('assignments:detail', pk=pk)
 
 
+def _quiz_teacher_assignment(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền quản lý quiz của bài này.')
+        return assignment, classroom, False
+    if assignment.submission_mode != Assignments.SUBMISSION_QUIZ:
+        messages.error(request, 'Bài này không phải dạng trắc nghiệm.')
+        return assignment, classroom, False
+    return assignment, classroom, True
+
+
+def _correct_token_to_index(token):
+    token = (token or '').strip().upper()
+    if not token:
+        return None
+    if token.isdigit():
+        return int(token) - 1
+    if len(token) == 1 and 'A' <= token <= 'Z':
+        return ord(token) - ord('A')
+    return None
+
+
+def _save_quiz_choices(question, choices, correct_tokens):
+    question.choices.all().delete()
+    correct_indexes = {
+        index
+        for index in (_correct_token_to_index(token) for token in correct_tokens)
+        if index is not None
+    }
+    for index, choice_text in enumerate(choices):
+        QuizChoices.objects.create(
+            question=question,
+            choice_text=choice_text,
+            is_correct=index in correct_indexes,
+            order_index=index,
+        )
+
+
+def _question_form_initial(question):
+    choices = list(question.choices.all().order_by('order_index', 'id'))
+    correct = []
+    for index, choice in enumerate(choices):
+        if choice.is_correct:
+            correct.append(chr(ord('A') + index))
+    return {
+        'choices_text': '\n'.join(choice.choice_text for choice in choices),
+        'correct_answers': ';'.join(correct),
+        'tags': ', '.join(question.tags or []),
+    }
+
+
+@teacher_required
+def quiz_manage_view(request, pk):
+    assignment, classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+
+    from apps.submissions.models import QuizAttempts, QuizAnswers
+
+    settings = QuizSettings.objects.filter(assignment=assignment).first()
+    questions = QuizQuestions.objects.filter(assignment=assignment).prefetch_related('choices').order_by('order_index', 'id')
+    active_questions = questions.filter(is_active=True)
+    next_order = (questions.aggregate(max_order=models.Max('order_index'))['max_order'] or 0) + 1
+    form = QuizQuestionForm(initial={'order_index': next_order, 'points': 1})
+
+    attempts = QuizAttempts.objects.filter(assignment=assignment)
+    answers = QuizAnswers.objects.filter(question__assignment=assignment).select_related('question').prefetch_related('selected_choices')
+    question_stats = {
+        question.pk: {
+            'answers': 0,
+            'correct': 0,
+            'correct_rate': 0,
+        }
+        for question in questions
+    }
+    for answer in answers:
+        stats = question_stats.setdefault(answer.question_id, {'answers': 0, 'correct': 0, 'correct_rate': 0})
+        stats['answers'] += 1
+        if answer.is_correct:
+            stats['correct'] += 1
+    for stats in question_stats.values():
+        stats['correct_rate'] = round(stats['correct'] / stats['answers'] * 100, 1) if stats['answers'] else 0
+
+    context = {
+        'assignment': assignment,
+        'classroom': classroom,
+        'settings': settings,
+        'questions': questions,
+        'active_questions': active_questions,
+        'form': form,
+        'attempt_count': attempts.count(),
+        'submitted_attempt_count': attempts.filter(status__in=['submitted', 'auto_submitted']).count(),
+        'avg_attempt_score': attempts.exclude(score__isnull=True).aggregate(avg=Avg('score'))['avg'],
+        'question_stats': question_stats,
+    }
+    return render(request, 'assignments/quiz_manage.html', context)
+
+
+@teacher_required
+@require_POST
+def add_quiz_question_view(request, pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    form = QuizQuestionForm(request.POST)
+    if form.is_valid():
+        question = form.save(commit=False)
+        question.assignment = assignment
+        question.save()
+        _save_quiz_choices(
+            question,
+            form.cleaned_data.get('_parsed_choices') or [],
+            form.cleaned_data.get('_parsed_correct_answers') or [],
+        )
+        _sync_quiz_grading_mode(assignment)
+        messages.success(request, 'Đã thêm câu hỏi trắc nghiệm.')
+    else:
+        first_error = next(iter(form.errors.values()))[0]
+        messages.error(request, first_error)
+    return redirect('assignments:quiz_manage', pk=assignment.pk)
+
+
+@teacher_required
+def edit_quiz_question_view(request, pk, question_pk):
+    assignment, classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    question = get_object_or_404(QuizQuestions.objects.prefetch_related('choices'), pk=question_pk, assignment=assignment)
+    if request.method == 'POST':
+        form = QuizQuestionForm(request.POST, instance=question)
+        if form.is_valid():
+            question = form.save()
+            _save_quiz_choices(
+                question,
+                form.cleaned_data.get('_parsed_choices') or [],
+                form.cleaned_data.get('_parsed_correct_answers') or [],
+            )
+            _sync_quiz_grading_mode(assignment)
+            messages.success(request, 'Đã cập nhật câu hỏi.')
+            return redirect('assignments:quiz_manage', pk=assignment.pk)
+    else:
+        form = QuizQuestionForm(instance=question, initial=_question_form_initial(question))
+    return render(request, 'assignments/quiz_question_form.html', {
+        'assignment': assignment,
+        'classroom': classroom,
+        'question': question,
+        'form': form,
+    })
+
+
+@teacher_required
+@require_POST
+def toggle_quiz_question_view(request, pk, question_pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    question = get_object_or_404(QuizQuestions, pk=question_pk, assignment=assignment)
+    question.is_active = not question.is_active
+    question.save(update_fields=['is_active', 'updated_at'])
+    _sync_quiz_grading_mode(assignment)
+    messages.success(request, 'Đã cập nhật trạng thái câu hỏi.')
+    return redirect('assignments:quiz_manage', pk=assignment.pk)
+
+
+@teacher_required
+@require_POST
+def delete_quiz_question_view(request, pk, question_pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    question = get_object_or_404(QuizQuestions, pk=question_pk, assignment=assignment)
+    question.is_active = False
+    question.save(update_fields=['is_active', 'updated_at'])
+    _sync_quiz_grading_mode(assignment)
+    messages.success(request, 'Đã ẩn câu hỏi. Các attempt cũ vẫn giữ dữ liệu.')
+    return redirect('assignments:quiz_manage', pk=assignment.pk)
+
+
+@teacher_required
+def quiz_preview_view(request, pk):
+    assignment, classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    settings = QuizSettings.objects.filter(assignment=assignment).first()
+    questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).prefetch_related('choices').order_by('order_index', 'id')
+    return render(request, 'assignments/quiz_preview.html', {
+        'assignment': assignment,
+        'classroom': classroom,
+        'settings': settings,
+        'questions': questions,
+    })
+
+
+def _write_quiz_question_rows(response, questions):
+    writer = csv.writer(response)
+    writer.writerow([
+        'question_text', 'question_type', 'points', 'choice_a', 'choice_b',
+        'choice_c', 'choice_d', 'choice_e', 'choice_f', 'choices_json',
+        'correct_answers', 'explanation', 'tags', 'difficulty',
+    ])
+    for question in questions:
+        choices = list(question.choices.all().order_by('order_index', 'id'))
+        correct = [
+            chr(ord('A') + index)
+            for index, choice in enumerate(choices)
+            if choice.is_correct
+        ]
+        choice_texts = [choice.choice_text for choice in choices[:6]]
+        choice_texts += [''] * (6 - len(choice_texts))
+        writer.writerow([
+            question.question_text,
+            question.question_type,
+            question.points,
+            *choice_texts,
+            '',
+            ';'.join(correct),
+            question.explanation or '',
+            ';'.join(question.tags or []),
+            question.difficulty or '',
+        ])
+
+
+@teacher_required
+def export_quiz_questions_view(request, pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    filename = csv_filename(f'quiz_questions_{slugify(assignment.title) or assignment.pk}')
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write('\ufeff')
+    questions = QuizQuestions.objects.filter(assignment=assignment).prefetch_related('choices').order_by('order_index', 'id')
+    _write_quiz_question_rows(response, questions)
+    return response
+
+
+@teacher_required
+def sample_quiz_csv_view(request, pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="quiz_questions_template.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow([
+        'question_text', 'question_type', 'points', 'choice_a', 'choice_b',
+        'choice_c', 'choice_d', 'choice_e', 'choice_f', 'choices_json',
+        'correct_answers', 'explanation', 'tags', 'difficulty',
+    ])
+    writer.writerow([
+        'Độ phức tạp của binary search là gì?', 'single_choice', 1,
+        'O(n)', 'O(log n)', 'O(n log n)', 'O(1)', '', '', '', 'B',
+        'Binary search chia đôi không gian tìm kiếm.', 'algorithm;search', 'easy',
+    ])
+    writer.writerow([
+        'Chọn các kiểu dữ liệu mutable trong Python', 'multiple_choice', 2,
+        'list', 'tuple', 'dict', 'str', '', '', '', 'A;C',
+        'list và dict có thể thay đổi tại chỗ.', 'python;datatype', 'medium',
+    ])
+    writer.writerow([
+        'Framework nào dùng virtual DOM?', 'single_choice', 1,
+        '', '', '', '', '', '',
+        json.dumps(['React', 'Django', 'PostgreSQL', 'Linux'], ensure_ascii=False),
+        'A',
+        'React dùng virtual DOM để tối ưu render UI.', 'frontend;react', 'easy',
+    ])
+    return response
+
+
+def _split_csv_tokens(value):
+    return [
+        item.strip().upper()
+        for item in (value or '').replace(',', ';').split(';')
+        if item.strip()
+    ]
+
+
+def _choice_columns_from_row(row):
+    choices = []
+    for key, value in row.items():
+        normalized = (key or '').strip().lower()
+        if not normalized.startswith('choice_') or normalized == 'choices_json':
+            continue
+        suffix = normalized.replace('choice_', '', 1)
+        order = None
+        if len(suffix) == 1 and 'a' <= suffix <= 'z':
+            order = ord(suffix) - ord('a')
+        elif suffix.isdigit():
+            order = int(suffix) - 1
+        if order is not None:
+            text = (value or '').strip()
+            if text:
+                choices.append((order, text))
+    return [choice for _order, choice in sorted(choices, key=lambda item: item[0])]
+
+
+def _choices_from_json(value):
+    value = (value or '').strip()
+    if not value:
+        return [], []
+    try:
+        raw_choices = json.loads(value)
+    except json.JSONDecodeError as exc:
+        return [], [f'choices_json không hợp lệ: {exc.msg}.']
+    choices = []
+    errors = []
+    if not isinstance(raw_choices, list):
+        return [], ['choices_json phải là JSON array.']
+    for index, item in enumerate(raw_choices, start=1):
+        if isinstance(item, str):
+            text = item.strip()
+        elif isinstance(item, dict):
+            text = str(item.get('text') or item.get('choice_text') or '').strip()
+        else:
+            text = ''
+        if text:
+            choices.append(text)
+        else:
+            errors.append(f'choices_json item #{index} thiếu text.')
+    return choices, errors
+
+
+def _correct_indexes_from_tokens(tokens, choices):
+    indexes = []
+    invalid = []
+    for token in tokens:
+        index = _correct_token_to_index(token)
+        if index is None or index < 0 or index >= len(choices):
+            invalid.append(token)
+        else:
+            indexes.append(index)
+    return indexes, invalid
+
+
+def _parse_quiz_csv_rows(text):
+    reader = csv.DictReader(io.StringIO(text))
+    required_headers = {'question_text', 'question_type', 'points', 'correct_answers'}
+    headers = {header.strip() for header in (reader.fieldnames or []) if header}
+    missing_headers = sorted(required_headers - headers)
+    if missing_headers:
+        return [], [{'line_no': 1, 'errors': [f"CSV thiếu cột: {', '.join(missing_headers)}."]}]
+
+    rows = []
+    errors = []
+    for line_no, row in enumerate(reader, start=2):
+        question_text = (row.get('question_text') or '').strip()
+        question_type = (row.get('question_type') or QuizQuestions.TYPE_SINGLE_CHOICE).strip()
+        try:
+            points = float(row.get('points') or 1)
+        except ValueError:
+            points = 0
+        choices = _choice_columns_from_row(row)
+        json_choices, json_errors = _choices_from_json(row.get('choices_json'))
+        if json_choices:
+            choices = json_choices
+        correct = _split_csv_tokens(row.get('correct_answers'))
+        correct_indexes, invalid_correct = _correct_indexes_from_tokens(correct, choices)
+        row_errors = []
+        row_errors.extend(json_errors)
+        if not question_text:
+            row_errors.append('Thiếu question_text.')
+        if question_type not in dict(QuizQuestions.QUESTION_TYPE_CHOICES):
+            row_errors.append('question_type không hợp lệ.')
+        if points <= 0:
+            row_errors.append('points phải lớn hơn 0.')
+        if question_type != QuizQuestions.TYPE_SHORT_TEXT:
+            if len(choices) < 2:
+                row_errors.append('Cần ít nhất 2 đáp án.')
+            if not correct:
+                row_errors.append('Thiếu correct_answers.')
+            if invalid_correct:
+                row_errors.append(f"correct_answers không tồn tại trong đáp án: {', '.join(invalid_correct)}.")
+            if question_type in (QuizQuestions.TYPE_SINGLE_CHOICE, QuizQuestions.TYPE_TRUE_FALSE) and len(correct) != 1:
+                row_errors.append('Single/true_false chỉ có một đáp án đúng.')
+            if question_type == QuizQuestions.TYPE_MULTIPLE_CHOICE and len(correct_indexes) < 1:
+                row_errors.append('Multiple choice cần ít nhất một đáp án đúng.')
+        elif correct:
+            row_errors.append('short_text chưa hỗ trợ correct_answers trong phase này.')
+        parsed = {
+            'line_no': line_no,
+            'question_text': question_text,
+            'question_type': question_type,
+            'points': points,
+            'choices': choices,
+            'correct_answers': correct,
+            'correct_indexes': correct_indexes,
+            'explanation': (row.get('explanation') or '').strip(),
+            'tags': [item.strip() for item in (row.get('tags') or '').replace(',', ';').split(';') if item.strip()],
+            'difficulty': (row.get('difficulty') or '').strip(),
+            'errors': row_errors,
+        }
+        rows.append(parsed)
+        if row_errors:
+            errors.append({'line_no': line_no, 'errors': row_errors})
+    return rows, errors
+
+
+@teacher_required
+def import_quiz_questions_view(request, pk):
+    assignment, classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    preview_rows = None
+    errors = []
+    preview_summary = None
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'confirm':
+            payload = request.session.get(f'quiz_import_{assignment.pk}', {})
+            rows = payload.get('rows', []) if isinstance(payload, dict) else payload
+            file_name = payload.get('file_name', '') if isinstance(payload, dict) else ''
+            clear_existing = bool(request.POST.get('clear_existing'))
+            success = 0
+            with transaction.atomic():
+                if clear_existing:
+                    QuizQuestions.objects.filter(assignment=assignment).update(is_active=False)
+                order_base = QuizQuestions.objects.filter(assignment=assignment).aggregate(
+                    max_order=models.Max('order_index')
+                )['max_order'] or 0
+                for row in rows:
+                    if row.get('errors'):
+                        continue
+                    order_base += 1
+                    question = QuizQuestions.objects.create(
+                        assignment=assignment,
+                        question_text=row['question_text'],
+                        question_type=row['question_type'],
+                        points=row['points'],
+                        order_index=order_base,
+                        explanation=row.get('explanation') or '',
+                        tags=row.get('tags') or [],
+                        difficulty=row.get('difficulty') or '',
+                        metadata={
+                            'import_line_no': row.get('line_no'),
+                            'import_source': file_name or 'pasted_csv',
+                        },
+                    )
+                    _save_quiz_choices(question, row.get('choices') or [], row.get('correct_answers') or [])
+                    success += 1
+                import_record = QuizQuestionImports.objects.create(
+                    assignment=assignment,
+                    file_name=file_name or 'pasted_csv.csv',
+                    imported_by=request.user,
+                    total_rows=len(rows),
+                    success_rows=success,
+                    error_rows=sum(1 for row in rows if row.get('errors')),
+                    clear_existing=clear_existing,
+                    metadata={
+                        'valid_rows': success,
+                        'error_lines': [
+                            {'line_no': row.get('line_no'), 'errors': row.get('errors')}
+                            for row in rows if row.get('errors')
+                        ],
+                    },
+                )
+                _sync_quiz_grading_mode(assignment)
+                log_activity(
+                    request.user,
+                    'QUIZ_CSV_IMPORT',
+                    'assignments',
+                    assignment.pk,
+                    metadata={
+                        'assignment_id': assignment.pk,
+                        'classroom_id': classroom.pk,
+                        'import_id': import_record.pk,
+                        'file_name': import_record.file_name,
+                        'total_rows': import_record.total_rows,
+                        'success_rows': import_record.success_rows,
+                        'error_rows': import_record.error_rows,
+                        'clear_existing': clear_existing,
+                    },
+                    request=request,
+                )
+            request.session.pop(f'quiz_import_{assignment.pk}', None)
+            messages.success(request, f'Đã import {success} câu hỏi quiz.')
+            return redirect('assignments:quiz_manage', pk=assignment.pk)
+
+        uploaded = request.FILES.get('file')
+        content = request.POST.get('content') or ''
+        file_name = ''
+        if uploaded:
+            file_name = uploaded.name or ''
+            if uploaded.size > 1024 * 1024:
+                errors.append('File CSV tối đa 1MB.')
+            else:
+                content = uploaded.read().decode('utf-8-sig')
+        if not content.strip():
+            errors.append('Vui lòng upload hoặc dán nội dung CSV.')
+        if not errors:
+            preview_rows, errors = _parse_quiz_csv_rows(content)
+            preview_summary = {
+                'total': len(preview_rows),
+                'valid': sum(1 for row in preview_rows if not row.get('errors')),
+                'error': sum(1 for row in preview_rows if row.get('errors')),
+            }
+            request.session[f'quiz_import_{assignment.pk}'] = {
+                'file_name': file_name,
+                'rows': preview_rows,
+                'summary': preview_summary,
+            }
+    import_history = QuizQuestionImports.objects.filter(assignment=assignment).select_related('imported_by')[:8]
+    return render(request, 'assignments/quiz_import.html', {
+        'assignment': assignment,
+        'classroom': classroom,
+        'preview_rows': preview_rows,
+        'errors': errors,
+        'preview_summary': preview_summary,
+        'import_history': import_history,
+    })
+
+
+@teacher_required
+def quiz_attempts_view(request, pk):
+    assignment, classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return redirect('assignments:detail', pk=pk)
+    from apps.submissions.models import QuizAttempts
+
+    attempts = QuizAttempts.objects.filter(assignment=assignment).select_related(
+        'student', 'submission', 'exam_session'
+    ).order_by('-created_at')
+    status_filter = request.GET.get('status', '').strip()
+    if status_filter:
+        attempts = attempts.filter(status=status_filter)
+    paginator = Paginator(attempts, 30)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'assignments/quiz_attempts.html', {
+        'assignment': assignment,
+        'classroom': classroom,
+        'attempts': page_obj,
+        'page_obj': page_obj,
+        'status_filter': status_filter,
+        'status_choices': QuizAttempts.STATUS_CHOICES,
+    })
+
+
 @teacher_required
 def create_assignment_view(request, classroom_pk):
-    classroom = get_object_or_404(Classrooms, pk=classroom_pk, is_active=True)
+    classroom = get_object_or_404(Classrooms, pk=classroom_pk)
+    if not _is_classroom_teacher(request.user, classroom) and not classroom.is_active:
+        raise Http404("Lớp học không tồn tại hoặc chưa được duyệt.")
+        
     if not _is_classroom_teacher(request.user, classroom):
         messages.error(request, 'Bạn không có quyền tạo bài tập cho lớp này.')
         return redirect('classrooms:classroom_list')
@@ -617,7 +1438,9 @@ def create_assignment_view(request, classroom_pk):
             assignment.created_by = request.user
 
             selected_langs = request.POST.getlist('allowed_languages')
-            assignment.allowed_languages = selected_langs if selected_langs else None
+            assignment.allowed_languages = (
+                selected_langs if assignment.submission_mode == Assignments.SUBMISSION_CODE and selected_langs else None
+            )
 
             # Validate: nếu có chọn classroom_subject thì phải thuộc lớp này
             cs = form.cleaned_data.get('classroom_subject')
@@ -628,10 +1451,78 @@ def create_assignment_view(request, classroom_pk):
                     'selected_languages': request.POST.getlist('allowed_languages'),
                 })
 
+            # --- Integrated Testcase Extraction ---
+            testcases_to_create = []
+            if assignment.submission_mode == Assignments.SUBMISSION_CODE:
+                import re
+                p = re.compile(r'^tc_name_(\d+)$')
+                for key in request.POST:
+                    match = p.match(key)
+                    if match:
+                        idx = match.group(1)
+                        name = request.POST.get(f'tc_name_{idx}', '').strip()
+                        input_data = request.POST.get(f'tc_input_{idx}', '')
+                        output_data = request.POST.get(f'tc_output_{idx}', '')
+                        is_sample = request.POST.get(f'tc_sample_{idx}') == 'on'
+                        if output_data.strip():
+                            testcases_to_create.append({
+                                'name': name,
+                                'input_data': input_data,
+                                'expected_output': output_data,
+                                'is_sample': is_sample,
+                                'is_hidden': not is_sample
+                            })
+
+            # --- Quiz Import Handling ---
+            quiz_import_file = request.FILES.get('quiz_import_file')
+            
             requested_publish = 'publish' in request.POST
+            
+            # --- Solution Verification (CODE mode) ---
+            if requested_publish and assignment.submission_mode == Assignments.SUBMISSION_CODE:
+                solution_code = assignment.solution_code
+                if not solution_code:
+                    form.add_error('solution_code', 'Bạn phải cung cấp mã nguồn mẫu để hệ thống kiểm tra testcase khi công bố.')
+                elif not testcases_to_create:
+                    messages.error(request, 'Bạn phải thêm ít nhất một testcase để hệ thống kiểm tra bài tập lập trình.')
+                else:
+                    from services.docker_service import run_testcase
+                    lang = (selected_langs[0] if selected_langs else 'python3')
+                    failed_tests = []
+                    for tc in testcases_to_create:
+                        result = run_testcase(solution_code, lang, tc['input_data'], tc['expected_output'])
+                        if not result['passed']:
+                            error_detail = result.get('error_message') or f"Kết quả thực tế: '{result['actual_output']}'"
+                            failed_tests.append(f"Testcase '{tc['name']}': {error_detail}")
+                    if failed_tests:
+                        error_msg = "Mã nguồn mẫu không vượt qua các testcase sau:<br>• " + "<br>• ".join(failed_tests)
+                        messages.error(request, error_msg)
+                        return render(request, 'assignments/create.html', {
+                            'form': form, 'classroom': classroom, 'languages': languages,
+                            'selected_languages': request.POST.getlist('allowed_languages'),
+                        })
+
             if requested_publish:
                 assignment.is_published = True
+            
             assignment.save()
+            form.save_file_requirements(assignment)
+            form.save_quiz_settings(assignment)
+            
+            # Save Testcases
+            from .models import Testcases
+            for tc_data in testcases_to_create:
+                Testcases.objects.create(assignment=assignment, **tc_data)
+
+            # Process Quiz Import if file exists
+            if assignment.submission_mode == Assignments.SUBMISSION_QUIZ and quiz_import_file:
+                from .quiz_utils import process_quiz_import
+                success, result = process_quiz_import(quiz_import_file, assignment)
+                if success:
+                    messages.success(request, f'Đã import thành công {result} câu hỏi trắc nghiệm từ file.')
+                else:
+                    messages.error(request, f'Lỗi khi import câu hỏi: {result}')
+
             publish_errors = _assignment_publish_errors(assignment) if requested_publish else []
             if publish_errors:
                 assignment.is_published = False
@@ -640,18 +1531,15 @@ def create_assignment_view(request, classroom_pk):
                     messages.warning(request, error)
                 messages.info(request, 'Bài đã được lưu nháp. Hoàn tất checklist rồi công bố sau.')
             elif assignment.is_published:
-                student_ids = ClassroomMembers.objects.filter(
-                    classroom=classroom,
-                    status='approved',
-                ).values_list('student_id', flat=True)
+                # Notify students
+                from apps.classrooms.models import ClassroomMembers
+                from apps.notifications.services import notify_users
+                student_ids = ClassroomMembers.objects.filter(classroom=classroom, status='approved').values_list('student_id', flat=True)
+                payload = _assignment_publish_notification_payload(assignment, classroom)
                 notify_users(
-                    student_ids,
-                    title=f'Bài tập mới: {assignment.title}',
-                    message=f'Lớp {classroom.name} vừa công bố bài tập mới.',
-                    link=f'/assignments/{assignment.pk}/',
-                    notification_type='assignment_published',
-                    actor=request.user,
-                    metadata={'assignment_id': assignment.pk, 'classroom_id': classroom.pk},
+                    student_ids, title=payload['title'], message=payload['message'],
+                    link=f'/assignments/{assignment.pk}/', notification_type=payload['notification_type'],
+                    actor=request.user, metadata=payload['metadata'],
                 )
 
             messages.success(request, f'Bài tập "{assignment.title}" đã được tạo!')
@@ -662,6 +1550,11 @@ def create_assignment_view(request, classroom_pk):
         cs_preselect = request.GET.get('cs')
         if cs_preselect and cs_preselect.isdigit():
             initial['classroom_subject'] = int(cs_preselect)
+        mode_preselect = request.GET.get('mode')
+        if mode_preselect in dict(Assignments.SUBMISSION_MODE_CHOICES):
+            initial['submission_mode'] = mode_preselect
+            if mode_preselect == Assignments.SUBMISSION_QUIZ:
+                initial['max_attempts'] = get_int_setting('quiz.default_max_attempts', 2, minimum=1, maximum=50)
         initial.setdefault(
             'exam_grace_seconds',
             get_int_setting('exam.default_grace_seconds', 30, minimum=0, maximum=600),
@@ -679,11 +1572,17 @@ def create_assignment_view(request, classroom_pk):
             initial['max_attempts'] = 1
         form = AssignmentForm(initial=initial, classroom=classroom)
 
+    # Chuẩn bị map môn học -> ngôn ngữ cho frontend
+    subject_lang_map = {}
+    for cs in form.fields['classroom_subject'].queryset:
+        subject_lang_map[cs.pk] = list(cs.subject.languages.values_list('name', flat=True))
+
     context = {
         'form': form,
         'classroom': classroom,
         'languages': languages,
         'selected_languages': request.POST.getlist('allowed_languages') if request.method == 'POST' else [],
+        'subject_lang_json': json.dumps(subject_lang_map),
     }
     return render(request, 'assignments/create.html', context)
 
@@ -703,7 +1602,9 @@ def edit_assignment_view(request, pk):
         if form.is_valid():
             assignment = form.save(commit=False)
             selected_langs = request.POST.getlist('allowed_languages')
-            assignment.allowed_languages = selected_langs if selected_langs else None
+            assignment.allowed_languages = (
+                selected_langs if assignment.submission_mode == Assignments.SUBMISSION_CODE and selected_langs else None
+            )
 
             cs = form.cleaned_data.get('classroom_subject')
             if cs and cs.classroom_id != classroom.pk:
@@ -714,11 +1615,102 @@ def edit_assignment_view(request, pk):
                     'selected_languages': assignment.allowed_languages or [],
                 })
 
+            # --- Integrated Testcase Extraction ---
+            testcases_to_save = []
+            if assignment.submission_mode == Assignments.SUBMISSION_CODE:
+                import re
+                p = re.compile(r'^tc_name_(\d+)$')
+                for key in request.POST:
+                    match = p.match(key)
+                    if match:
+                        idx = match.group(1)
+                        name = request.POST.get(f'tc_name_{idx}', '').strip()
+                        input_data = request.POST.get(f'tc_input_{idx}', '')
+                        output_data = request.POST.get(f'tc_output_{idx}', '')
+                        is_sample = request.POST.get(f'tc_sample_{idx}') == 'on'
+                        if output_data.strip():
+                            testcases_to_save.append({
+                                'name': name,
+                                'input_data': input_data,
+                                'expected_output': output_data,
+                                'is_sample': is_sample,
+                                'is_hidden': not is_sample
+                            })
+
+            # --- Quiz Import Handling ---
+            quiz_import_file = request.FILES.get('quiz_import_file')
+
+            requested_publish = 'publish' in request.POST
+            
+            # --- Solution Verification ---
+            if (requested_publish or assignment.is_published) and assignment.submission_mode == Assignments.SUBMISSION_CODE:
+                solution_code = assignment.solution_code
+                if not solution_code:
+                    form.add_error('solution_code', 'Bạn phải cung cấp mã nguồn mẫu để hệ thống kiểm tra testcase.')
+                elif not testcases_to_save:
+                    messages.error(request, 'Bạn phải thêm ít nhất một testcase để hệ thống kiểm tra bài tập lập trình.')
+                else:
+                    from services.docker_service import run_testcase
+                    lang = (selected_langs[0] if selected_langs else 'python3')
+                    failed_tests = []
+                    for tc in testcases_to_save:
+                        result = run_testcase(solution_code, lang, tc['input_data'], tc['expected_output'])
+                        if not result['passed']:
+                            error_detail = result.get('error_message') or f"Kết quả thực tế: '{result['actual_output']}'"
+                            failed_tests.append(f"Testcase '{tc['name']}': {error_detail}")
+                    
+                    if failed_tests:
+                        error_msg = "Mã nguồn mẫu không vượt qua các testcase sau:<br>• " + "<br>• ".join(failed_tests)
+                        messages.error(request, error_msg)
+                        return render(request, 'assignments/edit.html', {
+                            'form': form, 'assignment': assignment, 'classroom': classroom, 'languages': languages,
+                            'selected_languages': selected_langs,
+                        })
+
+            if requested_publish:
+                assignment.is_published = True
+
             assignment.save()
+            form.save_file_requirements(assignment)
+            form.save_quiz_settings(assignment)
+
+            # Process Quiz Import if file exists
+            if assignment.submission_mode == Assignments.SUBMISSION_QUIZ and quiz_import_file:
+                from .quiz_utils import process_quiz_import
+                success, result = process_quiz_import(quiz_import_file, assignment)
+                if success:
+                    messages.success(request, f'Đã import thành công {result} câu hỏi trắc nghiệm mới từ file.')
+                else:
+                    messages.error(request, f'Lỗi khi import câu hỏi: {result}')
+
+            # Update Testcases
+            if assignment.submission_mode == Assignments.SUBMISSION_CODE and testcases_to_save:
+                from .models import Testcases
+                Testcases.objects.filter(assignment=assignment).delete()
+                for tc_data in testcases_to_save:
+                    Testcases.objects.create(assignment=assignment, **tc_data)
+
             messages.success(request, 'Cập nhật bài tập thành công!')
             return redirect('assignments:detail', pk=assignment.pk)
     else:
         form = AssignmentForm(instance=assignment, classroom=classroom)
+
+    # Load existing testcases for the integrated manager
+    from .models import Testcases
+    existing_tcs = Testcases.objects.filter(assignment=assignment).order_by('order_index', 'id')
+    existing_tcs_list = []
+    for tc in existing_tcs:
+        existing_tcs_list.append({
+            'name': tc.name,
+            'input': tc.input_data,
+            'output': tc.expected_output,
+            'is_sample': tc.is_sample,
+        })
+
+    # Chuẩn bị map môn học -> ngôn ngữ cho frontend
+    subject_lang_map = {}
+    for cs in form.fields['classroom_subject'].queryset:
+        subject_lang_map[cs.pk] = list(cs.subject.languages.values_list('name', flat=True))
 
     context = {
         'form': form,
@@ -726,6 +1718,8 @@ def edit_assignment_view(request, pk):
         'classroom': classroom,
         'languages': languages,
         'selected_languages': assignment.allowed_languages or [],
+        'existing_testcases_json': json.dumps(existing_tcs_list),
+        'subject_lang_json': json.dumps(subject_lang_map),
     }
     return render(request, 'assignments/edit.html', context)
 
@@ -745,7 +1739,12 @@ def clone_assignment_view(request, pk):
             title=f'Bản sao - {assignment.title}',
             description=assignment.description,
             instructions=assignment.instructions,
+            starter_code=assignment.starter_code,
+            solution_code=assignment.solution_code,
+            solution_language=assignment.solution_language,
             type=assignment.type,
+            submission_mode=assignment.submission_mode,
+            grading_mode=assignment.grading_mode,
             difficulty=assignment.difficulty,
             allowed_languages=assignment.allowed_languages,
             start_date=None,
@@ -796,6 +1795,55 @@ def clone_assignment_view(request, pk):
                 file_size=file.file_size,
                 mime_type=file.mime_type,
             )
+        requirements = AssignmentFileRequirements.objects.filter(assignment=assignment).first()
+        if requirements:
+            AssignmentFileRequirements.objects.create(
+                assignment=clone,
+                allowed_extensions=requirements.allowed_extensions,
+                allowed_mime_types=requirements.allowed_mime_types,
+                max_file_size_mb=requirements.max_file_size_mb,
+                max_files=requirements.max_files,
+                require_comment=requirements.require_comment,
+                allow_resubmit=requirements.allow_resubmit,
+                require_all_files_before_submit=requirements.require_all_files_before_submit,
+                scan_required=requirements.scan_required,
+            )
+        quiz_settings = QuizSettings.objects.filter(assignment=assignment).first()
+        if quiz_settings:
+            QuizSettings.objects.create(
+                assignment=clone,
+                question_order_mode=quiz_settings.question_order_mode,
+                choice_order_mode=quiz_settings.choice_order_mode,
+                show_score_after_submit=quiz_settings.show_score_after_submit,
+                show_correct_answers=quiz_settings.show_correct_answers,
+                show_explanation=quiz_settings.show_explanation,
+                time_limit_minutes=quiz_settings.time_limit_minutes,
+                passing_score=quiz_settings.passing_score,
+                allow_review=quiz_settings.allow_review,
+            )
+        for question in QuizQuestions.objects.filter(assignment=assignment).prefetch_related('choices').order_by('order_index', 'id'):
+            cloned_question = QuizQuestions.objects.create(
+                assignment=clone,
+                question_text=question.question_text,
+                question_type=question.question_type,
+                points=question.points,
+                order_index=question.order_index,
+                explanation=question.explanation,
+                is_active=question.is_active,
+                media_url=question.media_url,
+                tags=question.tags,
+                difficulty=question.difficulty,
+                metadata=question.metadata,
+            )
+            for choice in question.choices.all():
+                QuizChoices.objects.create(
+                    question=cloned_question,
+                    choice_text=choice.choice_text,
+                    is_correct=choice.is_correct,
+                    order_index=choice.order_index,
+                    explanation=choice.explanation,
+                    metadata=choice.metadata,
+                )
     messages.success(request, 'Đã nhân bản bài tập thành bản nháp mới.')
     return redirect('assignments:detail', pk=clone.pk)
 
@@ -845,14 +1893,15 @@ def toggle_publish_view(request, pk):
             classroom=classroom,
             status='approved',
         ).values_list('student_id', flat=True)
+        payload = _assignment_publish_notification_payload(assignment, classroom)
         notify_users(
             student_ids,
-            title=f'Bài tập mới: {assignment.title}',
-            message=f'Lớp {classroom.name} vừa công bố bài tập.',
+            title=payload['title'],
+            message=payload['message'],
             link=f'/assignments/{assignment.pk}/',
-            notification_type='assignment_published',
+            notification_type=payload['notification_type'],
             actor=request.user,
-            metadata={'assignment_id': assignment.pk, 'classroom_id': classroom.pk},
+            metadata=payload['metadata'],
         )
     messages.success(request, f'Đã {action} bài tập "{assignment.title}".')
     return redirect('assignments:detail', pk=pk)
@@ -946,34 +1995,58 @@ def upload_file_view(request, pk):
             minimum=1,
             maximum=50,
         )
-        max_size = max_size_mb * 1024 * 1024
-        ext = os.path.splitext((uploaded_file.name or '').lower())[1]
-        if uploaded_file.size > max_size:
-            messages.error(request, f'File tối đa {max_size_mb}MB.')
+        errors = validate_uploaded_files(
+            [uploaded_file],
+            allowed_extensions=ASSIGNMENT_UPLOAD_EXTENSIONS,
+            max_file_size_mb=max_size_mb,
+            max_files=1,
+            label='file đề bài',
+        )
+        if errors:
+            for error in errors:
+                messages.error(request, error)
             return redirect('assignments:detail', pk=pk)
-        if ext not in ASSIGNMENT_UPLOAD_EXTENSIONS:
-            messages.error(request, 'Định dạng file này chưa được phép tải lên.')
-            return redirect('assignments:detail', pk=pk)
+        safe_name = sanitize_upload_filename(uploaded_file.name, fallback='assignment-file')
         try:
-            result = cloudinary.uploader.upload(
+            result = upload_to_configured_storage(
                 uploaded_file,
                 folder='assignment_files/',
-                resource_type='auto',
+                user=request.user,
+                safe_name=safe_name,
+                prefix='assignment-file',
             )
             AssignmentFiles.objects.create(
                 assignment=assignment,
-                file_name=uploaded_file.name,
-                file_url=result.get('secure_url', ''),
+                file_name=safe_name,
+                file_url=result.get('url', ''),
                 file_size=uploaded_file.size,
                 mime_type=uploaded_file.content_type or '',
             )
-            messages.success(request, f'Đã tải lên "{uploaded_file.name}".')
+            logger.info(
+                'assignment_file_upload file=%s assignment=%s actor=%s public_id=%s',
+                safe_name,
+                assignment.pk,
+                request.user.pk,
+                result.get('public_id', ''),
+            )
+            messages.success(request, f'Đã tải lên "{safe_name}".')
         except Exception:
             logger.exception('Failed to upload assignment file assignment=%s user=%s', assignment.pk, request.user.pk)
             messages.error(request, 'Có lỗi xảy ra khi tải file. Vui lòng thử lại.')
     else:
         messages.error(request, 'Vui lòng chọn file để tải lên.')
     return redirect('assignments:detail', pk=pk)
+
+
+@login_required
+def open_file_view(request, pk, file_pk):
+    assignment = get_object_or_404(Assignments.objects.select_related('classroom'), pk=pk)
+    assignment_file = get_object_or_404(AssignmentFiles, pk=file_pk, assignment=assignment)
+    if not (_is_admin_user(request.user) or can_solve_assignment(request.user, assignment)):
+        messages.error(request, 'Bạn không có quyền mở file này.')
+        return redirect('classrooms:classroom_list')
+    _log_assignment_file_access(request, assignment, assignment_file, 'assignment_file_download')
+    return redirect(assignment_file.file_url)
 
 
 @teacher_required
@@ -999,7 +2072,6 @@ def statistics_view(request, pk):
         messages.error(request, 'Bạn không có quyền xem thống kê.')
         return redirect('classrooms:classroom_list')
 
-    statistics = AssignmentStatistics.objects.filter(assignment=assignment).first()
     testcases = Testcases.objects.filter(assignment=assignment).annotate(
         total_details=Count('submissiondetails'),
         failed_details=Count(
@@ -1008,18 +2080,23 @@ def statistics_view(request, pk):
         ),
     ).order_by('order_index')
 
-    from apps.submissions.models import Submissions, SubmissionDetails
+    from apps.submissions.models import QuizAnswers, QuizAttempts, SubmissionDetails, SubmissionFiles, Submissions
     submissions = Submissions.objects.filter(
         assignment=assignment
     ).select_related('student').order_by('-submitted_at')
 
-    # ===== PHÂN TÍCH NÂNG CAO =====
-    # 1. Phổ điểm (distribution) - dựa trên % của max_score
+    finished = list(submissions.filter(status='finished'))
+    for submission in finished:
+        submission.final_score = submission_final_score(submission)
+        submission.final_percent = round(
+            submission.final_score / (assignment.max_score or submission.max_score or 100) * 100,
+            1,
+        ) if (assignment.max_score or submission.max_score) else 0
+
     max_score = assignment.max_score or 100
     buckets = [0, 0, 0, 0, 0]  # [0-20%, 20-40%, 40-60%, 60-80%, 80-100%]
-    finished = submissions.filter(status='finished')
     for s in finished:
-        pct = (s.total_score / max_score * 100) if max_score > 0 else 0
+        pct = (s.final_score / max_score * 100) if max_score > 0 else 0
         idx = min(int(pct // 20), 4)
         buckets[idx] += 1
 
@@ -1028,21 +2105,18 @@ def statistics_view(request, pk):
         'data': buckets,
     }
 
-    # 2. Thời gian làm bài trung bình (execution_time)
     exec_times = [s.execution_time for s in finished if s.execution_time]
     avg_exec_time = round(sum(exec_times) / len(exec_times), 2) if exec_times else 0
 
-    # 3. Top sinh viên xuất sắc / yếu (lấy điểm cao nhất mỗi sinh viên)
     best_per_student = {}
     for s in finished:
         uid = s.student_id
-        if uid not in best_per_student or s.total_score > best_per_student[uid].total_score:
+        if uid not in best_per_student or s.final_score > best_per_student[uid].final_score:
             best_per_student[uid] = s
-    ranked = sorted(best_per_student.values(), key=lambda s: s.total_score, reverse=True)
+    ranked = sorted(best_per_student.values(), key=lambda s: s.final_score, reverse=True)
     top_students = ranked[:5]
     weak_students = list(reversed(ranked[-5:])) if len(ranked) >= 5 else ranked[::-1][:5]
 
-    # 4. Testcase bị fail nhiều nhất
     tc_fail_stats = []
     for tc in testcases:
         total = tc.total_details
@@ -1067,15 +2141,125 @@ def statistics_view(request, pk):
         'data': [e['count'] for e in error_counts],
     }
 
-    # 6. Số lượng nộp trễ
     late_count = submissions.filter(is_late=True).count()
+    scores = [s.final_score for s in finished]
+    unique_students = submissions.exclude(student__isnull=True).values('student_id').distinct().count()
+    attempt_count = submissions.count()
+    threshold = max_score * 0.5
+    try:
+        if assignment.submission_mode == Assignments.SUBMISSION_QUIZ and assignment.quiz_settings.passing_score is not None:
+            threshold = assignment.quiz_settings.passing_score
+    except QuizSettings.DoesNotExist:
+        pass
+    computed_statistics = {
+        'total_submissions': attempt_count,
+        'unique_students': unique_students,
+        'avg_score': round(sum(scores) / len(scores), 2) if scores else 0,
+        'max_score': max(scores) if scores else 0,
+        'min_score': min(scores) if scores else 0,
+        'pass_rate': round(sum(1 for score in scores if score >= threshold) / len(scores) * 100, 2) if scores else 0,
+        'avg_attempts': round(attempt_count / unique_students, 2) if unique_students else 0,
+    }
+    statistics = computed_statistics
+
+    members = _assignment_approved_members(classroom, request)
+    submitted_student_ids = {
+        submission.student_id for submission in submissions
+        if submission.student_id
+    }
+    graded_count = sum(
+        1 for submission in submissions
+        if submission.manual_score is not None or submission.graded_at or submission.status == 'finished'
+    )
+    ungraded_count = max(attempt_count - graded_count, 0)
+
+    file_stats = None
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        file_count = SubmissionFiles.objects.filter(submission__assignment=assignment).count()
+        file_stats = {
+            'submitted_students': len(submitted_student_ids),
+            'missing_students': max(len(members) - len(submitted_student_ids), 0),
+            'graded_count': graded_count,
+            'ungraded_count': ungraded_count,
+            'late_count': late_count,
+            'file_count': file_count,
+            'avg_files_per_submission': round(file_count / attempt_count, 2) if attempt_count else 0,
+        }
+
+    quiz_stats = None
+    question_analysis = []
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        submitted_statuses = (
+            QuizAttempts.STATUS_SUBMITTED,
+            QuizAttempts.STATUS_AUTO_SUBMITTED,
+        )
+        quiz_attempts = QuizAttempts.objects.filter(assignment=assignment).select_related(
+            'student', 'submission'
+        ).order_by('-created_at')
+        completed_attempts = list(quiz_attempts.filter(status__in=submitted_statuses))
+        quiz_scores = [
+            submission_final_score(attempt.submission) if attempt.submission else attempt.score
+            for attempt in completed_attempts
+        ]
+        quiz_durations = [attempt.duration_seconds for attempt in completed_attempts if attempt.duration_seconds]
+        if quiz_durations:
+            avg_exec_time = round(sum(quiz_durations) / len(quiz_durations), 2)
+
+        answers = QuizAnswers.objects.filter(
+            attempt__assignment=assignment,
+            attempt__status__in=submitted_statuses,
+        ).select_related('question')
+        answer_rows = {}
+        for answer in answers:
+            row = answer_rows.setdefault(answer.question_id, {
+                'answers': 0,
+                'correct': 0,
+                'wrong': 0,
+                'score_sum': 0,
+            })
+            row['answers'] += 1
+            row['score_sum'] += answer.score_awarded or 0
+            if answer.is_correct is True:
+                row['correct'] += 1
+            elif answer.is_correct is False:
+                row['wrong'] += 1
+
+        questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).order_by('order_index', 'id')
+        for question in questions:
+            row = answer_rows.get(question.pk, {'answers': 0, 'correct': 0, 'wrong': 0, 'score_sum': 0})
+            correct_rate = round(row['correct'] / row['answers'] * 100, 1) if row['answers'] else 0
+            wrong_rate = round(row['wrong'] / row['answers'] * 100, 1) if row['answers'] else 0
+            question_analysis.append({
+                'question': question,
+                'answers': row['answers'],
+                'correct': row['correct'],
+                'wrong': row['wrong'],
+                'correct_rate': correct_rate,
+                'wrong_rate': wrong_rate,
+                'avg_score': round(row['score_sum'] / row['answers'], 2) if row['answers'] else 0,
+            })
+        question_analysis.sort(key=lambda row: (row['wrong_rate'], -row['correct_rate'], row['answers']), reverse=True)
+        hardest = question_analysis[0] if question_analysis else None
+        completed_students = len({attempt.student_id for attempt in completed_attempts if attempt.student_id})
+        quiz_stats = {
+            'total_attempts': quiz_attempts.count(),
+            'completed_attempts': len(completed_attempts),
+            'avg_score': round(sum(quiz_scores) / len(quiz_scores), 2) if quiz_scores else 0,
+            'avg_attempts': round(quiz_attempts.count() / len(submitted_student_ids), 2) if submitted_student_ids else 0,
+            'completion_rate': round(completed_students / len(members) * 100, 1) if members else 0,
+            'hardest_question': hardest,
+        }
+
+    recent_submissions = list(submissions[:50])
+    for submission in recent_submissions:
+        submission.final_score = submission_final_score(submission)
 
     context = {
         'assignment': assignment,
         'classroom': classroom,
         'statistics': statistics,
         'testcases': testcases,
-        'submissions': submissions[:50],
+        'submissions': recent_submissions,
         'total_submissions_count': submissions.count(),
         'score_distribution_json': json.dumps(score_distribution),
         'error_distribution_json': json.dumps(error_distribution),
@@ -1084,6 +2268,11 @@ def statistics_view(request, pk):
         'weak_students': weak_students,
         'tc_fail_stats': tc_fail_stats[:10],
         'late_count': late_count,
+        'file_stats': file_stats,
+        'quiz_stats': quiz_stats,
+        'question_analysis': question_analysis[:12],
+        'graded_count': graded_count,
+        'ungraded_count': ungraded_count,
         'latest_plagiarism_report': PlagiarismReports.objects.filter(assignment=assignment).first(),
     }
     context.update(csv_query_context(request))
@@ -1117,6 +2306,23 @@ def statistics_view(request, pk):
             'primary': False,
         },
     ]
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        context['csv_items'].extend([
+            {
+                'url': reverse('assignments:export_quiz_attempts', kwargs={'pk': assignment.pk}),
+                'type': '',
+                'icon': 'fact_check',
+                'label': 'Xuất attempt quiz theo lọc hiện tại' if context['has_active_filters'] else 'Xuất điểm từng attempt quiz',
+                'primary': False,
+            },
+            {
+                'url': reverse('assignments:export_quiz_question_analysis', kwargs={'pk': assignment.pk}),
+                'type': '',
+                'icon': 'quiz',
+                'label': 'Xuất phân tích câu hỏi theo lọc hiện tại' if context['has_active_filters'] else 'Xuất phân tích từng câu',
+                'primary': False,
+            },
+        ])
     return render(request, 'assignments/statistics.html', context)
 
 
@@ -1479,6 +2685,14 @@ def _report_deadline_for_assignment(assignment):
     return None, 'Mốc hạn'
 
 
+def _assignment_mode_label(assignment):
+    return {
+        Assignments.SUBMISSION_CODE: 'Lập trình',
+        Assignments.SUBMISSION_FILE: 'Nộp file',
+        Assignments.SUBMISSION_QUIZ: 'Trắc nghiệm',
+    }.get(assignment.submission_mode, assignment.submission_mode or '')
+
+
 def _csv_response(filename):
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -1583,7 +2797,7 @@ def _assignment_submissions(assignment, request=None):
         if score_min is not None or score_max is not None:
             filtered_submissions = []
             for submission in submissions:
-                score = submission.manual_score if submission.manual_score is not None else submission.total_score
+                score = submission_final_score(submission)
                 if score_min is not None and score < score_min:
                     continue
                 if score_max is not None and score > score_max:
@@ -1614,8 +2828,8 @@ def _best_and_latest_submission_rows(assignment, members, submissions):
             bucket['latest'] = submission
         if submission.status == 'finished':
             best = bucket['best']
-            best_score = best.manual_score if best and best.manual_score is not None else (best.total_score if best else 0)
-            current_score = submission.manual_score if submission.manual_score is not None else submission.total_score
+            best_score = submission_final_score(best) if best else 0
+            current_score = submission_final_score(submission)
             if best is None or current_score > best_score:
                 bucket['best'] = submission
 
@@ -1633,6 +2847,16 @@ def _best_and_latest_submission_rows(assignment, members, submissions):
             'has_late': bucket.get('has_late', False),
         })
     return rows
+
+
+def _quiz_answer_text(answer):
+    if answer.text_answer:
+        return answer.text_answer
+    choices = list(answer.selected_choices.order_by('order_index', 'id').values_list('choice_text', flat=True))
+    if choices:
+        return ' | '.join(choices)
+    selected_ids = answer.selected_choice_ids or []
+    return ', '.join(str(choice_id) for choice_id in selected_ids)
 
 
 @teacher_required
@@ -1670,6 +2894,7 @@ def late_report_print_view(request, pk):
         is_late = _submission_is_late_for_report(submission, deadline)
         rows.append({
             'sub': submission,
+            'final_score': submission_final_score(submission),
             'delta_minutes': delta_minutes if is_late else 0,
             'delta_label': _format_minutes_vi(delta_minutes) if is_late else 'Đúng hạn',
             'is_late': is_late,
@@ -1679,7 +2904,7 @@ def late_report_print_view(request, pk):
     late_rows = [row for row in rows if row['is_late']]
     finished_rows = [row for row in rows if row['sub'].status == 'finished']
     avg_score = round(
-        sum(row['sub'].total_score for row in rows) / len(rows),
+        sum(submission_final_score(row['sub']) for row in rows) / len(rows),
         2,
     ) if rows else 0
     pass_count = sum(1 for row in rows if row['is_passed'])
@@ -1743,7 +2968,7 @@ def export_late_report_view(request, pk):
         'Username', 'Họ tên', 'Email',
         'Thời gian nộp', 'Deadline', 'Trễ (phút)',
         '% Phạt', 'Điểm cuối', 'Điểm tối đa',
-        'Ngôn ngữ', 'Trạng thái'
+        'Loại bài', 'Ngôn ngữ', 'Trạng thái'
     ])
 
     for s in late_subs:
@@ -1759,8 +2984,9 @@ def export_late_report_view(request, pk):
             deadline.strftime('%d/%m/%Y %H:%M') if deadline else '',
             delta_minutes,
             f'{s.penalty_applied:.1f}',
-            f'{s.total_score:.2f}',
+            f'{submission_final_score(s):.2f}',
             f'{s.max_score:.2f}',
+            _assignment_mode_label(assignment),
             s.language,
             s.status,
         ])
@@ -1785,17 +3011,23 @@ def export_assignment_submissions_view(request, pk):
         timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
     ))
     writer = csv.writer(response)
-    writer.writerow([
+    header = [
         'Submission ID', 'Username', 'Họ tên', 'Email', 'Ngôn ngữ',
         'Trạng thái', 'Thời gian nộp', deadline_label, 'Trễ', 'Trễ (phút)',
         '% Phạt', 'Điểm', 'Điểm tối đa', 'Testcase pass', 'Tổng testcase',
-        'Thời gian chạy (ms)', 'Bộ nhớ', 'Chấm tay', 'Giáo viên nhận xét',
-    ])
+        'Thời gian chạy (ms)', 'Bộ nhớ', 'Chấm tay', 'Giáo viên nhận xét', 'Loại bài',
+    ]
+    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+        header.extend([
+            'Số file', 'Tên file', 'Link file', 'Trạng thái quét',
+            'File phản hồi', 'Trạng thái chấm',
+        ])
+    writer.writerow(header)
 
     for submission in submissions:
         is_late = _submission_is_late_for_report(submission, deadline)
         late_minutes = _late_minutes_for_submission(submission, deadline) if is_late else 0
-        writer.writerow([
+        row = [
             submission.pk,
             submission.student.username if submission.student else '',
             submission.student.get_full_name() if submission.student else '',
@@ -1807,7 +3039,7 @@ def export_assignment_submissions_view(request, pk):
             'Có' if is_late else 'Không',
             late_minutes,
             f'{submission.penalty_applied:.1f}',
-            f'{submission.total_score:.2f}',
+            f'{submission_final_score(submission):.2f}',
             f'{submission.max_score:.2f}',
             submission.passed_testcases,
             submission.total_testcases,
@@ -1815,7 +3047,21 @@ def export_assignment_submissions_view(request, pk):
             submission.memory_usage or '',
             submission.manual_score if submission.manual_score is not None else '',
             submission.teacher_comment or '',
-        ])
+            _assignment_mode_label(assignment),
+        ]
+        if assignment.submission_mode == Assignments.SUBMISSION_FILE:
+            files = list(submission.files.all())
+            feedback_files = list(submission.feedback_files.all())
+            is_graded = submission.manual_score is not None or submission.graded_at or submission.status == 'finished'
+            row.extend([
+                len(files),
+                ' | '.join(file.file_name for file in files),
+                ' | '.join(file.file_url for file in files),
+                ' | '.join(file.scan_status for file in files),
+                ' | '.join(file.file_name for file in feedback_files),
+                'Đã chấm' if is_graded else 'Chưa chấm',
+            ])
+        writer.writerow(row)
     return response
 
 
@@ -1837,12 +3083,15 @@ def export_assignment_scores_view(request, pk):
         timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
     ))
     writer = csv.writer(response)
-    writer.writerow([
+    header = [
         'Username', 'Họ tên', 'Email', 'Số lần nộp', 'Có nộp',
         'Trạng thái mới nhất', 'Nộp lần cuối', 'Có nộp trễ',
         'Điểm tốt nhất', 'Điểm tối đa', 'Testcase tốt nhất',
-        'Submission tốt nhất', 'Submission mới nhất',
-    ])
+        'Submission tốt nhất', 'Submission mới nhất', 'Loại bài',
+    ]
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        header.extend(['Attempt quiz', 'Attempt tốt nhất'])
+    writer.writerow(header)
 
     for row in rows:
         student = row['student']
@@ -1851,10 +3100,10 @@ def export_assignment_scores_view(request, pk):
         best_score = ''
         best_testcases = ''
         if best:
-            score = best.manual_score if best.manual_score is not None else best.total_score
+            score = submission_final_score(best)
             best_score = f'{score:.2f}'
             best_testcases = f'{best.passed_testcases}/{best.total_testcases}'
-        writer.writerow([
+        line = [
             student.username,
             student.get_full_name() or student.username,
             student.email,
@@ -1868,6 +3117,166 @@ def export_assignment_scores_view(request, pk):
             best_testcases,
             best.pk if best else '',
             latest.pk if latest else '',
+            _assignment_mode_label(assignment),
+        ]
+        if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+            from apps.submissions.models import QuizAttempts
+
+            attempts = QuizAttempts.objects.filter(assignment=assignment, student=student)
+            best_attempt = attempts.order_by('-score', '-submitted_at').first()
+            line.extend([
+                attempts.exclude(status=QuizAttempts.STATUS_CANCELLED).count(),
+                best_attempt.pk if best_attempt else '',
+            ])
+        writer.writerow(line)
+    return response
+
+
+@teacher_required
+def export_quiz_attempts_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk, submission_mode=Assignments.SUBMISSION_QUIZ)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất attempt quiz.')
+        return redirect('assignments:detail', pk=pk)
+
+    from apps.submissions.models import QuizAnswers, QuizAttempts
+
+    attempts = QuizAttempts.objects.filter(assignment=assignment).select_related(
+        'student', 'submission', 'exam_session'
+    ).order_by('student__username', 'attempt_no')
+    status = request.GET.get('status', '').strip()
+    student_id = get_int_param(request.GET, 'student_id', minimum=1)
+    if status in dict(QuizAttempts.STATUS_CHOICES):
+        attempts = attempts.filter(status=status)
+    if student_id:
+        attempts = attempts.filter(student_id=student_id)
+
+    score_min = _get_float_export_param(request.GET, 'score_min', 'min_score')
+    score_max = _get_float_export_param(request.GET, 'score_max', 'max_score')
+    attempts = list(attempts)
+    if score_min is not None or score_max is not None:
+        filtered = []
+        for attempt in attempts:
+            score = submission_final_score(attempt.submission) if attempt.submission else attempt.score
+            if score_min is not None and score < score_min:
+                continue
+            if score_max is not None and score > score_max:
+                continue
+            filtered.append(attempt)
+        attempts = filtered
+
+    response = _csv_response(csv_filename(
+        f'assignment_{assignment.pk}',
+        'quiz_attempts',
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow([
+        'Attempt ID', 'Submission ID', 'Username', 'Họ tên', 'Email',
+        'Lần làm', 'Trạng thái', 'Bắt đầu', 'Nộp lúc',
+        'Điểm', 'Điểm tối đa', 'Thời lượng (giây)',
+        'Số câu đã trả lời', 'Tổng số câu', 'Phiên thi',
+    ])
+    total_questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).count()
+    for attempt in attempts:
+        answered_count = QuizAnswers.objects.filter(attempt=attempt).filter(
+            Q(answered_at__isnull=False) | Q(text_answer__gt='') | ~Q(selected_choice_ids=[])
+        ).count()
+        score = submission_final_score(attempt.submission) if attempt.submission else attempt.score
+        writer.writerow([
+            attempt.pk,
+            attempt.submission_id or '',
+            attempt.student.username if attempt.student else '',
+            attempt.student.get_full_name() if attempt.student else '',
+            attempt.student.email if attempt.student else '',
+            attempt.attempt_no,
+            attempt.get_status_display(),
+            timezone.localtime(attempt.started_at).strftime('%d/%m/%Y %H:%M:%S') if attempt.started_at else '',
+            timezone.localtime(attempt.submitted_at).strftime('%d/%m/%Y %H:%M:%S') if attempt.submitted_at else '',
+            f'{score:.2f}',
+            f'{attempt.max_score:.2f}',
+            attempt.duration_seconds or '',
+            answered_count,
+            total_questions,
+            attempt.exam_session_id or '',
+        ])
+    return response
+
+
+@teacher_required
+def export_quiz_question_analysis_view(request, pk):
+    assignment = get_object_or_404(Assignments, pk=pk, submission_mode=Assignments.SUBMISSION_QUIZ)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xuất phân tích câu hỏi.')
+        return redirect('assignments:detail', pk=pk)
+
+    from apps.submissions.models import QuizAnswers, QuizAttempts
+
+    submitted_statuses = (
+        QuizAttempts.STATUS_SUBMITTED,
+        QuizAttempts.STATUS_AUTO_SUBMITTED,
+    )
+    attempts = QuizAttempts.objects.filter(assignment=assignment, status__in=submitted_statuses)
+    student_id = get_int_param(request.GET, 'student_id', minimum=1)
+    if student_id:
+        attempts = attempts.filter(student_id=student_id)
+    attempt_ids = list(attempts.values_list('id', flat=True))
+
+    answers = QuizAnswers.objects.filter(attempt_id__in=attempt_ids).select_related('question').prefetch_related('selected_choices')
+    answer_rows = {}
+    answer_samples = {}
+    for answer in answers:
+        row = answer_rows.setdefault(answer.question_id, {
+            'answers': 0,
+            'correct': 0,
+            'wrong': 0,
+            'score_sum': 0,
+        })
+        row['answers'] += 1
+        row['score_sum'] += answer.score_awarded or 0
+        if answer.is_correct is True:
+            row['correct'] += 1
+        elif answer.is_correct is False:
+            row['wrong'] += 1
+        answer_samples.setdefault(answer.question_id, [])
+        if len(answer_samples[answer.question_id]) < 3:
+            answer_samples[answer.question_id].append(_quiz_answer_text(answer))
+
+    response = _csv_response(csv_filename(
+        f'assignment_{assignment.pk}',
+        'quiz_question_analysis',
+        filtered=bool(csv_query_context(request)['csv_query_string']),
+        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
+    ))
+    writer = csv.writer(response)
+    writer.writerow([
+        'Question ID', 'Thứ tự', 'Loại câu', 'Câu hỏi', 'Điểm',
+        'Lượt trả lời', 'Số đúng', 'Số sai', 'Tỷ lệ đúng', 'Tỷ lệ sai',
+        'Điểm TB', 'Đáp án đúng', 'Mẫu câu trả lời',
+    ])
+    questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).prefetch_related('choices').order_by('order_index', 'id')
+    for question in questions:
+        row = answer_rows.get(question.pk, {'answers': 0, 'correct': 0, 'wrong': 0, 'score_sum': 0})
+        correct_rate = round(row['correct'] / row['answers'] * 100, 1) if row['answers'] else 0
+        wrong_rate = round(row['wrong'] / row['answers'] * 100, 1) if row['answers'] else 0
+        correct_choices = question.choices.filter(is_correct=True).order_by('order_index', 'id')
+        writer.writerow([
+            question.pk,
+            question.order_index,
+            question.get_question_type_display(),
+            question.question_text,
+            f'{question.points:.2f}',
+            row['answers'],
+            row['correct'],
+            row['wrong'],
+            f'{correct_rate:.1f}%',
+            f'{wrong_rate:.1f}%',
+            f"{(row['score_sum'] / row['answers'] if row['answers'] else 0):.2f}",
+            ' | '.join(choice.choice_text for choice in correct_choices),
+            ' | '.join(answer_samples.get(question.pk, [])),
         ])
     return response
 
@@ -1892,7 +3301,7 @@ def export_assignment_missing_view(request, pk):
         timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
     ))
     writer = csv.writer(response)
-    writer.writerow(['Username', 'Họ tên', 'Email', 'Lớp', 'Bài tập', 'Deadline/Kết thúc thi'])
+    writer.writerow(['Username', 'Họ tên', 'Email', 'Lớp', 'Bài tập', 'Loại bài', 'Deadline/Kết thúc thi'])
     deadline, _deadline_label = _report_deadline_for_assignment(assignment)
 
     for member in members:
@@ -1905,6 +3314,14 @@ def export_assignment_missing_view(request, pk):
             student.email,
             classroom.name,
             assignment.title,
+            _assignment_mode_label(assignment),
             timezone.localtime(deadline).strftime('%d/%m/%Y %H:%M:%S') if deadline else '',
         ])
     return response
+
+
+@teacher_required
+def download_submission_files_view(request, pk):
+    from apps.submissions.views import download_submission_files_zip_view
+
+    return download_submission_files_zip_view(request, assignment_pk=pk)

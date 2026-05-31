@@ -2,85 +2,40 @@
 {% block title %}Dashboard - DevLearn{% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto px-6 py-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
-        <div>
-            <h1 class="text-3xl font-black tracking-tight">Dashboard cá nhân</h1>
-            <p class="text-slate-600 mt-1">Chào {{ user.first_name|default:user.username }}! Cùng xem tiến độ học tập của bạn.</p>
-        </div>
-        <div class="hidden md:flex items-center gap-3">
-            <a href="{% url 'assignments:calendar' %}" class="flex items-center gap-2 bg-slate-100 text-slate-700 font-bold py-2.5 px-5 rounded-lg hover:bg-slate-200 transition-colors text-sm">
-                <span class="material-symbols-outlined text-sm">calendar_month</span> Lịch deadline
-            </a>
-            <a href="{% url 'classrooms:classroom_list' %}" class="flex items-center gap-2 bg-primary text-white font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">
-                <span class="material-symbols-outlined text-sm">school</span> Vào lớp học
-            </a>
-        </div>
-    </div>
+{% include "includes/page_header.html" with title="Dashboard cá nhân" subtitle=dashboard_subtitle breadcrumbs=breadcrumbs %}
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white border border-slate-200 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lớp học</p>
-                <span class="material-symbols-outlined text-primary">school</span>
-            </div>
-            <p class="text-3xl font-black text-primary">{{ classrooms_count }}</p>
-            <p class="text-xs text-slate-600 mt-1">Đang tham gia</p>
-        </div>
-        <div class="bg-white border border-slate-200 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Hoàn thành</p>
-                <span class="material-symbols-outlined text-emerald-500">check_circle</span>
-            </div>
-            <p class="text-3xl font-black">{{ completed_count }}<span class="text-base text-slate-500 font-normal">/{{ total_assignments }}</span></p>
-            <p class="text-xs text-slate-600 mt-1">{{ completion_rate }}% bài tập</p>
-        </div>
-        <div class="bg-white border border-slate-200 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Điểm trung bình</p>
-                <span class="material-symbols-outlined text-amber-500">star</span>
-            </div>
-            <p class="text-3xl font-black">{{ avg_score }}</p>
-            <p class="text-xs text-slate-600 mt-1">Trên thang điểm</p>
-        </div>
-        <div class="bg-white border border-slate-200 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tỷ lệ đạt</p>
-                <span class="material-symbols-outlined text-emerald-500">trending_up</span>
-            </div>
-            <p class="text-3xl font-black text-emerald-500">{{ pass_rate }}%</p>
-            <p class="text-xs text-slate-600 mt-1">Pass rate</p>
-        </div>
-    </div>
-
-    <!-- Progress bar -->
-    <section class="bg-white border border-slate-200 rounded-xl p-6 mb-8">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">donut_large</span>
-                Tiến độ học tập tổng thể
+<div class="page-body dashboard-page">
+<div class="container">
+    <section class="dashboard-panel mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">analytics</span>
+                Tiến độ tổng quát
             </h2>
-            <span class="text-sm font-bold text-primary">{{ completion_rate }}%</span>
+            <span class="text-sm font-bold text-primary">{{ completion_rate|floatformat:0 }}%</span>
         </div>
-        <div class="h-3 bg-slate-200 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-primary to-emerald-500 transition-all" style="width: {{ completion_rate }}%"></div>
+        <div class="progress-track h-3">
+            <div class="progress-fill {% if completion_rate == 100 %}done{% endif %}" style="width: {{ completion_rate }}%"></div>
         </div>
         <p class="text-xs text-slate-600 mt-2">Đã hoàn thành {{ completed_count }} trên {{ total_assignments }} bài tập.</p>
     </section>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="dashboard-section-grid">
         <!-- Upcoming Assignments -->
-        <section class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-500">schedule</span>
-                Bài tập sắp đến hạn
-            </h2>
+        <section class="dashboard-panel">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-500">schedule</span>
+                    Bài tập sắp đến hạn
+                </h2>
+                {% if upcoming|length > 3 %}
+                <a href="{% url 'assignments:calendar' %}" class="text-xs font-bold text-primary hover:underline">Xem thêm</a>
+                {% endif %}
+            </div>
             {% if upcoming %}
-            <div class="space-y-3">
-                {% for a in upcoming %}
-                <a href="{% url 'assignments:detail' pk=a.pk %}" class="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:border-primary transition-colors">
+            <div class="compact-list">
+                {% for a in upcoming|slice:":3" %}
+                <a href="{% url 'assignments:detail' pk=a.pk %}" class="compact-list-item flex items-center justify-between">
                     <div>
                         <p class="font-medium text-sm">{{ a.title }}</p>
                         <p class="text-xs text-slate-600">{{ a.classroom.name }} • Hạn: {{ a.due_date|date:"d/m/Y H:i" }}</p>
@@ -97,13 +52,18 @@
             {% endif %}
 
             {% if overdue %}
-            <h2 class="text-lg font-bold mt-6 mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-red-500">warning</span>
-                Bài tập đã quá hạn chưa nộp
-            </h2>
-            <div class="space-y-3">
-                {% for a in overdue %}
-                <a href="{% url 'assignments:detail' pk=a.pk %}" class="flex items-center justify-between p-3 border border-red-500/20 bg-red-500/5 rounded-lg hover:border-red-500/50 transition-colors">
+            <div class="flex items-center justify-between mt-6 mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-red-500">warning</span>
+                    Bài tập đã quá hạn
+                </h2>
+                {% if overdue|length > 3 %}
+                <a href="{% url 'classrooms:classroom_list' %}" class="text-xs font-bold text-primary hover:underline">Xem thêm</a>
+                {% endif %}
+            </div>
+            <div class="compact-list">
+                {% for a in overdue|slice:":3" %}
+                <a href="{% url 'assignments:detail' pk=a.pk %}" class="compact-list-item flex items-center justify-between border-red-500/20 bg-red-500/5">
                     <div>
                         <p class="font-medium text-sm">{{ a.title }}</p>
                         <p class="text-xs text-slate-500">{{ a.classroom.name }} • Đã trễ: {{ a.due_date|timesince }}</p>
@@ -121,15 +81,20 @@
 
         <!-- Classroom Ranks + Recent -->
         <div class="space-y-6">
-            <section class="bg-white border border-slate-200 rounded-xl p-6">
-                <h2 class="font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">leaderboard</span>
-                    Thứ hạng trong lớp
-                </h2>
+            <section class="dashboard-panel">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">leaderboard</span>
+                        Thứ hạng trong lớp
+                    </h2>
+                    {% if ranks_by_classroom|length > 3 %}
+                    <a href="{% url 'classrooms:classroom_list' %}" class="text-xs font-bold text-primary hover:underline">Tất cả lớp</a>
+                    {% endif %}
+                </div>
                 {% if ranks_by_classroom %}
-                <div class="space-y-3">
-                    {% for item in ranks_by_classroom %}
-                    <a href="{% url 'classrooms:leaderboard' pk=item.classroom.pk %}" class="block p-3 border border-slate-200 rounded-lg hover:border-primary transition-colors">
+                <div class="compact-list">
+                    {% for item in ranks_by_classroom|slice:":3" %}
+                    <a href="{% url 'classrooms:leaderboard' pk=item.classroom.pk %}" class="compact-list-item">
                         <p class="text-sm font-medium truncate">{{ item.classroom.name }}</p>
                         <div class="flex items-center justify-between mt-2">
                             {% if item.rank %}
@@ -143,33 +108,39 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-xs text-slate-600">Bạn chưa tham gia lớp nào.</p>
+                <p class="text-xs text-slate-600 text-center py-4">Bạn chưa tham gia lớp nào.</p>
                 {% endif %}
             </section>
 
-            <section class="bg-white border border-slate-200 rounded-xl p-6">
-                <h2 class="font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">history</span>
-                    Bài nộp gần đây
-                </h2>
+            <section class="dashboard-panel">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">history</span>
+                        Bài nộp gần đây
+                    </h2>
+                    {% if recent_submissions|length > 3 %}
+                    <a href="{% url 'classrooms:classroom_list' %}" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
+                    {% endif %}
+                </div>
                 {% if recent_submissions %}
                 <div class="space-y-2">
-                    {% for s in recent_submissions %}
-                    <a href="{% url 'submissions:detail' pk=s.pk %}" class="block p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    {% for s in recent_submissions|slice:":3" %}
+                    <a href="{% url 'submissions:detail' pk=s.pk %}" class="block p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                         <p class="text-xs font-medium truncate">{{ s.assignment.title }}</p>
                         <div class="flex items-center gap-2 mt-1">
                             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {% if s.status == 'finished' %}bg-emerald-500/10 text-emerald-500{% else %}bg-amber-500/10 text-amber-500{% endif %}">{{ s.status }}</span>
                             <span class="text-xs text-slate-600">{{ s.total_score|floatformat:0 }}/{{ s.max_score|floatformat:0 }}</span>
-                            <span class="text-xs text-slate-500 ml-auto">{{ s.submitted_at|timesince }}</span>
+                            <span class="text-xs text-slate-500 ml-auto">{{ s.submitted_at|timesince }} trước</span>
                         </div>
                     </a>
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-xs text-slate-600">Chưa có bài nộp.</p>
+                <p class="text-xs text-slate-600 text-center py-4">Chưa có bài nộp.</p>
                 {% endif %}
             </section>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}

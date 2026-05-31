@@ -1,11 +1,15 @@
 from django.urls import path
-from . import views
+from . import views, search_views
 
 app_name = 'classrooms'
 
 urlpatterns = [
     path('', views.classroom_list_view, name='classroom_list'),
     path('search/', views.search_classroom_view, name='search'),
+    path('api/search/suggestions/', search_views.unified_search_suggestions, name='search_suggestions'),
+    path('api/search/history/save/', search_views.save_search_history, name='search_history_save'),
+    path('api/search/history/clear/', search_views.clear_search_history, name='search_history_clear'),
+    path('search/results/', search_views.search_results_view, name='search_results'),
     path('create/', views.create_classroom_view, name='create'),
     path('join/', views.join_classroom_view, name='join'),
     # Semester management (admin)

@@ -16,6 +16,6 @@
         <p class="text-slate-600 text-lg">Thiết lập bài tập, đề bài và cấu hình chấm điểm.</p>
     </div>
 
-    {% include 'assignments/_assignment_form.html' with is_edit=False %}
+    {% include 'assignments/_assignment_form.html' with is_edit=False enctype="multipart/form-data" %}
 </div>
 {% endblock %}

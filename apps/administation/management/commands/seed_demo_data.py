@@ -15,9 +15,14 @@ from apps.administation.models import (
 )
 from apps.assignments.models import (
     AssignmentFiles,
+    AssignmentFileRequirements,
     AssignmentStatistics,
     Assignments,
     PlagiarismReports,
+    QuizChoices,
+    QuizQuestionImports,
+    QuizQuestions,
+    QuizSettings,
     Rubrics,
     Testcases,
 )
@@ -35,12 +40,18 @@ from apps.classrooms.models import (
 from apps.discussions.models import Discussions, DiscussionVotes
 from apps.notifications.models import Notifications
 from apps.submissions.models import (
+    AIScoringSuggestions,
     CodeComments,
     CodeDrafts,
     ExamEvents,
     ExamSessions,
     FeedbackTemplates,
+    GradeChangeLogs,
+    QuizAnswers,
+    QuizAttempts,
     RubricScores,
+    SubmissionFileFeedbacks,
+    SubmissionFiles,
     SubmissionDetails,
     Submissions,
 )
@@ -130,8 +141,14 @@ class Command(BaseCommand):
             DiscussionVotes,
             Discussions,
             Notifications,
+            AIScoringSuggestions,
+            QuizAnswers,
+            QuizAttempts,
             ExamEvents,
             ExamSessions,
+            GradeChangeLogs,
+            SubmissionFileFeedbacks,
+            SubmissionFiles,
             RubricScores,
             CodeComments,
             SubmissionDetails,
@@ -141,6 +158,11 @@ class Command(BaseCommand):
             PlagiarismReports,
             AssignmentStatistics,
             AssignmentFiles,
+            AssignmentFileRequirements,
+            QuizQuestionImports,
+            QuizChoices,
+            QuizQuestions,
+            QuizSettings,
             Testcases,
             Rubrics,
             Assignments,
@@ -208,6 +230,16 @@ class Command(BaseCommand):
             SystemSettings(setting_key='notifications.due_soon_hours', setting_value=24, description='So gio nhac han truoc deadline.', updated_by=admin),
             SystemSettings(setting_key='sandbox.zombie_threshold_minutes', setting_value=15, description='Nguong submission running qua lau.', updated_by=admin),
             SystemSettings(setting_key='uploads.assignment_max_mb', setting_value=10, description='Dung luong toi da file bai tap.', updated_by=admin),
+            SystemSettings(setting_key='uploads.submission_allowed_extensions', setting_value=['.pdf', '.docx', '.zip', '.py', '.cpp'], description='Dinh dang nop file mac dinh.', updated_by=admin),
+            SystemSettings(setting_key='uploads.submission_default_max_mb', setting_value=20, description='Dung luong toi da moi file nop.', updated_by=admin),
+            SystemSettings(setting_key='uploads.submission_default_max_files', setting_value=2, description='So file toi da mac dinh moi lan nop.', updated_by=admin),
+            SystemSettings(setting_key='uploads.submission_scan_required_default', setting_value=False, description='Mac dinh yeu cau scan file.', updated_by=admin),
+            SystemSettings(setting_key='quiz.default_max_attempts', setting_value=2, description='So lan lam quiz mac dinh.', updated_by=admin),
+            SystemSettings(setting_key='quiz.random_questions_default', setting_value=False, description='Mac dinh dao cau hoi quiz.', updated_by=admin),
+            SystemSettings(setting_key='quiz.random_choices_default', setting_value=True, description='Mac dinh dao dap an quiz.', updated_by=admin),
+            SystemSettings(setting_key='quiz.show_score_after_submit_default', setting_value=True, description='Mac dinh hien diem sau khi nop quiz.', updated_by=admin),
+            SystemSettings(setting_key='quiz.show_correct_answers_default', setting_value=False, description='Mac dinh hien dap an dung sau khi nop quiz.', updated_by=admin),
+            SystemSettings(setting_key='quiz.allow_review_default', setting_value=True, description='Mac dinh cho xem lai quiz.', updated_by=admin),
         ])
 
         current_semester = Semesters.objects.create(
@@ -384,6 +416,8 @@ class Command(BaseCommand):
             description='Doc input gom hai so nguyen va in tong.',
             instructions='Nhap hai so a b tren mot dong, in ra a + b.',
             type='auto_grade',
+            submission_mode='code',
+            grading_mode='auto',
             difficulty='easy',
             allowed_languages=['python'],
             start_date=now - timedelta(days=7),
@@ -422,6 +456,8 @@ class Command(BaseCommand):
             description='Xay dung blog co danh sach bai viet va chi tiet bai viet.',
             instructions='Nop link repository hoac paste code chinh. Giao vien cham theo rubric.',
             type='project',
+            submission_mode='code',
+            grading_mode='manual',
             difficulty='medium',
             allowed_languages=['python', 'javascript'],
             start_date=now - timedelta(days=3),
@@ -449,6 +485,8 @@ class Command(BaseCommand):
             description='Viet chuong trinh sap xep day so tang dan.',
             instructions='Input: n va n so nguyen. Output: day so da sap xep tang dan.',
             type='auto_grade',
+            submission_mode='code',
+            grading_mode='auto',
             difficulty='medium',
             allowed_languages=['python', 'cpp'],
             start_date=now - timedelta(days=1),
@@ -475,6 +513,229 @@ class Command(BaseCommand):
             Testcases(assignment=exam, name='Hidden negative', input_data='5\n0 -1 9 -3 2', expected_output='-3 -1 0 2 9', is_sample=False, is_hidden=True, weight=2, order_index=2),
         ])
 
+        file_assignment = Assignments.objects.create(
+            classroom=data['python_class'],
+            classroom_subject=data['python_link'],
+            title='Bao cao thuc hanh: Xu ly file CSV',
+            description='Nop bao cao PDF va source code cho buoi thuc hanh doc/ghi file CSV.',
+            instructions='Nop toi da 2 file: bao cao PDF va file ZIP/source code. Ghi chu kem link repository neu co.',
+            type='project',
+            submission_mode='file',
+            grading_mode='manual',
+            difficulty='medium',
+            start_date=now - timedelta(days=2),
+            due_date=now + timedelta(days=7),
+            late_submission_allowed=True,
+            late_penalty_percent=10,
+            max_score=100,
+            max_attempts=2,
+            show_testcase_result=False,
+            enable_leaderboard=False,
+            is_published=True,
+            created_by=teacher,
+        )
+        AssignmentFileRequirements.objects.create(
+            assignment=file_assignment,
+            allowed_extensions=['.pdf', '.docx', '.zip', '.py'],
+            allowed_mime_types=['application/pdf', 'application/zip', 'text/x-python'],
+            max_file_size_mb=20,
+            max_files=2,
+            require_comment=True,
+            allow_resubmit=True,
+            require_all_files_before_submit=True,
+            scan_required=False,
+        )
+        Rubrics.objects.bulk_create([
+            Rubrics(assignment=file_assignment, name='Bao cao ro rang', max_points=35, order_index=1),
+            Rubrics(assignment=file_assignment, name='Source code dung yeu cau', max_points=45, order_index=2),
+            Rubrics(assignment=file_assignment, name='Trinh bay va ghi chu nop bai', max_points=20, order_index=3),
+        ])
+        AssignmentFiles.objects.create(
+            assignment=file_assignment,
+            file_name='mau-bao-cao-csv.pdf',
+            file_url='https://example.com/demo/mau-bao-cao-csv.pdf',
+            file_size=384000,
+            mime_type='application/pdf',
+        )
+
+        file_exam = Assignments.objects.create(
+            classroom=data['web_class'],
+            classroom_subject=data['web_link'],
+            title='Thi thuc hanh nop file: Django CRUD',
+            description='Hoan thanh mini CRUD va nop file ZIP trong phong thi.',
+            instructions='Nop file ZIP source code va PDF chup man hinh ket qua. Bai thi chi duoc nop mot lan.',
+            type='project',
+            submission_mode='file',
+            grading_mode='manual',
+            difficulty='hard',
+            start_date=now - timedelta(hours=1),
+            due_date=now + timedelta(days=1),
+            max_score=100,
+            max_attempts=1,
+            show_testcase_result=False,
+            enable_leaderboard=False,
+            is_published=True,
+            is_exam=True,
+            exam_duration_minutes=60,
+            exam_start_time=now - timedelta(hours=1),
+            exam_end_time=now + timedelta(days=1),
+            exam_require_fullscreen=True,
+            exam_grace_seconds=30,
+            created_by=teacher,
+        )
+        AssignmentFileRequirements.objects.create(
+            assignment=file_exam,
+            allowed_extensions=['.zip', '.pdf'],
+            allowed_mime_types=['application/zip', 'application/pdf'],
+            max_file_size_mb=30,
+            max_files=2,
+            require_comment=False,
+            allow_resubmit=False,
+            require_all_files_before_submit=True,
+            scan_required=True,
+        )
+
+        quiz_assignment = Assignments.objects.create(
+            classroom=data['python_class'],
+            classroom_subject=data['python_link'],
+            title='Quiz luyen tap: List va function',
+            description='Quiz luyen tap Python co ban, cho phep lam nhieu lan.',
+            instructions='Chon dap an dung nhat. Diem hien sau khi nop de hoc sinh tu on.',
+            type='auto_grade',
+            submission_mode='quiz',
+            grading_mode='auto',
+            difficulty='easy',
+            start_date=now - timedelta(days=1),
+            due_date=now + timedelta(days=10),
+            max_score=10,
+            max_attempts=3,
+            show_testcase_result=False,
+            enable_leaderboard=False,
+            is_published=True,
+            created_by=teacher,
+        )
+        QuizSettings.objects.create(
+            assignment=quiz_assignment,
+            question_order_mode=QuizSettings.ORDER_RANDOM,
+            choice_order_mode=QuizSettings.ORDER_RANDOM,
+            show_score_after_submit=True,
+            show_correct_answers=False,
+            show_explanation=True,
+            allow_review=True,
+            passing_score=6,
+        )
+        q1 = QuizQuestions.objects.create(
+            assignment=quiz_assignment,
+            question_text='Ham len([1, 2, 3]) tra ve gia tri nao?',
+            question_type=QuizQuestions.TYPE_SINGLE_CHOICE,
+            points=3,
+            order_index=1,
+            explanation='len() tra ve so phan tu trong list.',
+            difficulty='easy',
+            tags=['python', 'list'],
+        )
+        QuizChoices.objects.bulk_create([
+            QuizChoices(question=q1, choice_text='2', is_correct=False, order_index=1),
+            QuizChoices(question=q1, choice_text='3', is_correct=True, order_index=2),
+            QuizChoices(question=q1, choice_text='4', is_correct=False, order_index=3),
+        ])
+        q2 = QuizQuestions.objects.create(
+            assignment=quiz_assignment,
+            question_text='Tu khoa nao dung de khai bao ham trong Python?',
+            question_type=QuizQuestions.TYPE_SINGLE_CHOICE,
+            points=3,
+            order_index=2,
+            explanation='Python dung tu khoa def de khai bao ham.',
+            difficulty='easy',
+            tags=['python', 'function'],
+        )
+        QuizChoices.objects.bulk_create([
+            QuizChoices(question=q2, choice_text='func', is_correct=False, order_index=1),
+            QuizChoices(question=q2, choice_text='def', is_correct=True, order_index=2),
+            QuizChoices(question=q2, choice_text='function', is_correct=False, order_index=3),
+        ])
+        q3 = QuizQuestions.objects.create(
+            assignment=quiz_assignment,
+            question_text='Nhung kieu nao co the lap qua bang for trong Python?',
+            question_type=QuizQuestions.TYPE_MULTIPLE_CHOICE,
+            points=4,
+            order_index=3,
+            explanation='List va string deu la iterable.',
+            difficulty='easy',
+            tags=['python', 'loop'],
+        )
+        QuizChoices.objects.bulk_create([
+            QuizChoices(question=q3, choice_text='list', is_correct=True, order_index=1),
+            QuizChoices(question=q3, choice_text='string', is_correct=True, order_index=2),
+            QuizChoices(question=q3, choice_text='so nguyen int truc tiep', is_correct=False, order_index=3),
+        ])
+
+        quiz_exam = Assignments.objects.create(
+            classroom=data['python_class'],
+            classroom_subject=data['ds_link'],
+            title='Thi trac nghiem: Ly thuyet sorting',
+            description='Bai thi trac nghiem mot lan ve sorting va do phuc tap.',
+            instructions='Moi hoc sinh chi lam mot lan. Ket qua va dap an duoc an cho den khi giao vien cong bo.',
+            type='auto_grade',
+            submission_mode='quiz',
+            grading_mode='auto',
+            difficulty='medium',
+            start_date=now - timedelta(hours=1),
+            due_date=now + timedelta(days=2),
+            max_score=10,
+            max_attempts=1,
+            show_testcase_result=False,
+            enable_leaderboard=False,
+            is_published=True,
+            is_exam=True,
+            exam_duration_minutes=20,
+            exam_start_time=now - timedelta(hours=1),
+            exam_end_time=now + timedelta(days=2),
+            exam_require_fullscreen=True,
+            exam_grace_seconds=30,
+            created_by=teacher,
+        )
+        QuizSettings.objects.create(
+            assignment=quiz_exam,
+            question_order_mode=QuizSettings.ORDER_RANDOM,
+            choice_order_mode=QuizSettings.ORDER_RANDOM,
+            show_score_after_submit=False,
+            show_correct_answers=False,
+            show_explanation=False,
+            allow_review=False,
+            time_limit_minutes=20,
+            passing_score=5,
+        )
+        qe1 = QuizQuestions.objects.create(
+            assignment=quiz_exam,
+            question_text='Do phuc tap trung binh cua merge sort la gi?',
+            question_type=QuizQuestions.TYPE_SINGLE_CHOICE,
+            points=5,
+            order_index=1,
+            explanation='Merge sort chia de tri nen trung binh O(n log n).',
+            difficulty='medium',
+            tags=['sorting', 'complexity'],
+        )
+        QuizChoices.objects.bulk_create([
+            QuizChoices(question=qe1, choice_text='O(n)', is_correct=False, order_index=1),
+            QuizChoices(question=qe1, choice_text='O(n log n)', is_correct=True, order_index=2),
+            QuizChoices(question=qe1, choice_text='O(n^2)', is_correct=False, order_index=3),
+        ])
+        qe2 = QuizQuestions.objects.create(
+            assignment=quiz_exam,
+            question_text='Bubble sort on dinh voi cac phan tu bang nhau.',
+            question_type=QuizQuestions.TYPE_TRUE_FALSE,
+            points=5,
+            order_index=2,
+            explanation='Bubble sort co the giu thu tu tuong doi neu cai dat swap chi khi lon hon.',
+            difficulty='medium',
+            tags=['sorting'],
+        )
+        QuizChoices.objects.bulk_create([
+            QuizChoices(question=qe2, choice_text='Dung', is_correct=True, order_index=1),
+            QuizChoices(question=qe2, choice_text='Sai', is_correct=False, order_index=2),
+        ])
+
         draft = Assignments.objects.create(
             classroom=data['python_class'],
             classroom_subject=data['python_link'],
@@ -482,6 +743,8 @@ class Command(BaseCommand):
             description='Bai nhap chua cong bo de demo checklist publish.',
             instructions='Viet ham tinh giai thua.',
             type='auto_grade',
+            submission_mode='code',
+            grading_mode='auto',
             difficulty='easy',
             allowed_languages=['python'],
             max_score=100,
@@ -504,6 +767,10 @@ class Command(BaseCommand):
             'hello': hello,
             'project': project,
             'exam': exam,
+            'file_assignment': file_assignment,
+            'file_exam': file_exam,
+            'quiz_assignment': quiz_assignment,
+            'quiz_exam': quiz_exam,
             'draft': draft,
         }
 
@@ -512,6 +779,10 @@ class Command(BaseCommand):
         hello = assignments['Hello Python va phep cong']
         project = assignments['Mini project: Blog Django']
         exam = assignments['Bai thi giua ky: Sorting co ban']
+        file_assignment = assignments['Bao cao thuc hanh: Xu ly file CSV']
+        file_exam = assignments['Thi thuc hanh nop file: Django CRUD']
+        quiz_assignment = assignments['Quiz luyen tap: List va function']
+        quiz_exam = assignments['Thi trac nghiem: Ly thuyet sorting']
         teacher = people['teacher']
         student_a, student_b = people['students']
         now = data['now']
@@ -596,6 +867,152 @@ class Command(BaseCommand):
         for rubric, score in zip(Rubrics.objects.filter(assignment=project).order_by('order_index'), [22, 30, 22, 14]):
             RubricScores.objects.create(submission=project_sub, rubric=rubric, score=score)
 
+        file_sub = Submissions.objects.create(
+            assignment=file_assignment,
+            student=student_a,
+            submission_mode_snapshot=Assignments.SUBMISSION_FILE,
+            submission_text='Em nop bao cao PDF va source code ZIP. Repository: https://github.com/demo/csv-practice',
+            status='finished',
+            total_score=92,
+            max_score=100,
+            manual_score=92,
+            teacher_comment='Bao cao ro rang, source code dat yeu cau. Can bo sung xu ly file rong.',
+            graded_by=teacher,
+            graded_at=now,
+        )
+        SubmissionFiles.objects.bulk_create([
+            SubmissionFiles(
+                submission=file_sub,
+                uploaded_by=student_a,
+                file_name='bao-cao-csv.pdf',
+                file_url='https://example.com/demo/bao-cao-csv.pdf',
+                file_size=512000,
+                mime_type='application/pdf',
+                extension='.pdf',
+                checksum='demo-file-pdf',
+                storage_provider='demo',
+                scan_status=SubmissionFiles.SCAN_SKIPPED,
+            ),
+            SubmissionFiles(
+                submission=file_sub,
+                uploaded_by=student_a,
+                file_name='source-csv.zip',
+                file_url='https://example.com/demo/source-csv.zip',
+                file_size=102400,
+                mime_type='application/zip',
+                extension='.zip',
+                checksum='demo-file-zip',
+                storage_provider='demo',
+                scan_status=SubmissionFiles.SCAN_SKIPPED,
+            ),
+        ])
+        SubmissionFileFeedbacks.objects.create(
+            submission=file_sub,
+            uploaded_by=teacher,
+            file_name='nhan-xet-bao-cao-csv.pdf',
+            file_url='https://example.com/demo/nhan-xet-bao-cao-csv.pdf',
+            file_size=128000,
+            mime_type='application/pdf',
+            note='Nhan xet mau cho bai nop file.',
+        )
+        for rubric, score in zip(Rubrics.objects.filter(assignment=file_assignment).order_by('order_index'), [33, 41, 18]):
+            RubricScores.objects.create(submission=file_sub, rubric=rubric, score=score)
+
+        file_exam_submission = Submissions.objects.create(
+            assignment=file_exam,
+            student=student_a,
+            submission_mode_snapshot=Assignments.SUBMISSION_FILE,
+            submission_text='Nop bai thi thuc hanh Django CRUD.',
+            status='pending',
+            total_score=0,
+            max_score=100,
+        )
+        SubmissionFiles.objects.create(
+            submission=file_exam_submission,
+            uploaded_by=student_a,
+            file_name='django-crud-exam.zip',
+            file_url='https://example.com/demo/django-crud-exam.zip',
+            file_size=204800,
+            mime_type='application/zip',
+            extension='.zip',
+            checksum='demo-file-exam-zip',
+            storage_provider='demo',
+            scan_status=SubmissionFiles.SCAN_PENDING,
+        )
+        file_exam_session = ExamSessions.objects.create(
+            assignment=file_exam,
+            student=student_a,
+            final_submission=file_exam_submission,
+            status=ExamSessions.STATUS_SUBMITTED,
+            started_at=now - timedelta(minutes=45),
+            ends_at=now + timedelta(minutes=15),
+            submitted_at=now - timedelta(minutes=5),
+            last_seen_at=now - timedelta(minutes=5),
+            ip_address='127.0.0.1',
+            user_agent='Demo Browser',
+            metadata={'submission_mode': 'file', 'file_count': 1},
+        )
+
+        quiz_submission = Submissions.objects.create(
+            assignment=quiz_assignment,
+            student=student_a,
+            submission_mode_snapshot=Assignments.SUBMISSION_QUIZ,
+            language='quiz',
+            status='finished',
+            total_score=10,
+            max_score=10,
+        )
+        quiz_attempt = QuizAttempts.objects.create(
+            assignment=quiz_assignment,
+            student=student_a,
+            submission=quiz_submission,
+            attempt_no=1,
+            status=QuizAttempts.STATUS_SUBMITTED,
+            started_at=now - timedelta(minutes=12),
+            submitted_at=now - timedelta(minutes=8),
+            score=10,
+            max_score=10,
+            duration_seconds=240,
+            ip_address='127.0.0.1',
+            user_agent='Demo Browser',
+            random_seed='demo-quiz-seed',
+        )
+        for question in QuizQuestions.objects.filter(assignment=quiz_assignment).prefetch_related('choices'):
+            correct_choices = list(question.choices.filter(is_correct=True))
+            answer = QuizAnswers.objects.create(
+                attempt=quiz_attempt,
+                question=question,
+                selected_choice_ids=[choice.pk for choice in correct_choices],
+                is_correct=True,
+                score_awarded=question.points,
+                answered_at=now - timedelta(minutes=9),
+            )
+            answer.selected_choices.set(correct_choices)
+
+        quiz_exam_session = ExamSessions.objects.create(
+            assignment=quiz_exam,
+            student=student_b,
+            status=ExamSessions.STATUS_RUNNING,
+            started_at=now - timedelta(minutes=5),
+            ends_at=now + timedelta(minutes=15),
+            last_seen_at=now,
+            ip_address='127.0.0.1',
+            user_agent='Demo Browser',
+            metadata={'submission_mode': 'quiz'},
+        )
+        QuizAttempts.objects.create(
+            assignment=quiz_exam,
+            student=student_b,
+            exam_session=quiz_exam_session,
+            attempt_no=1,
+            status=QuizAttempts.STATUS_IN_PROGRESS,
+            started_at=now - timedelta(minutes=5),
+            max_score=10,
+            ip_address='127.0.0.1',
+            user_agent='Demo Browser',
+            random_seed='demo-quiz-exam-seed',
+        )
+
         CodeDrafts.objects.create(
             assignment=exam,
             student=student_b,
@@ -653,9 +1070,14 @@ class Command(BaseCommand):
             ExamEvents(session=running_session, event_type='started', metadata={'ip': '127.0.0.1'}),
             ExamEvents(session=running_session, event_type='tab_hidden', metadata={'visible': False}),
             ExamEvents(session=running_session, event_type='paste', metadata={'length': 24}),
+            ExamEvents(session=file_exam_session, event_type='started', metadata={'submission_mode': 'file'}),
+            ExamEvents(session=file_exam_session, event_type='upload_file', metadata={'file_name': 'django-crud-exam.zip'}),
+            ExamEvents(session=file_exam_session, event_type='submitted', metadata={'submission_id': file_exam_submission.pk, 'submission_mode': 'file'}),
+            ExamEvents(session=quiz_exam_session, event_type='started', metadata={'submission_mode': 'quiz'}),
+            ExamEvents(session=quiz_exam_session, event_type='quiz_attempt_created', metadata={'submission_mode': 'quiz'}),
         ])
 
-        for assignment in (hello, project, exam):
+        for assignment in (hello, project, exam, file_assignment, file_exam, quiz_assignment, quiz_exam):
             update_assignment_statistics(assignment)
         update_classroom_leaderboard(data['python_class'])
         update_classroom_leaderboard(data['web_class'])
@@ -688,6 +1110,8 @@ class Command(BaseCommand):
             'sub_a': sub_a,
             'sub_b': sub_b,
             'project_sub': project_sub,
+            'file_sub': file_sub,
+            'quiz_submission': quiz_submission,
             'exam_submission': exam_submission,
         }
 
@@ -767,7 +1191,9 @@ class Command(BaseCommand):
             'assignments': Assignments.objects.count(),
             'testcases': Testcases.objects.count(),
             'submissions': Submissions.objects.count(),
+            'submission_files': SubmissionFiles.objects.count(),
             'exam_sessions': ExamSessions.objects.count(),
+            'quiz_attempts': QuizAttempts.objects.count(),
             'discussions': Discussions.objects.count(),
             'notifications': Notifications.objects.count(),
         }

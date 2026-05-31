@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Avg, Q, F
+from django.db.models import Count, Avg, Q, F, Sum
 from django.contrib.auth.models import User
 
 from core.decorators import admin_required
@@ -22,6 +22,7 @@ from apps.administation.utils import (
     build_query_string,
     csv_filename,
     get_choice_param,
+    get_client_ip_from_request,
     get_date_param,
     get_int_param,
     get_int_setting,
@@ -67,11 +68,20 @@ def _log_admin_action(actor, action, resource_type, resource_id=None, metadata=N
     )
 
 
+def _setting_policy_metadata(setting_key, extra=None):
+    category = _setting_category(setting_key)
+    metadata = {
+        'setting_key': setting_key,
+        'policy_category': category,
+        'is_upload_or_quiz_policy': category in ('uploads', 'quiz'),
+    }
+    if extra:
+        metadata.update(extra)
+    return metadata
+
+
 def _get_client_ip_from_request(request):
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR') if request else None
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR') if request else None
+    return get_client_ip_from_request(request)
 
 
 def _admin_user_return_redirect(request):
@@ -251,7 +261,8 @@ def admin_dashboard_view(request):
     pending_teachers = TeacherRegistrations.objects.filter(status='pending').count()
 
     from apps.classrooms.models import Classrooms
-    from apps.submissions.models import ExamSessions, Submissions
+    from apps.assignments.models import Assignments
+    from apps.submissions.models import ExamSessions, QuizAttempts, SubmissionFiles, Submissions
     total_classrooms = Classrooms.objects.filter(is_active=True).count()
     pending_classrooms = Classrooms.objects.filter(status='pending').count()
     total_submissions = Submissions.objects.count()
@@ -267,14 +278,57 @@ def admin_dashboard_view(request):
     active_sandboxes = SandboxConfigs.objects.filter(is_active=True).count()
 
     latest_metrics = ServerMetrics.objects.order_by('-recorded_at').first()
+    upload_file_count = SubmissionFiles.objects.count()
+    upload_total_bytes = SubmissionFiles.objects.aggregate(total=Sum('file_size'))['total'] or 0
+    upload_total_mb = round(upload_total_bytes / (1024 * 1024), 2)
+    scan_pending_count = SubmissionFiles.objects.filter(scan_status=SubmissionFiles.SCAN_PENDING).count()
+    scan_blocked_count = SubmissionFiles.objects.filter(scan_status=SubmissionFiles.SCAN_BLOCKED).count()
+
+    top_file_assignments = Assignments.objects.filter(
+        submission_mode=Assignments.SUBMISSION_FILE,
+    ).select_related('classroom').annotate(
+        file_count=Count('submissions__files', distinct=True),
+        upload_bytes=Sum('submissions__files__file_size'),
+        submission_count=Count('submissions', distinct=True),
+    ).filter(file_count__gt=0).order_by('-file_count', '-updated_at')[:4]
+
+    quiz_done_statuses = (
+        QuizAttempts.STATUS_SUBMITTED,
+        QuizAttempts.STATUS_AUTO_SUBMITTED,
+    )
+    top_quiz_attempt_assignments = Assignments.objects.filter(
+        submission_mode=Assignments.SUBMISSION_QUIZ,
+    ).select_related('classroom').annotate(
+        attempt_count=Count('quiz_attempts', distinct=True),
+        completed_attempt_count=Count(
+            'quiz_attempts',
+            filter=Q(quiz_attempts__status__in=quiz_done_statuses),
+            distinct=True,
+        ),
+    ).filter(attempt_count__gt=0).order_by('-attempt_count', '-updated_at')[:4]
+
+    file_quiz_exam_audits = Assignments.objects.filter(
+        is_exam=True,
+        submission_mode__in=[Assignments.SUBMISSION_FILE, Assignments.SUBMISSION_QUIZ],
+    ).select_related('classroom', 'created_by').annotate(
+        session_count=Count('exam_sessions', distinct=True),
+        warning_count=Count(
+            'exam_sessions',
+            filter=Q(exam_sessions__violation_count__gt=0),
+            distinct=True,
+        ),
+        final_submission_count=Count('submissions', distinct=True),
+        uploaded_file_count=Count('submissions__files', distinct=True),
+        quiz_attempt_count=Count('quiz_attempts', distinct=True),
+    ).order_by('-warning_count', '-updated_at')[:4]
 
     recent_registrations = TeacherRegistrations.objects.filter(
         status='pending'
-    ).select_related('user').order_by('-created_at')[:5]
+    ).select_related('user').order_by('-created_at')[:4]
 
     recent_logs = ActivityLogs.objects.select_related(
         'user'
-    ).order_by('-created_at')[:10]
+    ).order_by('-created_at')[:4]
 
     context = {
         **_admin_base_context(),
@@ -291,11 +345,71 @@ def admin_dashboard_view(request):
         'active_languages': active_languages,
         'active_sandboxes': active_sandboxes,
         'latest_metrics': latest_metrics,
+        'upload_file_count': upload_file_count,
+        'upload_total_mb': upload_total_mb,
+        'scan_pending_count': scan_pending_count,
+        'scan_blocked_count': scan_blocked_count,
+        'top_file_assignments': top_file_assignments,
+        'top_quiz_attempt_assignments': top_quiz_attempt_assignments,
+        'file_quiz_exam_audits': file_quiz_exam_audits,
         'recent_registrations': recent_registrations,
         'recent_logs': recent_logs,
         'current_page': 'dashboard',
     }
     return render(request, 'administration/dashboard.html', context)
+
+
+@admin_required
+@require_POST
+def assignment_visibility_toggle_view(request, pk):
+    from apps.assignments.models import Assignments
+
+    assignment = get_object_or_404(
+        Assignments.objects.select_related('classroom', 'created_by'),
+        pk=pk,
+    )
+    action = request.POST.get('action')
+    old_value = assignment.is_published
+    if action == 'hide':
+        assignment.is_published = False
+        log_action = 'ADMIN_ASSIGNMENT_HIDE'
+        message = f'Đã ẩn/khóa bài "{assignment.title}".'
+    elif action == 'publish':
+        assignment.is_published = True
+        log_action = 'ADMIN_ASSIGNMENT_PUBLISH'
+        message = f'Đã mở lại bài "{assignment.title}".'
+    else:
+        messages.error(request, 'Thao tác không hợp lệ.')
+        return redirect(request.POST.get('next') or 'administation:dashboard')
+
+    assignment.save(update_fields=['is_published', 'updated_at'])
+    _log_admin_action(
+        request.user,
+        log_action,
+        'assignments',
+        assignment.pk,
+        {
+            'assignment_title': assignment.title,
+            'old_is_published': old_value,
+            'new_is_published': assignment.is_published,
+            'classroom_id': assignment.classroom_id,
+            'submission_mode': assignment.submission_mode,
+            'is_exam': assignment.is_exam,
+        },
+        request=request,
+    )
+    if assignment.created_by:
+        notify_user(
+            assignment.created_by,
+            title='Admin đã cập nhật trạng thái bài',
+            message=message,
+            link=f'/assignments/{assignment.pk}/',
+            notification_type='admin_assignment_visibility',
+            actor=request.user,
+            metadata={'assignment_id': assignment.pk, 'is_published': assignment.is_published},
+        )
+    messages.success(request, message)
+    return redirect(request.POST.get('next') or 'administation:dashboard')
 
 
 @admin_required
@@ -1187,7 +1301,7 @@ def _sandbox_language_options():
     return sorted(registered.items(), key=lambda item: item[1].lower())
 
 
-CRITICAL_SETTING_PREFIXES = ('exam.', 'sandbox.', 'uploads.')
+CRITICAL_SETTING_PREFIXES = ('exam.', 'sandbox.', 'uploads.', 'quiz.')
 
 
 def _setting_category(key):
@@ -1203,6 +1317,8 @@ def _setting_value_type(value):
         return 'float'
     if isinstance(value, str):
         return 'str'
+    if isinstance(value, list):
+        return 'list'
     return 'json'
 
 
@@ -1216,6 +1332,8 @@ def _setting_schema_type(schema):
         return 'float'
     if expected_type is str:
         return 'str'
+    if expected_type is list:
+        return 'list'
     return 'json'
 
 
@@ -1227,7 +1345,7 @@ def _setting_filter_values(request):
     return {
         'search_query': request.GET.get('search', '').strip(),
         'category_filter': request.GET.get('category', '').strip(),
-        'type_filter': get_choice_param(request.GET, 'type', ['all', 'bool', 'int', 'float', 'str', 'json'], 'all'),
+        'type_filter': get_choice_param(request.GET, 'type', ['all', 'bool', 'int', 'float', 'str', 'list', 'json'], 'all'),
         'critical_filter': get_choice_param(request.GET, 'critical', ['all', 'yes', 'no'], 'all'),
         'missing_filter': get_choice_param(request.GET, 'missing', ['all', 'yes', 'no'], 'all'),
         'updated_by_filter': get_int_param(request.GET, 'updated_by', minimum=1),
@@ -1320,6 +1438,7 @@ def _setting_filter_badge_value_labels(filters):
             'int': 'Integer',
             'float': 'Float',
             'str': 'String',
+            'list': 'Array',
             'json': 'JSON',
         },
         'critical': {'all': 'Tất cả', 'yes': 'Quan trọng', 'no': 'Thường'},
@@ -2674,13 +2793,16 @@ def _policy_schema_cards():
         schema_type = schema.get('type')
         if schema_type is bool:
             kind = 'bool'
-            sample_value = False
+            sample_value = schema.get('default', False)
         elif schema_type is int:
             kind = 'int'
-            sample_value = schema.get('min', 1)
+            sample_value = schema.get('default', schema.get('min', 1))
+        elif schema_type is list:
+            kind = 'list'
+            sample_value = schema.get('default', [])
         else:
             kind = 'json'
-            sample_value = {}
+            sample_value = schema.get('default', {})
         cards.append({
             'key': key,
             'kind': kind,
@@ -2702,10 +2824,10 @@ def system_setting_create_view(request):
             setting.save()
             _log_admin_action(
                 request.user,
-                'ADMIN_SETTING_CREATE',
+                'ADMIN_POLICY_SETTING_CREATE' if _setting_category(setting.setting_key) in ('uploads', 'quiz') else 'ADMIN_SETTING_CREATE',
                 'system_settings',
                 setting.pk,
-                {'setting_key': setting.setting_key, 'setting_value': setting.setting_value},
+                _setting_policy_metadata(setting.setting_key, {'setting_value': setting.setting_value}),
                 request=request,
             )
             messages.success(request, 'Đã thêm cài đặt mới.')
@@ -2714,10 +2836,17 @@ def system_setting_create_view(request):
         setting_key = request.GET.get('key', '').strip()
         schema = SYSTEM_SETTING_SCHEMAS.get(setting_key)
         if schema:
-            default_value = False if schema['type'] is bool else schema.get('min', 0)
+            if 'default' in schema:
+                default_value = schema['default']
+            elif schema['type'] is bool:
+                default_value = False
+            elif schema['type'] is list:
+                default_value = []
+            else:
+                default_value = schema.get('min', 0)
             form = SystemSettingForm(initial={
                 'setting_key': setting_key,
-                'setting_value': json.dumps(default_value),
+                'setting_value': json.dumps(default_value, ensure_ascii=False),
                 'description': schema.get('description', ''),
             })
         else:
@@ -2745,10 +2874,10 @@ def system_setting_edit_view(request, pk):
             obj.save()
             _log_admin_action(
                 request.user,
-                'ADMIN_SETTING_UPDATE',
+                'ADMIN_POLICY_SETTING_UPDATE' if _setting_category(obj.setting_key) in ('uploads', 'quiz') else 'ADMIN_SETTING_UPDATE',
                 'system_settings',
                 obj.pk,
-                {'setting_key': obj.setting_key, 'old_value': old_value, 'new_value': obj.setting_value},
+                _setting_policy_metadata(obj.setting_key, {'old_value': old_value, 'new_value': obj.setting_value}),
                 request=request,
             )
             messages.success(request, 'Đã cập nhật cài đặt.')
@@ -2782,10 +2911,10 @@ def system_setting_delete_view(request, pk):
     setting.delete()
     _log_admin_action(
         request.user,
-        'ADMIN_SETTING_DELETE',
+        'ADMIN_POLICY_SETTING_DELETE' if _setting_category(key) in ('uploads', 'quiz') else 'ADMIN_SETTING_DELETE',
         'system_settings',
         setting_id,
-        {'setting_key': key, 'old_value': old_value},
+        _setting_policy_metadata(key, {'old_value': old_value}),
         request=request,
     )
     messages.success(request, f'Đã xóa cài đặt "{key}".')
@@ -2803,10 +2932,10 @@ def system_setting_toggle_view(request, pk):
         setting.save(update_fields=['setting_value', 'updated_by'])
         _log_admin_action(
             request.user,
-            'ADMIN_SETTING_TOGGLE',
+            'ADMIN_POLICY_SETTING_TOGGLE' if _setting_category(setting.setting_key) in ('uploads', 'quiz') else 'ADMIN_SETTING_TOGGLE',
             'system_settings',
             setting.pk,
-            {'setting_key': setting.setting_key, 'old_value': old_value, 'new_value': setting.setting_value},
+            _setting_policy_metadata(setting.setting_key, {'old_value': old_value, 'new_value': setting.setting_value}),
             request=request,
         )
         status = 'bật' if setting.setting_value else 'tắt'
@@ -3318,6 +3447,7 @@ def subject_export_view(request):
 @admin_required
 @require_POST
 def subject_bulk_action_view(request):
+    # Ưu tiên lấy action từ nút bấm (approve/reject), sau đó mới lấy từ dropdown
     action = request.POST.get('action')
     subject_ids = _selected_int_ids_from_post(request, 'subject_ids', 'môn học ID')
 

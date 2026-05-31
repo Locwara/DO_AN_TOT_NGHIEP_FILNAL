@@ -146,9 +146,9 @@ else:
 
 DATABASES = {'default': default_database}
 
-cloudinary_cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
-cloudinary_api_key = os.environ.get('CLOUDINARY_API_KEY', '')
-cloudinary_api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+cloudinary_cloud_name = os.environ.get('dddpqvxzg', '')
+cloudinary_api_key = os.environ.get('768143393531413', '')
+cloudinary_api_secret = os.environ.get('kvBPf1aaObw24uYYl_7gw6EZ2Aw', '')
 
 # Cloudinary configuration
 CLOUDINARY_STORAGE = {

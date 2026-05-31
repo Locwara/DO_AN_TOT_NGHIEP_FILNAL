@@ -5,6 +5,7 @@ app_name = 'administation'
 
 urlpatterns = [
     path('', views.admin_dashboard_view, name='dashboard'),
+    path('assignments/<int:pk>/visibility/', views.assignment_visibility_toggle_view, name='assignment_visibility_toggle'),
 
     # Teacher approvals
     path('teacher-approvals/', views.teacher_approvals_view, name='teacher_approvals'),

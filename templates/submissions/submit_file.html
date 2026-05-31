@@ -1,0 +1,486 @@
+{% extends 'base.html' %}
+{% block title %}Nộp file - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+{{ allowed_extensions|json_script:"allowed-extensions-data" }}
+<div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 lg:pb-8">
+    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-4">
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
+        <span>/</span>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
+        <span>/</span>
+        <span class="text-slate-700 font-medium">Nộp file</span>
+    </nav>
+
+    <div class="{% if assignment.is_exam %}sticky top-16 z-30 rounded-xl border border-red-100 bg-white/95 backdrop-blur px-4 py-3 shadow-sm{% endif %} flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-8">
+        <div>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
+                <span class="inline-flex items-center gap-1 rounded bg-primary/10 text-primary border border-primary/20 px-2 py-1 text-xs font-bold">
+                    <span class="material-symbols-outlined text-sm">upload_file</span>
+                    Nộp file
+                </span>
+                {% if assignment.is_exam %}
+                <span class="inline-flex items-center gap-1 rounded bg-red-500/10 text-red-600 border border-red-500/20 px-2 py-1 text-xs font-bold">
+                    <span class="material-symbols-outlined text-sm">timer</span>
+                    Bài thi
+                </span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-slate-500">
+                Hạn nộp: <span class="font-bold text-slate-700">{{ assignment.due_date|date:"d/m/Y H:i"|default:"Không giới hạn" }}</span>
+                {% if remaining_attempts is not None %}
+                · Còn <span class="font-bold text-primary">{{ remaining_attempts }}</span> lần nộp
+                {% endif %}
+                {% if assignment.is_exam and exam_remaining_seconds is not None %}
+                · Còn <span id="exam-timer-inline" class="font-bold text-red-600">{{ exam_remaining_seconds }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'submissions:history' assignment_pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                <span class="material-symbols-outlined text-sm">history</span>
+                Lịch sử
+            </a>
+            <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+                <span class="material-symbols-outlined text-sm">info</span>
+                Chi tiết bài
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <main class="lg:col-span-2 space-y-6">
+            {% if assignment.description or assignment.instructions %}
+            <section class="rounded-xl border border-slate-200 bg-white p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 mb-4">
+                    <span class="material-symbols-outlined text-primary">article</span>
+                    Đề bài
+                </h2>
+                {% if assignment.description %}
+                <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ assignment.description }}</p>
+                {% endif %}
+                {% if assignment.instructions %}
+                <div class="mt-4 border-t border-slate-200 pt-4 text-sm text-slate-700 whitespace-pre-wrap">{{ assignment.instructions }}</div>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            <section class="rounded-xl border border-slate-200 bg-white p-6">
+                <div class="flex items-center justify-between gap-3 mb-5">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">drive_folder_upload</span>
+                        {% if assignment.is_exam %}Bài làm trong phòng thi{% else %}Bài làm{% endif %}
+                    </h2>
+                    <span id="file-submit-status" class="text-xs font-bold {% if assignment.is_exam %}text-red-600{% else %}text-slate-500{% endif %}" role="status" aria-live="polite">
+                        {% if assignment.is_exam and exam_remaining_seconds is not None %}Đang tính giờ{% endif %}
+                    </span>
+                </div>
+
+                {% if can_submit and requirements %}
+                <form id="file-submission-form" method="post" action="{% url 'submissions:submit_file' assignment_pk=assignment.pk %}" enctype="multipart/form-data"
+                      data-loading-text="Đang tải file bài làm..."
+                      data-max-files="{{ requirements.max_files }}"
+                      data-max-size="{{ max_file_size_bytes }}"
+                      data-require-comment="{% if requirements.require_comment %}1{% else %}0{% endif %}"
+                      data-require-all="{% if requirements.require_all_files_before_submit %}1{% else %}0{% endif %}">
+                    {% csrf_token %}
+                    {% if exam_session %}
+                    <input type="hidden" name="session_id" value="{{ exam_session.pk }}">
+                    <div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 text-red-700">
+                                <span class="material-symbols-outlined">timer</span>
+                                <span class="text-sm font-bold">Phiên thi đang chạy</span>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs font-bold uppercase text-red-500">Thời gian còn lại</p>
+                                <p id="exam-timer" class="text-2xl font-black text-red-600" data-seconds="{{ exam_remaining_seconds|default:0 }}">--:--</p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-red-700 mt-2">File chỉ được nộp chính thức một lần. Khi nộp thành công, phiên thi sẽ kết thúc.</p>
+                    </div>
+                    {% endif %}
+                    <label id="drop-zone" for="submission-files" class="block rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 sm:p-8 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                        <span class="material-symbols-outlined text-5xl text-primary mb-3">upload_file</span>
+                        <span class="block text-base font-black text-slate-900">Kéo thả hoặc chọn file</span>
+                        <span class="block text-sm text-slate-500 mt-1">{{ requirements.max_files }} file · {{ requirements.max_file_size_mb }}MB/file</span>
+                        <input id="submission-files" name="files" type="file" multiple class="sr-only">
+                    </label>
+
+                    <div id="selected-files" class="mt-4 space-y-2"></div>
+                    <div id="file-errors" class="mt-3 hidden rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"></div>
+
+                    <div class="mt-5">
+                        <label for="submission-text" class="block text-sm font-bold text-slate-700 mb-2">
+                            Ghi chú{% if requirements.require_comment %} *{% endif %}
+                        </label>
+                        <textarea id="submission-text" name="submission_text" rows="4" class="w-full rounded-lg border-slate-200 bg-slate-50 text-sm focus:border-primary focus:ring-primary resize-none" placeholder="Link GitHub, mô tả file, lưu ý khi chấm..."></textarea>
+                        <p id="draft-status" class="text-xs text-slate-500 mt-1"></p>
+                    </div>
+
+                    <div class="mt-5 flex flex-wrap items-center gap-3">
+                        <button id="submit-file-btn" data-file-submit type="submit" class="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined text-sm">send</span>
+                            {% if assignment.is_exam %}Nộp bài thi{% else %}Nộp bài{% endif %}
+                        </button>
+                        <button id="clear-file-btn" type="button" class="inline-flex items-center justify-center gap-2 h-11 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+                            <span class="material-symbols-outlined text-sm">backspace</span>
+                            Xóa file đã chọn
+                        </button>
+                    </div>
+                </form>
+                <div class="lg:hidden fixed left-4 right-4 bottom-4 z-40 rounded-xl border border-primary-200 bg-white p-3 shadow-xl">
+                    <button data-file-submit form="file-submission-form" type="submit" class="inline-flex w-full items-center justify-center gap-2 h-11 rounded-lg bg-primary text-white text-sm font-bold">
+                        <span class="material-symbols-outlined text-sm">send</span>
+                        {% if assignment.is_exam %}Nộp bài thi{% else %}Nộp bài{% endif %}
+                    </button>
+                </div>
+                {% elif is_teacher %}
+                <div class="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-primary-700">
+                    Giáo viên đang xem trước trang nộp file. Chỉ học sinh của lớp mới có thể nộp bài.
+                </div>
+                {% elif not requirements %}
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    Bài này chưa có cấu hình yêu cầu file. Vui lòng báo giáo viên kiểm tra lại.
+                </div>
+                {% else %}
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                    {% if assignment.is_exam %}Phiên thi không còn hoạt động hoặc bạn đã nộp bài thi.{% else %}Bạn không còn lượt nộp cho bài này.{% endif %}
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="rounded-xl border border-slate-200 bg-white p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 mb-4">
+                    <span class="material-symbols-outlined text-primary">history</span>
+                    Lịch sử nộp file
+                </h2>
+                {% if submissions %}
+                <div class="space-y-3">
+                    {% for sub in submissions %}
+                    <a href="{% url 'submissions:detail' pk=sub.pk %}" class="block rounded-xl border border-slate-200 p-4 hover:border-primary transition-colors">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-primary">upload_file</span>
+                                    <span class="text-sm font-bold text-slate-900">Submission #{{ sub.pk }}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if sub.status == 'finished' %}bg-success-100 text-success-600{% else %}bg-slate-100 text-slate-500{% endif %}">{{ sub.status }}</span>
+                                    {% if sub.is_late %}
+                                    <span class="px-2 py-0.5 rounded-full bg-warning-100 text-warning-600 text-[10px] font-bold">Nộp muộn</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">{{ sub.submitted_at|date:"d/m/Y H:i" }} · {{ sub.files.all|length }} file</p>
+                            </div>
+                            <div class="text-left md:text-right">
+                                <p class="text-xs text-slate-500 uppercase font-bold">Điểm</p>
+                                <p class="text-lg font-black text-primary">
+                                    {% if sub.manual_score is not None %}{{ sub.manual_score|floatformat:1 }}{% else %}{{ sub.total_score|floatformat:1 }}{% endif %}/{{ sub.max_score }}
+                                </p>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-10 text-slate-500">
+                    <span class="material-symbols-outlined text-5xl mb-3">inbox</span>
+                    <p class="font-bold">Chưa có lần nộp nào.</p>
+                </div>
+                {% endif %}
+            </section>
+        </main>
+
+        <aside class="space-y-6">
+            <section class="rounded-xl border border-primary/20 bg-primary/5 p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">rule_folder</span>
+                    Yêu cầu file
+                </h3>
+                {% if requirements %}
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <p class="text-xs font-bold uppercase text-slate-500 mb-2">Định dạng</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for ext in requirements.allowed_extensions %}
+                            <span class="px-2 py-1 rounded bg-white border border-primary/20 text-xs font-bold text-slate-700">{{ ext }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Dung lượng</span>
+                        <span class="font-bold">{{ requirements.max_file_size_mb }}MB/file</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Số file</span>
+                        <span class="font-bold">{{ requirements.max_files }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Ghi chú</span>
+                        <span class="font-bold">{% if requirements.require_comment %}Bắt buộc{% else %}Không bắt buộc{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Nộp lại</span>
+                        <span class="font-bold">{% if requirements.allow_resubmit %}Cho phép{% else %}Một lần{% endif %}</span>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-sm text-slate-600">Chưa có cấu hình.</p>
+                {% endif %}
+            </section>
+
+            {% if files %}
+            <section class="rounded-xl border border-slate-200 bg-white p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">attach_file</span>
+                    Tài liệu đề bài
+                </h3>
+                <div class="space-y-2">
+                    {% for file in files %}
+                    <a href="{% url 'assignments:open_file' pk=assignment.pk file_pk=file.pk %}" target="_blank" class="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:border-primary transition-colors">
+                        <span class="material-symbols-outlined text-primary">{% if 'pdf' in file.mime_type %}picture_as_pdf{% elif 'image' in file.mime_type %}image{% elif 'zip' in file.mime_type %}folder_zip{% else %}description{% endif %}</span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-slate-900 truncate">{{ file.file_name }}</p>
+                            {% if file.file_size %}<p class="text-xs text-slate-500">{{ file.file_size|filesizeformat }}</p>{% endif %}
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const form = document.getElementById('file-submission-form');
+    if (!form) return;
+    const fileInput = document.getElementById('submission-files');
+    const dropZone = document.getElementById('drop-zone');
+    const selectedFiles = document.getElementById('selected-files');
+    const errorsBox = document.getElementById('file-errors');
+    const submitBtns = Array.from(document.querySelectorAll('[data-file-submit]'));
+    const clearBtn = document.getElementById('clear-file-btn');
+    const note = document.getElementById('submission-text');
+    const draftStatus = document.getElementById('draft-status');
+    const submitStatus = document.getElementById('file-submit-status');
+    const allowedExtensions = JSON.parse(document.getElementById('allowed-extensions-data').textContent || '[]').map((item) => item.toLowerCase());
+    const maxFiles = Number(form.dataset.maxFiles || '1');
+    const maxSize = Number(form.dataset.maxSize || '20971520');
+    const requireComment = form.dataset.requireComment === '1';
+    const requireAll = form.dataset.requireAll === '1';
+    const draftKey = 'devlearn:file-note:{{ assignment.pk }}';
+    const isExam = {% if assignment.is_exam and exam_session %}true{% else %}false{% endif %};
+    const pingUrl = {% if assignment.is_exam and exam_session %}'{% url "submissions:exam_ping" assignment_pk=assignment.pk %}'{% else %}null{% endif %};
+    const eventUrl = {% if assignment.is_exam and exam_session %}'{% url "submissions:exam_event" assignment_pk=assignment.pk %}'{% else %}null{% endif %};
+    const draftClearUrl = '{% url "submissions:clear_file_draft" assignment_pk=assignment.pk %}';
+    const csrfToken = '{{ csrf_token }}';
+    let remainingSeconds = Number(document.getElementById('exam-timer')?.dataset.seconds || '0');
+
+    function postExamEvent(eventType, metadata = {}) {
+        if (!eventUrl) return;
+        fetch(eventUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            body: JSON.stringify({event_type: eventType, metadata}),
+        }).catch(() => {});
+    }
+
+    function formatSeconds(totalSeconds) {
+        const safe = Math.max(0, Number(totalSeconds || 0));
+        const minutes = Math.floor(safe / 60);
+        const seconds = safe % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function renderTimer() {
+        const timer = document.getElementById('exam-timer');
+        const timerInline = document.getElementById('exam-timer-inline');
+        if (!timer) return;
+        timer.textContent = formatSeconds(remainingSeconds);
+        if (timerInline) timerInline.textContent = formatSeconds(remainingSeconds);
+        if (remainingSeconds <= 0) {
+            submitStatus.textContent = 'Đã hết giờ. Vui lòng chờ hệ thống cập nhật phiên.';
+            submitBtns.forEach((button) => {
+                button.disabled = true;
+                button.classList.add('opacity-70', 'cursor-not-allowed');
+            });
+        }
+    }
+
+    if (isExam) {
+        renderTimer();
+        setInterval(function() {
+            remainingSeconds -= 1;
+            renderTimer();
+        }, 1000);
+        setInterval(function() {
+            if (!pingUrl) return;
+            fetch(pingUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {'X-CSRFToken': csrfToken},
+            })
+            .then((response) => response.ok ? response.json() : null)
+            .then((data) => {
+                if (!data) return;
+                if (typeof data.remaining_seconds === 'number') {
+                    remainingSeconds = data.remaining_seconds;
+                    renderTimer();
+                }
+                if (data.session_status && data.session_status !== 'running') {
+                    submitStatus.textContent = 'Phiên thi đã kết thúc.';
+                    submitBtns.forEach((button) => { button.disabled = true; });
+                }
+            })
+            .catch(() => {});
+        }, 30000);
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) postExamEvent('tab_hidden', {page: 'file_exam'});
+        });
+        window.addEventListener('blur', function() {
+            postExamEvent('focus_lost', {page: 'file_exam'});
+        });
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement) postExamEvent('fullscreen_exit', {page: 'file_exam'});
+        });
+    }
+
+    function setErrors(errors) {
+        if (!errors.length) {
+            errorsBox.classList.add('hidden');
+            errorsBox.innerHTML = '';
+            return;
+        }
+        errorsBox.classList.remove('hidden');
+        errorsBox.innerHTML = errors.map((error) => `<p>${escapeHtml(error)}</p>`).join('');
+    }
+
+    function validateFiles(files) {
+        const errors = [];
+        if (!files.length) errors.push('Vui lòng chọn file để nộp.');
+        if (files.length > maxFiles) errors.push(`Bạn chỉ được chọn tối đa ${maxFiles} file.`);
+        if (requireAll && files.length < maxFiles) errors.push(`Bài này yêu cầu chọn đủ ${maxFiles} file.`);
+        files.forEach((file) => {
+            const ext = file.name.includes('.') ? `.${file.name.split('.').pop().toLowerCase()}` : '';
+            if (allowedExtensions.length && !allowedExtensions.includes(ext)) {
+                errors.push(`${file.name}: định dạng không được phép.`);
+            }
+            if (file.size > maxSize) {
+                errors.push(`${file.name}: vượt quá dung lượng cho phép.`);
+            }
+        });
+        if (requireComment && !note.value.trim()) {
+            errors.push('Vui lòng nhập ghi chú nộp bài.');
+        }
+        return errors;
+    }
+
+    function renderFiles() {
+        const files = Array.from(fileInput.files || []);
+        if (isExam && files.length) {
+            postExamEvent('file_selected', {
+                count: files.length,
+                names: files.map((file) => file.name).slice(0, 10),
+            });
+        }
+        if (!files.length) {
+            selectedFiles.innerHTML = '';
+            setErrors([]);
+            return;
+        }
+        selectedFiles.innerHTML = files.map((file) => `
+            <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="material-symbols-outlined text-primary text-sm">description</span>
+                    <span class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(file.name)}</span>
+                </div>
+                <span class="text-xs text-slate-500">${formatBytes(file.size)}</span>
+            </div>
+        `).join('');
+        setErrors(validateFiles(files).filter((error) => !error.includes('ghi chú')));
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let index = 0;
+        while (size >= 1024 && index < units.length - 1) {
+            size /= 1024;
+            index += 1;
+        }
+        return `${size.toFixed(index ? 1 : 0)} ${units[index]}`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    if (note) {
+        note.value = localStorage.getItem(draftKey) || '';
+        note.addEventListener('input', function() {
+            localStorage.setItem(draftKey, note.value);
+            draftStatus.textContent = 'Đã lưu nháp ghi chú.';
+        });
+    }
+    fileInput.addEventListener('change', renderFiles);
+    clearBtn.addEventListener('click', function() {
+        if (isExam && fileInput.files && fileInput.files.length) {
+            postExamEvent('file_selection_cleared', {count: fileInput.files.length});
+        }
+        fetch(draftClearUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'X-CSRFToken': csrfToken},
+        }).catch(() => {});
+        fileInput.value = '';
+        renderFiles();
+        draftStatus.textContent = 'Đã xóa file nháp đã chọn.';
+    });
+    ['dragenter', 'dragover'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            dropZone.classList.add('border-primary', 'bg-primary/5');
+        });
+    });
+    ['dragleave', 'drop'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            dropZone.classList.remove('border-primary', 'bg-primary/5');
+        });
+    });
+    dropZone.addEventListener('drop', function(event) {
+        fileInput.files = event.dataTransfer.files;
+        renderFiles();
+    });
+    form.addEventListener('submit', function(event) {
+        const errors = validateFiles(Array.from(fileInput.files || []));
+        if (errors.length) {
+            event.preventDefault();
+            setErrors(errors);
+            return;
+        }
+        submitBtns.forEach((button) => {
+            button.disabled = true;
+            button.classList.add('opacity-70', 'cursor-wait');
+            button.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>Đang tải file...';
+        });
+        submitStatus.textContent = 'Đang tải file...';
+        if (isExam) {
+            postExamEvent('submit_clicked', {
+                file_count: (fileInput.files || []).length,
+                note_size: note.value.trim().length,
+            });
+        }
+        localStorage.removeItem(draftKey);
+    });
+})();
+</script>
+{% endblock %}

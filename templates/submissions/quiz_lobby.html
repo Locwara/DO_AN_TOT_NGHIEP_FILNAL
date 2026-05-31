@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block title %}Làm trắc nghiệm - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-[1180px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <a class="hover:text-primary" href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}">{{ classroom.name }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <a class="hover:text-primary" href="{% url 'assignments:detail' pk=assignment.pk %}">{{ assignment.title|truncatechars:34 }}</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="font-semibold text-slate-900">Quiz</span>
+    </nav>
+
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div>
+            <div class="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold text-primary mb-3">
+                <span class="material-symbols-outlined text-sm">quiz</span>
+                Bài trắc nghiệm
+            </div>
+            <h1 class="text-3xl font-black tracking-tight text-slate-950">{{ assignment.title }}</h1>
+            <p class="text-slate-600 mt-2 max-w-2xl">Xem số lượt làm, bắt đầu lượt mới hoặc mở lại kết quả các lượt đã nộp.</p>
+        </div>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Về đề bài
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+        <section class="bg-white border border-slate-200 rounded-xl p-6">
+            <div class="flex items-start justify-between gap-4 mb-5">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-950">Sẵn sàng làm bài</h2>
+                    <p class="text-sm text-slate-600 mt-1">Mỗi lượt nộp sẽ được chấm tự động theo đáp án giáo viên cấu hình.</p>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                    <span class="material-symbols-outlined text-sm">help</span>
+                    {{ question_count }} câu
+                </span>
+            </div>
+
+            {% if open_error %}
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 mb-5">
+                <div class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-lg">lock_clock</span>
+                    <div>
+                        <p class="font-bold">Chưa thể bắt đầu</p>
+                        <p>{{ open_error }}</p>
+                    </div>
+                </div>
+            </div>
+            {% elif not question_count %}
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 mb-5">
+                <div class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-lg">quiz</span>
+                    <p>Quiz này chưa có câu hỏi đang bật. Báo giáo viên kiểm tra lại nha.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if in_progress_attempt %}
+            <div class="rounded-xl border border-primary/20 bg-primary/5 p-5 mb-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-bold text-primary">Bạn đang có lượt làm chưa nộp</p>
+                        <p class="text-sm text-slate-600">Lượt #{{ in_progress_attempt.attempt_no }} bắt đầu lúc {{ in_progress_attempt.started_at|date:"d/m/Y H:i" }}</p>
+                    </div>
+                    <a href="{% url 'submissions:quiz_take' attempt_pk=in_progress_attempt.pk %}" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90">
+                        <span class="material-symbols-outlined text-sm">play_arrow</span>
+                        Tiếp tục làm
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'submissions:start_quiz' assignment_pk=assignment.pk %}">
+                {% csrf_token %}
+                <button type="submit" {% if not can_start or in_progress_attempt %}disabled{% endif %} class="inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition {% if can_start and not in_progress_attempt %}bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90{% else %}bg-slate-100 text-slate-400 cursor-not-allowed{% endif %}">
+                    <span class="material-symbols-outlined text-base">rocket_launch</span>
+                    {% if remaining_attempts == 0 %}Đã hết lượt làm{% else %}Bắt đầu lượt mới{% endif %}
+                </button>
+            </form>
+        </section>
+
+        <aside class="space-y-4">
+            <section class="bg-primary/5 border border-primary/20 rounded-xl p-5">
+                <h3 class="font-bold text-slate-950 mb-4">Thông tin lượt làm</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-600">Đã làm</span>
+                        <span class="font-bold">{{ attempt_count }} lượt</span>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-600">Còn lại</span>
+                        <span class="font-bold">{% if remaining_attempts is None %}Không giới hạn{% else %}{{ remaining_attempts }} lượt{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-600">Thời gian</span>
+                        <span class="font-bold">{% if quiz_settings.time_limit_minutes %}{{ quiz_settings.time_limit_minutes }} phút{% else %}Không giới hạn{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-600">Xem điểm</span>
+                        <span class="font-bold">{% if quiz_settings.show_score_after_submit %}Sau khi nộp{% else %}Theo giáo viên{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-600">Xem lại</span>
+                        <span class="font-bold">{% if quiz_settings.allow_review %}Cho phép{% else %}Không{% endif %}</span>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6 mt-6">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 class="text-xl font-bold text-slate-950">Lịch sử lượt làm</h2>
+            <span class="text-xs font-bold text-slate-500">{{ attempt_count }} lượt</span>
+        </div>
+        {% if attempts %}
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[720px] text-sm">
+                <thead>
+                    <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+                        <th class="py-3 pr-4">Lượt</th>
+                        <th class="py-3 pr-4">Trạng thái</th>
+                        <th class="py-3 pr-4">Bắt đầu</th>
+                        <th class="py-3 pr-4">Nộp lúc</th>
+                        <th class="py-3 pr-4">Điểm</th>
+                        <th class="py-3 pr-4 text-right">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for attempt in attempts %}
+                    <tr>
+                        <td class="py-3 pr-4 font-bold">#{{ attempt.attempt_no }}</td>
+                        <td class="py-3 pr-4">
+                            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {% if attempt.status == 'in_progress' %}bg-primary/10 text-primary{% elif attempt.status == 'submitted' or attempt.status == 'auto_submitted' %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+                                {{ attempt.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="py-3 pr-4 text-slate-600">{{ attempt.started_at|date:"d/m/Y H:i"|default:"-" }}</td>
+                        <td class="py-3 pr-4 text-slate-600">{{ attempt.submitted_at|date:"d/m/Y H:i"|default:"-" }}</td>
+                        <td class="py-3 pr-4 font-bold">
+                            {% if attempt.status == 'in_progress' %}
+                            -
+                            {% elif quiz_settings.show_score_after_submit %}
+                            {{ attempt.score|floatformat:2 }}/{{ attempt.max_score|floatformat:2 }}
+                            {% else %}
+                            Chờ công bố
+                            {% endif %}
+                        </td>
+                        <td class="py-3 pr-4 text-right">
+                            {% if attempt.status == 'in_progress' %}
+                            <a href="{% url 'submissions:quiz_take' attempt_pk=attempt.pk %}" class="font-bold text-primary hover:text-primary/80">Tiếp tục</a>
+                            {% elif quiz_settings.allow_review or quiz_settings.show_score_after_submit %}
+                            <a href="{% url 'submissions:quiz_result' attempt_pk=attempt.pk %}" class="font-bold text-primary hover:text-primary/80">Xem kết quả</a>
+                            {% else %}
+                            <span class="text-slate-400">Đã nộp</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-10 text-slate-500">
+            <span class="material-symbols-outlined text-4xl mb-2 text-slate-300">history</span>
+            <p>Chưa có lượt làm nào.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

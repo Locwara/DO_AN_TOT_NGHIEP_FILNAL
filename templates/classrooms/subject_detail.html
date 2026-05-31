@@ -13,6 +13,32 @@
         <span class="text-slate-900 font-medium">{{ subject.code }}</span>
     </nav>
 
+    <nav class="classroom-tabs mb-6" aria-label="Điều hướng trong môn học">
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}#stream" class="classroom-tab">
+            <span class="material-symbols-outlined">dynamic_feed</span>
+            Bảng tin
+        </a>
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}#subjects" class="classroom-tab is-active">
+            <span class="material-symbols-outlined">menu_book</span>
+            Môn học
+        </a>
+        <a href="{% url 'assignments:list' classroom_pk=classroom.pk %}?cs={{ link.pk }}" class="classroom-tab">
+            <span class="material-symbols-outlined">assignment</span>
+            Bài tập
+        </a>
+        {% if is_teacher %}
+        <a href="{% url 'classrooms:gradebook' pk=classroom.pk %}?cs={{ link.pk }}" class="classroom-tab">
+            <span class="material-symbols-outlined">table_chart</span>
+            Sổ điểm
+        </a>
+        {% else %}
+        <a href="{% url 'classrooms:leaderboard' pk=classroom.pk %}" class="classroom-tab">
+            <span class="material-symbols-outlined">leaderboard</span>
+            Xếp hạng
+        </a>
+        {% endif %}
+    </nav>
+
     <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2 mb-2">
@@ -103,8 +129,8 @@
         {% with assignment=row.assignment %}
         <div class="bg-white border border-slate-200 rounded-xl p-5 hover:border-primary transition-colors">
             <div class="flex flex-col lg:flex-row lg:items-center gap-4">
-                <div class="size-14 rounded-lg flex items-center justify-center flex-shrink-0 {% if assignment.is_exam %}bg-red-500/10 text-red-500{% elif assignment.difficulty == 'easy' %}bg-emerald-500/10 text-emerald-500{% elif assignment.difficulty == 'medium' %}bg-amber-500/10 text-amber-500{% else %}bg-primary/10 text-primary{% endif %}">
-                    <span class="material-symbols-outlined text-2xl">{% if assignment.is_exam %}quiz{% else %}assignment{% endif %}</span>
+                <div class="size-14 rounded-lg flex items-center justify-center flex-shrink-0 {% if assignment.is_exam %}bg-red-500/10 text-red-500{% elif assignment.submission_mode == 'file' %}bg-sky-500/10 text-sky-600{% elif assignment.submission_mode == 'quiz' %}bg-violet-500/10 text-violet-600{% elif assignment.difficulty == 'easy' %}bg-emerald-500/10 text-emerald-500{% elif assignment.difficulty == 'medium' %}bg-amber-500/10 text-amber-500{% else %}bg-primary/10 text-primary{% endif %}">
+                    <span class="material-symbols-outlined text-2xl">{% if assignment.is_exam %}quiz{% elif assignment.submission_mode == 'file' %}upload_file{% elif assignment.submission_mode == 'quiz' %}quiz{% else %}assignment{% endif %}</span>
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2 mb-1">
@@ -112,6 +138,9 @@
                         {% if assignment.is_exam %}
                         <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-600">BÀI THI</span>
                         {% endif %}
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded {% if assignment.submission_mode == 'file' %}bg-sky-500/10 text-sky-700{% elif assignment.submission_mode == 'quiz' %}bg-violet-500/10 text-violet-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+                            {% if assignment.submission_mode == 'file' %}NỘP FILE{% elif assignment.submission_mode == 'quiz' %}TRẮC NGHIỆM{% else %}LẬP TRÌNH{% endif %}
+                        </span>
                         {% if not assignment.is_published %}
                         <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">NHÁP</span>
                         {% endif %}
@@ -146,8 +175,8 @@
                     </a>
                     {% else %}
                     <a href="{% if assignment.is_exam %}{% url 'submissions:exam_lobby' assignment_pk=assignment.pk %}{% else %}{% url 'submissions:solve' assignment_pk=assignment.pk %}{% endif %}" class="inline-flex items-center gap-1 h-10 px-3 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90">
-                        <span class="material-symbols-outlined text-sm">{% if assignment.is_exam %}play_circle{% else %}code{% endif %}</span>
-                        {% if row.is_completed %}Xem lại{% elif assignment.is_exam %}Vào thi{% else %}Làm bài{% endif %}
+                        <span class="material-symbols-outlined text-sm">{% if assignment.is_exam %}play_circle{% elif assignment.submission_mode == 'file' %}upload_file{% else %}code{% endif %}</span>
+                        {% if row.is_completed %}Xem lại{% elif assignment.is_exam %}Vào thi{% elif assignment.submission_mode == 'file' %}Nộp file{% else %}Làm bài{% endif %}
                     </a>
                     {% endif %}
                     <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="inline-flex items-center justify-center size-10 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">

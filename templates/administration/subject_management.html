@@ -139,7 +139,7 @@
 {% include 'administration/partials/filter_status.html' %}
 
 {% if subjects %}
-<form method="post" action="{% url 'administation:subject_bulk_action' %}">
+<form id="bulk-action-form" method="post" action="{% url 'administation:subject_bulk_action' %}">
     {% csrf_token %}
     <div class="bg-white border border-primary-200 rounded-lg shadow-sm overflow-hidden mt-6">
         <div class="p-4 border-b border-primary-200 flex flex-wrap items-center justify-between gap-3">
@@ -149,21 +149,21 @@
             <div class="flex flex-wrap items-center justify-end gap-2">
                 <div id="bulk-selection-toolbar" class="hidden flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2">
                     <span class="text-xs font-bold text-primary-700">Đã chọn <span id="selected-count">0</span></span>
-                    <button type="submit" name="action" value="approve" class="btn btn-sm bg-success-100 text-success-700 hover:bg-success-200" onclick="return confirmBulkApproval('duyệt')">
+                    <button type="submit" class="btn btn-sm bg-success-100 text-success-700 hover:bg-success-200" onclick="return confirmBulkApproval('approve')">
                         <span class="material-symbols-outlined text-xs">check_circle</span>
                         Duyệt đã chọn
                     </button>
-                    <button type="submit" name="action" value="reject" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200" onclick="return confirmBulkApproval('từ chối')">
+                    <button type="submit" class="btn btn-sm bg-danger-100 text-danger-700 hover:bg-danger-200" onclick="return confirmBulkApproval('reject')">
                         <span class="material-symbols-outlined text-xs">cancel</span>
                         Từ chối đã chọn
                     </button>
                 </div>
-                <select name="action" id="bulk-action-select" class="form-select text-sm">
+                <select id="bulk-action-select" class="form-select text-sm">
                     <option value="">Khác...</option>
                     <option value="activate">Kích hoạt</option>
                     <option value="deactivate">Vô hiệu hóa</option>
                 </select>
-                <button type="submit" id="bulk-apply-btn" class="btn btn-primary text-sm" onclick="return submitBulkAction(this)">Áp dụng</button>
+                <button type="submit" id="bulk-apply-btn" class="btn btn-primary text-sm" onclick="return handleDropdownAction(this)">Áp dụng</button>
             </div>
         </div>
         <table class="w-full text-left">
@@ -269,22 +269,24 @@
 {% endif %}
 
 <script>
-// Select all checkbox
+// Select all checkbox logic
 const selectAll = document.getElementById('select-all');
 const bulkToolbar = document.getElementById('bulk-selection-toolbar');
-const selectedCount = document.getElementById('selected-count');
-const rowCheckboxes = Array.from(document.querySelectorAll('input[name="subject_ids"]'));
+const selectedCountLabel = document.getElementById('selected-count');
+const rowCheckboxes = Array.from(document.querySelectorAll('.bulk-row-checkbox'));
 
 function updateBulkToolbar() {
-    const checked = rowCheckboxes.filter(cb => cb.checked).length;
-    if (selectedCount) selectedCount.textContent = checked;
+    const checkedCount = rowCheckboxes.filter(cb => cb.checked).length;
+    if (selectedCountLabel) selectedCountLabel.textContent = checkedCount;
+    
     if (bulkToolbar) {
-        bulkToolbar.classList.toggle('hidden', checked === 0);
-        bulkToolbar.classList.toggle('flex', checked > 0);
+        bulkToolbar.classList.toggle('hidden', checkedCount === 0);
+        bulkToolbar.classList.toggle('flex', checkedCount > 0);
     }
+    
     if (selectAll) {
-        selectAll.checked = checked > 0 && checked === rowCheckboxes.length;
-        selectAll.indeterminate = checked > 0 && checked < rowCheckboxes.length;
+        selectAll.checked = checkedCount > 0 && checkedCount === rowCheckboxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
     }
 }
 
@@ -294,25 +296,36 @@ if (selectAll) {
         updateBulkToolbar();
     });
 }
+
 rowCheckboxes.forEach(cb => cb.addEventListener('change', updateBulkToolbar));
 updateBulkToolbar();
+
+// Thêm hidden input để chứa action
+const bulkActionForm = document.getElementById('bulk-action-form');
+let globalActionInput = document.createElement('input');
+globalActionInput.type = 'hidden';
+globalActionInput.name = 'action';
+if (bulkActionForm) bulkActionForm.appendChild(globalActionInput);
 
 function hasSelectedRows() {
     return rowCheckboxes.some(cb => cb.checked);
 }
 
-function confirmBulkApproval(label) {
+function confirmBulkApproval(actionValue) {
     if (!hasSelectedRows()) {
         alert('Vui lòng chọn ít nhất một môn học.');
         return false;
     }
-    return confirm(`Bạn chắc chắn muốn ${label} các môn học đã chọn?`);
+    const labels = {'approve': 'duyệt', 'reject': 'từ chối'};
+    if (confirm(`Bạn chắc chắn muốn ${labels[actionValue]} các môn học đã chọn?`)) {
+        globalActionInput.value = actionValue;
+        return true;
+    }
+    return false;
 }
 
-// Handle bulk action submit
-function submitBulkAction(button) {
-    const form = button.closest('form');
-    const select = form ? form.querySelector('#bulk-action-select') : null;
+function handleDropdownAction(button) {
+    const select = document.getElementById('bulk-action-select');
     if (!select || !select.value) {
         alert('Vui lòng chọn hành động.');
         return false;
@@ -321,6 +334,7 @@ function submitBulkAction(button) {
         alert('Vui lòng chọn ít nhất một môn học.');
         return false;
     }
+    globalActionInput.value = select.value;
     return true;
 }
 </script>

@@ -423,20 +423,19 @@ def student_dashboard_view(request):
         })
 
     # Bài tập sắp đến hạn (trong 7 ngày) và chưa nộp
-    from datetime import timedelta
     upcoming = all_assignments.filter(
         due_date__gte=now, due_date__lte=now + timedelta(days=7)
-    ).exclude(id__in=completed_assignment_ids).order_by('due_date')[:5]
+    ).exclude(id__in=completed_assignment_ids).order_by('due_date')[:4]
 
     # Bài tập đã quá hạn chưa nộp
     overdue = all_assignments.filter(
         due_date__lt=now
-    ).exclude(id__in=completed_assignment_ids).order_by('-due_date')[:5]
+    ).exclude(id__in=completed_assignment_ids).order_by('-due_date')[:4]
 
     # Bài nộp gần đây
     recent_submissions = Submissions.objects.filter(
         student=user
-    ).select_related('assignment').order_by('-submitted_at')[:5]
+    ).select_related('assignment').order_by('-submitted_at')[:4]
 
     context = {
         'classrooms': classrooms,
@@ -450,6 +449,8 @@ def student_dashboard_view(request):
         'overdue': overdue,
         'recent_submissions': recent_submissions,
         'completion_rate': round(completed_count / total_assignments * 100, 1) if total_assignments > 0 else 0,
+        'breadcrumbs': [{'label': 'Dashboard cá nhân'}],
+        'dashboard_subtitle': f"Chào {request.user.first_name or request.user.username}! Cùng xem tiến độ học tập của bạn.",
     }
     return render(request, 'accounts/student_dashboard.html', context)
 
@@ -488,30 +489,42 @@ def teacher_dashboard_view(request):
     pending_members = ClassroomMembers.objects.filter(
         classroom_id__in=active_classroom_ids,
         status='pending',
-    ).select_related('student', 'classroom').order_by('-joined_at')[:8]
+    ).select_related('student', 'classroom').order_by('-joined_at')[:4]
 
-    recent_submissions = submissions.order_by('-submitted_at')[:8]
+    recent_submissions = submissions.order_by('-submitted_at')[:4]
     needs_review = submissions.filter(
         Q(status__in=['pending', 'running', 'error']) |
+        Q(assignment__grading_mode__in=['manual', 'mixed'], manual_score__isnull=True) |
         Q(assignment__type__in=['manual_grade', 'project'], manual_score__isnull=True)
-    ).order_by('-submitted_at')[:8]
+    ).order_by('-submitted_at')[:4]
 
     upcoming_assignments = assignments.filter(
         due_date__gte=now,
         due_date__lte=week_later,
         is_published=True,
-    ).select_related('classroom', 'classroom_subject__subject').order_by('due_date')[:8]
+    ).select_related('classroom', 'classroom_subject__subject').order_by('due_date')[:4]
 
     weak_assignments = AssignmentStatistics.objects.filter(
         assignment__classroom_id__in=active_classroom_ids,
         total_submissions__gt=0,
-    ).select_related('assignment', 'assignment__classroom').order_by('pass_rate')[:5]
+    ).select_related('assignment', 'assignment__classroom').order_by('pass_rate')[:4]
 
-    pending_classrooms = classrooms.filter(status='pending').order_by('-created_at')[:5]
+    pending_classrooms = classrooms.filter(status='pending').order_by('-created_at')[:4]
     pending_subjects = Subjects.objects.filter(
         created_by=user,
         status=SubjectApprovalStatus.PENDING,
-    ).order_by('-created_at')[:5]
+    ).order_by('-created_at')[:4]
+
+    # Combined pending items for the UI panel
+    pending_admin_items = []
+    for c in pending_classrooms[:3]:
+        pending_admin_items.append({'type': 'classroom', 'item': c, 'date': c.created_at})
+    for s in pending_subjects[:3]:
+        pending_admin_items.append({'type': 'subject', 'item': s, 'date': s.created_at})
+    
+    # Sort by date and take top 3
+    pending_admin_items.sort(key=lambda x: x['date'], reverse=True)
+    pending_admin_items = pending_admin_items[:3]
 
     members_count = ClassroomMembers.objects.filter(
         classroom_id__in=active_classroom_ids,
@@ -523,7 +536,7 @@ def teacher_dashboard_view(request):
     class_summaries = active_classrooms.annotate(
         member_count=Count('classroommembers', filter=Q(classroommembers__status='approved')),
         assignment_count=Count('assignments', distinct=True),
-    ).order_by('-created_at')[:6]
+    ).order_by('-created_at')[:4]
 
     context = {
         'classrooms_count': active_classrooms.count(),
@@ -543,7 +556,10 @@ def teacher_dashboard_view(request):
         'weak_assignments': weak_assignments,
         'pending_classrooms': pending_classrooms,
         'pending_subjects': pending_subjects,
+        'pending_admin_items': pending_admin_items,
         'class_summaries': class_summaries,
+        'breadcrumbs': [{'label': 'Dashboard giáo viên'}],
+        'dashboard_subtitle': f"Chào {request.user.first_name or request.user.username}! Đây là các việc cần chú ý trong lớp học của bạn.",
     }
     return render(request, 'accounts/teacher_dashboard.html', context)
 

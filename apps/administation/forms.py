@@ -43,6 +43,63 @@ SYSTEM_SETTING_SCHEMAS = {
         'max': 50,
         'description': 'Dung lượng tối đa cho file đính kèm bài tập, tính bằng MB.',
     },
+    'uploads.submission_allowed_extensions': {
+        'type': list,
+        'default': ['.pdf', '.docx', '.zip', '.py', '.cpp'],
+        'item_type': str,
+        'description': 'Danh sách extension mặc định khi giáo viên tạo bài nộp file.',
+    },
+    'uploads.submission_default_max_mb': {
+        'type': int,
+        'min': 1,
+        'max': 100,
+        'default': 20,
+        'description': 'Dung lượng tối đa mặc định mỗi file học sinh nộp, tính bằng MB.',
+    },
+    'uploads.submission_default_max_files': {
+        'type': int,
+        'min': 1,
+        'max': 20,
+        'default': 1,
+        'description': 'Số file tối đa mặc định cho mỗi lượt nộp file.',
+    },
+    'uploads.submission_scan_required_default': {
+        'type': bool,
+        'default': False,
+        'description': 'Mặc định yêu cầu scan file trước khi giáo viên chấm.',
+    },
+    'quiz.default_max_attempts': {
+        'type': int,
+        'min': 1,
+        'max': 50,
+        'default': 2,
+        'description': 'Số lần làm mặc định cho bài tập trắc nghiệm.',
+    },
+    'quiz.random_questions_default': {
+        'type': bool,
+        'default': False,
+        'description': 'Mặc định đảo thứ tự câu hỏi khi tạo quiz.',
+    },
+    'quiz.random_choices_default': {
+        'type': bool,
+        'default': False,
+        'description': 'Mặc định đảo thứ tự đáp án khi tạo quiz.',
+    },
+    'quiz.show_score_after_submit_default': {
+        'type': bool,
+        'default': True,
+        'description': 'Mặc định cho học sinh thấy điểm sau khi nộp quiz.',
+    },
+    'quiz.show_correct_answers_default': {
+        'type': bool,
+        'default': False,
+        'description': 'Mặc định cho học sinh thấy đáp án đúng sau khi nộp quiz.',
+    },
+    'quiz.allow_review_default': {
+        'type': bool,
+        'default': True,
+        'description': 'Mặc định cho học sinh xem lại bài quiz sau khi nộp.',
+    },
 }
 
 
@@ -169,6 +226,12 @@ class SystemSettingForm(forms.ModelForm):
             'description': forms.TextInput(attrs={'placeholder': 'Mô tả cài đặt...'}),
         }
 
+    def clean_setting_key(self):
+        value = (self.cleaned_data.get('setting_key') or '').strip()
+        if not value:
+            raise forms.ValidationError('Setting key là bắt buộc.')
+        return value
+
     def clean_setting_value(self):
         import json
         value = self.cleaned_data['setting_value']
@@ -184,7 +247,13 @@ class SystemSettingForm(forms.ModelForm):
             if expected_type is int and isinstance(value, bool):
                 raise forms.ValidationError('Giá trị phải là số nguyên.')
             if not isinstance(value, expected_type):
-                type_label = 'boolean' if expected_type is bool else 'integer'
+                type_label = {
+                    bool: 'boolean',
+                    int: 'integer',
+                    list: 'array',
+                    str: 'string',
+                    float: 'float',
+                }.get(expected_type, 'JSON')
                 raise forms.ValidationError(f'Giá trị của key này phải là {type_label}.')
             if expected_type is int:
                 minimum = schema.get('min')
@@ -193,4 +262,15 @@ class SystemSettingForm(forms.ModelForm):
                     raise forms.ValidationError(f'Giá trị phải >= {minimum}.')
                 if maximum is not None and value > maximum:
                     raise forms.ValidationError(f'Giá trị phải <= {maximum}.')
+            if expected_type is list:
+                item_type = schema.get('item_type')
+                if item_type and any(not isinstance(item, item_type) for item in value):
+                    raise forms.ValidationError('Các phần tử trong array không đúng kiểu.')
+                if key == 'uploads.submission_allowed_extensions':
+                    invalid = [
+                        item for item in value
+                        if not isinstance(item, str) or not item.startswith('.') or len(item) > 16
+                    ]
+                    if invalid:
+                        raise forms.ValidationError('Extension phải có dạng .pdf, .docx, .py...')
         return value

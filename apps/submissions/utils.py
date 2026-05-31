@@ -1,6 +1,168 @@
 """Shared utility functions for the submissions app."""
 
+import hashlib
+import mimetypes
+import os
+import uuid
+
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.utils import timezone
+
+
+DANGEROUS_UPLOAD_EXTENSIONS = {
+    '.app', '.apk', '.bat', '.bin', '.cmd', '.com', '.dll', '.dmg', '.exe',
+    '.gadget', '.hta', '.jar', '.js', '.jse', '.msi', '.msp', '.php', '.ps1',
+    '.scr', '.sh', '.vb', '.vbe', '.vbs', '.ws', '.wsf',
+}
+
+
+def sanitize_upload_filename(file_name, fallback='file'):
+    """Return a display-safe filename while preserving the useful extension."""
+    base_name = os.path.basename(file_name or '').replace('\x00', '').strip()
+    if not base_name:
+        base_name = fallback
+    name, ext = os.path.splitext(base_name)
+    safe_name = ''.join(ch if ch.isalnum() or ch in '._- ' else '_' for ch in name).strip(' ._-')
+    safe_ext = ''.join(ch if ch.isalnum() or ch == '.' else '' for ch in ext.lower())[:16]
+    if not safe_name:
+        safe_name = fallback
+    return f'{safe_name[:120]}{safe_ext}'
+
+
+def storage_public_id(user, original_name, prefix='upload'):
+    """Build a non-guessable storage id instead of trusting the user's filename."""
+    safe_name = sanitize_upload_filename(original_name, fallback=prefix)
+    name, _ext = os.path.splitext(safe_name)
+    user_part = getattr(user, 'pk', None) or 'anon'
+    return f'{prefix}/{user_part}/{uuid.uuid4().hex}-{name[:60]}'
+
+
+def cloudinary_is_configured():
+    config = getattr(settings, 'CLOUDINARY_STORAGE', {}) or {}
+    return bool(
+        config.get('CLOUD_NAME')
+        and config.get('API_KEY')
+        and config.get('API_SECRET')
+    )
+
+
+def upload_to_configured_storage(uploaded_file, *, folder, user, safe_name, prefix):
+    """Upload to Cloudinary when configured, otherwise save through Django storage."""
+    public_id = storage_public_id(user, safe_name, prefix=prefix)
+    if cloudinary_is_configured():
+        import cloudinary.uploader
+
+        result = cloudinary.uploader.upload(
+            uploaded_file,
+            folder=folder,
+            public_id=public_id,
+            unique_filename=False,
+            use_filename=False,
+            resource_type='auto',
+        )
+        return {
+            'url': result.get('secure_url', ''),
+            'public_id': result.get('public_id', public_id),
+            'resource_type': result.get('resource_type', ''),
+            'storage_provider': 'cloudinary',
+        }
+
+    uploaded_file.seek(0)
+    _name, ext = os.path.splitext(safe_name)
+    relative_path = os.path.join(
+        folder.strip('/'),
+        f'{public_id.replace("/", "-")}{ext}',
+    )
+    saved_path = default_storage.save(relative_path, uploaded_file)
+    return {
+        'url': default_storage.url(saved_path),
+        'public_id': saved_path,
+        'resource_type': 'file',
+        'storage_provider': 'django',
+    }
+
+
+def file_checksum(uploaded_file):
+    hasher = hashlib.sha256()
+    for chunk in uploaded_file.chunks():
+        hasher.update(chunk)
+    uploaded_file.seek(0)
+    return hasher.hexdigest()
+
+
+def _normalized_extensions(extensions):
+    return {
+        ext.strip().lower() if ext.strip().startswith('.') else f'.{ext.strip().lower()}'
+        for ext in (extensions or [])
+        if ext and ext.strip()
+    }
+
+
+def _normalized_mime_types(mime_types):
+    return {
+        mime.strip().lower()
+        for mime in (mime_types or [])
+        if mime and mime.strip()
+    }
+
+
+def validate_uploaded_files(
+    uploaded_files,
+    *,
+    allowed_extensions=None,
+    allowed_mime_types=None,
+    max_file_size_mb=20,
+    max_files=1,
+    require_files=True,
+    require_all_files_before_submit=False,
+    label='file',
+):
+    """Validate file count, extension, MIME and per-submission total size."""
+    errors = []
+    uploaded_files = list(uploaded_files or [])
+    max_files = max_files or 1
+    max_file_size_mb = max_file_size_mb or 20
+    max_size = max_file_size_mb * 1024 * 1024
+    max_total_size = max_size * max_files
+    allowed_extensions = _normalized_extensions(allowed_extensions)
+    allowed_mime_types = _normalized_mime_types(allowed_mime_types)
+
+    if require_files and not uploaded_files:
+        errors.append('Vui lòng chọn file để nộp.')
+        return errors
+    if len(uploaded_files) > max_files:
+        errors.append(f'Bạn chỉ được nộp tối đa {max_files} file.')
+    if require_all_files_before_submit and len(uploaded_files) < max_files:
+        errors.append(f'Bài này yêu cầu nộp đủ {max_files} file.')
+
+    total_size = sum(getattr(uploaded_file, 'size', 0) or 0 for uploaded_file in uploaded_files)
+    if total_size > max_total_size:
+        total_mb = max_total_size // (1024 * 1024)
+        errors.append(f'Tổng dung lượng {label} tối đa {total_mb}MB.')
+
+    for uploaded_file in uploaded_files:
+        safe_name = sanitize_upload_filename(getattr(uploaded_file, 'name', ''), fallback='file')
+        ext = os.path.splitext(safe_name.lower())[1]
+        content_type = (getattr(uploaded_file, 'content_type', '') or '').split(';')[0].strip().lower()
+        guessed_mime = (mimetypes.guess_type(safe_name)[0] or '').lower()
+
+        if not ext:
+            errors.append(f'File "{safe_name}" thiếu phần mở rộng.')
+            continue
+        if allowed_extensions and ext not in allowed_extensions:
+            errors.append(f'File "{safe_name}" không đúng định dạng cho phép.')
+        if ext in DANGEROUS_UPLOAD_EXTENSIONS and (not allowed_extensions or ext not in allowed_extensions):
+            errors.append(f'File "{safe_name}" thuộc nhóm thực thi nguy hiểm và chưa được cho phép.')
+        if (getattr(uploaded_file, 'size', 0) or 0) > max_size:
+            errors.append(f'File "{safe_name}" vượt quá {max_file_size_mb}MB.')
+        if allowed_mime_types:
+            if content_type and content_type not in allowed_mime_types:
+                errors.append(f'File "{safe_name}" không đúng MIME type cho phép.')
+            elif not content_type and guessed_mime and guessed_mime not in allowed_mime_types:
+                errors.append(f'File "{safe_name}" không đúng MIME type cho phép.')
+
+    return errors
 
 
 def submission_final_score(submission):
@@ -10,6 +172,101 @@ def submission_final_score(submission):
     if submission.manual_score is not None:
         return submission.manual_score
     return submission.total_score
+
+
+def build_ai_grading_context(submission):
+    """Build a clean, offline-only payload for future teacher-assist AI features."""
+    if submission is None:
+        return {}
+
+    assignment = submission.assignment
+    rubric_items = []
+    for score in submission.rubric_scores.select_related('rubric').all():
+        rubric = score.rubric
+        rubric_items.append({
+            'rubric_id': rubric.pk if rubric else None,
+            'name': rubric.name if rubric else '',
+            'description': rubric.description if rubric else '',
+            'max_points': rubric.max_points if rubric else None,
+            'score': score.score,
+            'comment': score.comment or '',
+        })
+
+    files = []
+    for uploaded in submission.files.all().order_by('uploaded_at'):
+        files.append({
+            'file_id': uploaded.pk,
+            'file_name': uploaded.file_name,
+            'extension': uploaded.extension,
+            'file_size': uploaded.file_size,
+            'mime_type': uploaded.mime_type,
+            'checksum': uploaded.checksum,
+            'scan_status': uploaded.scan_status,
+            'text_extraction_status': uploaded.text_extraction_status,
+            'extracted_text': (uploaded.extracted_text or '')[:12000],
+            'metadata': uploaded.metadata or {},
+        })
+
+    quiz_answers = []
+    for attempt in submission.quiz_attempts.prefetch_related(
+        'answers',
+        'answers__question',
+        'answers__selected_choices',
+    ).all():
+        for answer in attempt.answers.all():
+            question = answer.question
+            quiz_answers.append({
+                'attempt_id': attempt.pk,
+                'answer_id': answer.pk,
+                'question_id': question.pk if question else None,
+                'question_text': question.question_text if question else '',
+                'question_type': question.question_type if question else '',
+                'points': question.points if question else None,
+                'selected_choice_ids': answer.selected_choice_ids or [],
+                'text_answer': answer.text_answer or '',
+                'score_awarded': answer.score_awarded,
+                'ai_suggested_score': answer.ai_suggested_score,
+                'ai_suggestion_status': answer.ai_suggestion_status,
+            })
+
+    feedback_files = [
+        {
+            'file_id': feedback.pk,
+            'file_name': feedback.file_name,
+            'note': feedback.note or '',
+            'uploaded_at': feedback.uploaded_at.isoformat() if feedback.uploaded_at else None,
+        }
+        for feedback in submission.feedback_files.all().order_by('-uploaded_at')
+    ]
+
+    return {
+        'submission': {
+            'id': submission.pk,
+            'mode': submission.submission_mode_snapshot,
+            'status': submission.status,
+            'student_id': submission.student_id,
+            'submitted_at': submission.submitted_at.isoformat() if submission.submitted_at else None,
+            'submission_text': submission.submission_text or '',
+            'code_content': submission.code_content or '',
+            'language': submission.language or '',
+            'total_score': submission.total_score,
+            'manual_score': submission.manual_score,
+            'max_score': submission.max_score,
+            'teacher_comment': submission.teacher_comment or '',
+        },
+        'assignment': {
+            'id': assignment.pk if assignment else None,
+            'title': assignment.title if assignment else '',
+            'submission_mode': assignment.submission_mode if assignment else submission.submission_mode_snapshot,
+            'grading_mode': assignment.grading_mode if assignment else '',
+            'is_exam': assignment.is_exam if assignment else False,
+            'max_score': assignment.max_score if assignment else submission.max_score,
+        },
+        'rubrics': rubric_items,
+        'files': files,
+        'quiz_answers': quiz_answers,
+        'feedback_files': feedback_files,
+    }
 
 
 def assignment_allowed_languages(assignment):

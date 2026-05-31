@@ -1,0 +1,22 @@
+{# includes/breadcrumb.html - Shared breadcrumb navigation #}
+{% if crumbs %}
+<nav aria-label="Đường dẫn điều hướng" class="breadcrumb-nav">
+    <ol class="breadcrumb" role="list">
+        <li class="breadcrumb-item">
+            <a href="{% url 'home' %}" aria-label="Trang chủ">
+                <span class="material-symbols-outlined" aria-hidden="true">home</span>
+            </a>
+        </li>
+        {% for crumb in crumbs %}
+        <li class="breadcrumb-item {% if forloop.last %}breadcrumb-current{% endif %}">
+            <span class="breadcrumb-sep" aria-hidden="true">/</span>
+            {% if crumb.url and not forloop.last %}
+            <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+            {% else %}
+            <span aria-current="page">{{ crumb.label }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</nav>
+{% endif %}

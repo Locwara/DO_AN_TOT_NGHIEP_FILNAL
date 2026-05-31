@@ -60,16 +60,18 @@
             --radius-lg: 14px;
             --radius-full: 9999px;
             --shadow-card: 0 1px 3px rgba(19,127,236,0.08), 0 0 0 0.5px rgba(19,127,236,0.10);
+            --font-sans: 'Be Vietnam Pro', sans-serif;
+            --font-mono: 'Fira Code', monospace;
         }
 
         body {
-            font-family: 'Be Vietnam Pro', sans-serif;
+            font-family: var(--font-sans);
             background: var(--primary-50);
             color: var(--neutral-900);
         }
 
         code {
-            font-family: 'Fira Code', monospace;
+            font-family: var(--font-mono);
             font-size: 0.85em;
             background: var(--primary-50);
             color: var(--primary-600);
@@ -324,18 +326,18 @@
         </h2>
         {% if rows %}
         <div class="table-wrap">
-            <table>
+            <table aria-label="Danh sách bài nộp mới nhất">
                 <thead>
                     <tr>
-                        <th style="width: 28px;">#</th>
-                        <th>Sinh viên</th>
-                        <th>Username</th>
-                        <th>Ngôn ngữ</th>
-                        <th>Thời gian nộp</th>
-                        <th class="text-center">Độ trễ</th>
-                        <th class="text-center">Testcase</th>
-                        <th class="text-right">Điểm</th>
-                        <th class="text-center">Trạng thái</th>
+                        <th scope="col" style="width: 28px;">#</th>
+                        <th scope="col">Sinh viên</th>
+                        <th scope="col">Username</th>
+                        <th scope="col">Loại</th>
+                        <th scope="col">Thời gian nộp</th>
+                        <th scope="col" class="text-center">Độ trễ</th>
+                        <th scope="col" class="text-center">{% if assignment.submission_mode == 'code' %}Testcase{% else %}Chấm{% endif %}</th>
+                        <th scope="col" class="text-right">Điểm</th>
+                        <th scope="col" class="text-center">Trạng thái</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -347,11 +349,19 @@
                             <p class="text-[9px] text-slate-500">{% if row.sub.student %}{{ row.sub.student.email|default:"Chưa có email" }}{% else %}—{% endif %}</p>
                         </td>
                         <td><code>{% if row.sub.student %}{{ row.sub.student.username }}{% else %}—{% endif %}</code></td>
-                        <td>{{ row.sub.language|default:"—" }}</td>
+                        <td>{% if assignment.submission_mode == 'file' %}Nộp file{% elif assignment.submission_mode == 'quiz' %}Quiz{% else %}{{ row.sub.language|default:"—" }}{% endif %}</td>
                         <td>{{ row.sub.submitted_at|date:"d/m/Y H:i" }}</td>
                         <td class="text-center {% if row.is_late %}font-bold text-warning-600{% else %}text-success-600{% endif %}">{{ row.delta_label }}</td>
-                        <td class="text-center">{{ row.sub.passed_testcases }}/{{ row.sub.total_testcases }}</td>
-                        <td class="text-right font-bold">{{ row.sub.total_score|floatformat:2 }}/{{ row.sub.max_score|floatformat:0 }}</td>
+                        <td class="text-center">
+                            {% if assignment.submission_mode == 'code' %}
+                            {{ row.sub.passed_testcases }}/{{ row.sub.total_testcases }}
+                            {% elif row.sub.manual_score is not None or row.sub.graded_at %}
+                            Đã chấm
+                            {% else %}
+                            Chưa chấm
+                            {% endif %}
+                        </td>
+                        <td class="text-right font-bold">{{ row.final_score|floatformat:2 }}/{{ row.sub.max_score|floatformat:0 }}</td>
                         <td class="text-center">
                             <span class="badge {% if row.sub.status == 'finished' %}bg-success-100 text-success-600{% elif row.sub.status == 'failed' or row.sub.status == 'error' %}bg-danger-100 text-danger-600{% else %}bg-warning-100 text-warning-600{% endif %}">
                                 {{ row.sub.status }}
@@ -377,12 +387,12 @@
             </h2>
             {% if late_rows %}
             <div class="table-wrap">
-                <table>
+                <table aria-label="Bài nộp trễ">
                     <thead>
                         <tr>
-                            <th>Sinh viên</th>
-                            <th class="text-center">Trễ</th>
-                            <th class="text-right">Điểm</th>
+                            <th scope="col">Sinh viên</th>
+                            <th scope="col" class="text-center">Trễ</th>
+                            <th scope="col" class="text-right">Điểm</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -390,7 +400,7 @@
                         <tr class="late-row">
                             <td>{% if row.sub.student %}{{ row.sub.student.get_full_name|default:row.sub.student.username }}{% else %}—{% endif %}</td>
                             <td class="text-center font-bold text-warning-600">{{ row.delta_label }}</td>
-                            <td class="text-right font-bold">{{ row.sub.total_score|floatformat:2 }}</td>
+                            <td class="text-right font-bold">{{ row.final_score|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -410,11 +420,11 @@
             </h2>
             {% if missing_members %}
             <div class="table-wrap">
-                <table>
+                <table aria-label="Sinh viên chưa nộp bài">
                     <thead>
                         <tr>
-                            <th>Sinh viên</th>
-                            <th>Username</th>
+                            <th scope="col">Sinh viên</th>
+                            <th scope="col">Username</th>
                         </tr>
                     </thead>
                     <tbody>

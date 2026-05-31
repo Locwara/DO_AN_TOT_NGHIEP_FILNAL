@@ -35,3 +35,18 @@ class TeacherRegistrations(models.Model):
             models.Index(fields=['status', '-created_at'], name='tr_status_created_idx'),
             models.Index(fields=['reviewed_by', 'status'], name='tr_reviewer_status_idx'),
         ]
+
+class SearchHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='search_history')
+    query = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'search_history'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.query}"

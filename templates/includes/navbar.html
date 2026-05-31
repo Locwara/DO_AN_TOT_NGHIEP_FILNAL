@@ -1,7 +1,7 @@
-<header class="site-header">
+<header class="site-header" role="banner">
     <div class="header-inner">
-        <a href="{% url 'home' %}" class="logo" aria-label="DevLearn home">
-            <span class="logo-icon">&lt;/&gt;</span>
+        <a href="{% url 'home' %}" class="logo" aria-label="DevLearn - Về trang chủ">
+            <span class="logo-icon" aria-hidden="true">&lt;/&gt;</span>
             <span class="logo-text">Dev<span class="accent">Learn</span></span>
         </a>
 
@@ -24,15 +24,26 @@
             {% endif %}
         </nav>
 
+        {% include 'includes/search_bar.html' with extra_search_class="header-search-container" search_id="header" %}
+
         <div class="header-actions">
             <div class="relative group pb-3 -mb-3">
-                <a href="{% url 'notifications:list' %}" class="btn-icon relative" title="Thông báo" aria-label="Thông báo">
-                    <span class="material-symbols-outlined text-xl">notifications</span>
+                <a
+                    href="{% url 'notifications:list' %}"
+                    class="btn-icon relative"
+                    title="Thông báo"
+                    aria-label="{% if unread_notifications_count %}{{ unread_notifications_count }} thông báo chưa đọc{% else %}Không có thông báo chưa đọc{% endif %}"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                    aria-controls="notification-menu"
+                    data-notification-trigger
+                >
+                    <span class="material-symbols-outlined text-xl" aria-hidden="true">notifications</span>
                     {% if unread_notifications_count %}
-                    <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">{{ unread_notifications_count }}</span>
+                    <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center" aria-hidden="true">{{ unread_notifications_count }}</span>
                     {% endif %}
                 </a>
-                <div class="invisible opacity-0 translate-y-1 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto focus-within:visible focus-within:opacity-100 focus-within:translate-y-0 focus-within:pointer-events-auto absolute right-0 top-12 w-80 bg-white border border-primary-200 rounded-lg shadow-xl overflow-hidden z-50 transition-all duration-150">
+                <div id="notification-menu" class="invisible opacity-0 translate-y-1 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto focus-within:visible focus-within:opacity-100 focus-within:translate-y-0 focus-within:pointer-events-auto absolute right-0 top-12 w-80 bg-white border border-primary-200 rounded-lg shadow-xl overflow-hidden z-50 transition-all duration-150" role="region" aria-label="Thông báo gần đây">
                     <div class="px-4 py-3 border-b border-primary-200 flex items-center justify-between">
                         <span class="text-sm font-bold text-slate-900">Thông báo</span>
                         <a href="{% url 'notifications:list' %}" class="text-xs font-bold text-primary hover:underline">Xem tất cả</a>
@@ -75,6 +86,16 @@
                 </div>
                 {% endif %}
             </a>
+            <button
+                id="nav-hamburger"
+                class="btn-icon mobile-menu-trigger"
+                type="button"
+                aria-label="Mở menu điều hướng"
+                aria-expanded="false"
+                aria-controls="mobile-drawer"
+            >
+                <span class="material-symbols-outlined" id="hamburger-icon" aria-hidden="true">menu</span>
+            </button>
         </div>
         {% else %}
         <nav class="nav" aria-label="Điều hướng giới thiệu">
@@ -85,7 +106,118 @@
         <div class="header-actions">
             <a href="{% url 'accounts:register' %}" class="btn btn-primary">Đăng ký</a>
             <a href="{% url 'accounts:login' %}" class="btn btn-outline">Đăng nhập</a>
+            <button
+                id="nav-hamburger"
+                class="btn-icon mobile-menu-trigger"
+                type="button"
+                aria-label="Mở menu điều hướng"
+                aria-expanded="false"
+                aria-controls="mobile-drawer"
+            >
+                <span class="material-symbols-outlined" id="hamburger-icon" aria-hidden="true">menu</span>
+            </button>
         </div>
         {% endif %}
     </div>
 </header>
+
+<div id="mobile-drawer" class="fixed inset-0 z-[150] hidden" aria-hidden="true">
+    <div id="drawer-backdrop" class="absolute inset-0 bg-primary-950/60 backdrop-blur-sm"></div>
+
+    <nav
+        class="absolute top-0 right-0 flex h-full w-72 max-w-[86vw] flex-col overflow-y-auto bg-white pt-[var(--header-h)] shadow-modal"
+        aria-label="Menu điều hướng di động"
+    >
+        <button
+            id="drawer-close"
+            class="absolute top-3 right-4 btn-icon"
+            type="button"
+            aria-label="Đóng menu"
+        >
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+
+        <div class="flex flex-col gap-1 px-4 py-4">
+            {% if user.is_authenticated %}
+            <div class="flex items-center gap-3 mb-4 pb-4 border-b border-primary-100">
+                {% if user.profiles.avatar_url %}
+                <div
+                    class="w-9 h-9 rounded-full bg-center bg-cover border border-primary-100"
+                    style="background-image: url('{{ user.profiles.avatar_url }}');"
+                    aria-hidden="true"
+                ></div>
+                {% else %}
+                <div class="w-9 h-9 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center" aria-hidden="true">
+                    {{ user.first_name|first|default:user.username|first|upper }}
+                </div>
+                {% endif %}
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-neutral-900 truncate">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="text-xs text-neutral-500 truncate">{{ user.email }}</p>
+                </div>
+            </div>
+
+            {% if user.is_superuser or user.profiles.role == 'admin' %}
+            <a href="{% url 'administation:dashboard' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
+                Dashboard Admin
+            </a>
+            {% elif user.profiles.role == 'teacher' %}
+            <a href="{% url 'accounts:teacher_dashboard' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">school</span>
+                Dashboard Giáo viên
+            </a>
+            <a href="{% url 'classrooms:create' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+                Tạo lớp
+            </a>
+            {% else %}
+            <a href="{% url 'accounts:student_dashboard' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
+                Dashboard Học sinh
+            </a>
+            {% endif %}
+
+            <a href="{% url 'classrooms:classroom_list' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">class</span>
+                Lớp học
+            </a>
+            <a href="{% url 'assignments:calendar' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+                Lịch
+            </a>
+            <a href="{% url 'notifications:list' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+                Thông báo
+            </a>
+
+            <div class="border-t border-primary-100 my-2"></div>
+
+            <a href="{% url 'accounts:profile' %}" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                Hồ sơ
+            </a>
+            <a href="{% url 'accounts:logout' %}" class="drawer-link text-danger-600 hover:bg-danger-100">
+                <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+                Đăng xuất
+            </a>
+            {% else %}
+            <a href="#features" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">interests</span>
+                Tính năng
+            </a>
+            <a href="#ide" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">terminal</span>
+                IDE
+            </a>
+            <a href="#community" class="drawer-link">
+                <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+                Cộng đồng
+            </a>
+            <div class="border-t border-primary-100 my-2"></div>
+            <a href="{% url 'accounts:login' %}" class="btn btn-outline w-full justify-center">Đăng nhập</a>
+            <a href="{% url 'accounts:register' %}" class="btn btn-primary w-full justify-center mt-2">Đăng ký</a>
+            {% endif %}
+        </div>
+    </nav>
+</div>

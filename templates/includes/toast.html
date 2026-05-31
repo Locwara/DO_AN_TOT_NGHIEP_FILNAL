@@ -1,0 +1,39 @@
+{# includes/toast.html - Django messages / toast notifications #}
+{% if messages %}
+<div
+    id="toast-container"
+    class="fixed top-[calc(var(--header-h)+12px)] right-4 z-[200] flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0"
+    role="region"
+    aria-label="Thông báo hệ thống"
+    aria-live="polite"
+>
+    {% for message in messages %}
+    <div
+        class="site-toast toast {% if message.tags == 'success' %}toast-success{% elif message.tags == 'error' or message.tags == 'danger' %}toast-error{% elif message.tags == 'warning' %}toast-warning{% else %}toast-info{% endif %} shadow-modal transition-all duration-300"
+        role="alert"
+        data-autohide="5000"
+    >
+        {% if message.tags == 'success' %}
+        <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">check_circle</span>
+        {% elif message.tags == 'error' or message.tags == 'danger' %}
+        <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">error</span>
+        {% elif message.tags == 'warning' %}
+        <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">warning</span>
+        {% else %}
+        <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">info</span>
+        {% endif %}
+
+        <span class="flex-1 text-sm">{{ message }}</span>
+
+        <button
+            type="button"
+            class="btn-icon h-6 w-6 shrink-0 opacity-60 hover:opacity-100"
+            onclick="this.closest('[role=alert]').remove()"
+            aria-label="Đóng thông báo"
+        >
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
+        </button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

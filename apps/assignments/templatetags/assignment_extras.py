@@ -15,3 +15,10 @@ def datetime_local(value):
             value = timezone.localtime(value)
         return value.strftime('%Y-%m-%dT%H:%M')
     return value
+
+
+@register.filter
+def dict_get(value, key):
+    if not isinstance(value, dict):
+        return None
+    return value.get(key)

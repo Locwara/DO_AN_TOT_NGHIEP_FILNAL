@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, quiz_utils
 
 app_name = 'assignments'
 
@@ -12,23 +12,40 @@ urlpatterns = [
     path('<int:pk>/edit/', views.edit_assignment_view, name='edit'),
     path('<int:pk>/clone/', views.clone_assignment_view, name='clone'),
     path('<int:pk>/delete/', views.delete_assignment_view, name='delete'),
+    path('<int:pk>/file-requirements/', views.file_requirements_view, name='file_requirements'),
     path('<int:pk>/publish/', views.toggle_publish_view, name='toggle_publish'),
+    path('<int:pk>/release-grades/', views.release_grades_view, name='release_grades'),
     path('<int:pk>/statistics/', views.statistics_view, name='statistics'),
     path('<int:pk>/plagiarism/', views.plagiarism_view, name='plagiarism'),
     path('<int:pk>/plagiarism/run/', views.run_plagiarism_view, name='run_plagiarism'),
     path('<int:pk>/rubrics/add/', views.add_rubric_view, name='add_rubric'),
     path('<int:pk>/rubrics/<int:rubric_pk>/delete/', views.delete_rubric_view, name='delete_rubric'),
+    path('<int:pk>/quiz/', views.quiz_manage_view, name='quiz_manage'),
+    path('<int:pk>/quiz/add/', views.add_quiz_question_view, name='add_quiz_question'),
+    path('<int:pk>/quiz/import/', views.import_quiz_questions_view, name='import_quiz_questions'),
+    path('<int:pk>/quiz/export/', views.export_quiz_questions_view, name='export_quiz_questions'),
+    path('<int:pk>/quiz/sample.csv', views.sample_quiz_csv_view, name='sample_quiz_csv'),
+    path('quiz/template/<str:format>/', quiz_utils.download_quiz_template_view, name='quiz_template_download'),
+    path('<int:pk>/quiz/preview/', views.quiz_preview_view, name='quiz_preview'),
+    path('<int:pk>/quiz/attempts/', views.quiz_attempts_view, name='quiz_attempts'),
+    path('<int:pk>/quiz/questions/<int:question_pk>/edit/', views.edit_quiz_question_view, name='edit_quiz_question'),
+    path('<int:pk>/quiz/questions/<int:question_pk>/toggle/', views.toggle_quiz_question_view, name='toggle_quiz_question'),
+    path('<int:pk>/quiz/questions/<int:question_pk>/delete/', views.delete_quiz_question_view, name='delete_quiz_question'),
     path('<int:pk>/testcases/add/', views.add_testcase_view, name='add_testcase'),
     path('<int:pk>/testcases/import/', views.import_testcases_view, name='import_testcases'),
     path('<int:pk>/testcases/<int:tc_pk>/edit/', views.edit_testcase_view, name='edit_testcase'),
     path('<int:pk>/testcases/<int:tc_pk>/delete/', views.delete_testcase_view, name='delete_testcase'),
     path('<int:pk>/files/upload/', views.upload_file_view, name='upload_file'),
+    path('<int:pk>/files/<int:file_pk>/open/', views.open_file_view, name='open_file'),
     path('<int:pk>/files/<int:file_pk>/delete/', views.delete_file_view, name='delete_file'),
     # Bulk operations
     path('<int:pk>/bulk-regrade/', views.bulk_regrade_view, name='bulk_regrade'),
     path('<int:pk>/export-late/', views.export_late_report_view, name='export_late'),
     path('<int:pk>/export-submissions/', views.export_assignment_submissions_view, name='export_submissions'),
     path('<int:pk>/export-scores/', views.export_assignment_scores_view, name='export_scores'),
+    path('<int:pk>/export-quiz-attempts/', views.export_quiz_attempts_view, name='export_quiz_attempts'),
+    path('<int:pk>/export-quiz-question-analysis/', views.export_quiz_question_analysis_view, name='export_quiz_question_analysis'),
     path('<int:pk>/export-missing/', views.export_assignment_missing_view, name='export_missing'),
+    path('<int:pk>/download-submission-files/', views.download_submission_files_view, name='download_submission_files'),
     path('<int:pk>/late-report/print/', views.late_report_print_view, name='late_report_print'),
 ]
