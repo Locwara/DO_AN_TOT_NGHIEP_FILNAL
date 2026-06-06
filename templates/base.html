@@ -214,7 +214,81 @@
             {% include 'includes/footer.html' %}
         </div>
     </div>
+
     {% include 'includes/loading.html' %}
+
+    {% if not user.is_authenticated %}
+    <!-- Custom Login Required Modal (cho khách chưa đăng nhập) -->
+    <div id="login-prompt-modal" class="custom-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="login-prompt-title" aria-hidden="true">
+        <div class="custom-modal-card" role="document">
+            <div class="custom-modal-header">
+                <div class="custom-modal-icon" style="background: var(--primary-100); color: var(--primary-600);">
+                    <span class="material-symbols-outlined">lock</span>
+                </div>
+                <h2 id="login-prompt-title" class="custom-modal-title">Cần đăng nhập</h2>
+            </div>
+            <div class="custom-modal-body">
+                <p id="login-prompt-message" style="margin: 0;">Bạn cần đăng nhập để truy cập mục này. Vui lòng đăng nhập hoặc tạo tài khoản mới để tiếp tục.</p>
+            </div>
+            <div class="custom-modal-footer">
+                <button type="button" class="btn btn-ghost" data-login-prompt-close>Để sau</button>
+                <a href="{% url 'accounts:register' %}" class="btn btn-outline">Đăng ký</a>
+                <a href="{% url 'accounts:login' %}" class="btn btn-primary">
+                    <span class="material-symbols-outlined text-sm">login</span>
+                    Đăng nhập
+                </a>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            const modal = document.getElementById('login-prompt-modal');
+            if (!modal) return;
+            const messageEl = modal.querySelector('#login-prompt-message');
+            const defaultMessage = messageEl.textContent;
+
+            function open(targetName) {
+                if (targetName) {
+                    messageEl.textContent = `Bạn cần đăng nhập để xem chi tiết “${targetName}”. Đăng nhập hoặc tạo tài khoản mới để tiếp tục.`;
+                } else {
+                    messageEl.textContent = defaultMessage;
+                }
+                modal.classList.add('is-active');
+                modal.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function close() {
+                modal.classList.remove('is-active');
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+            }
+
+            modal.querySelectorAll('[data-login-prompt-close]').forEach(btn => {
+                btn.addEventListener('click', close);
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) close();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('is-active')) close();
+            });
+
+            window.showLoginPrompt = open;
+            window.hideLoginPrompt = close;
+
+            // Tự động bắt mọi link/button có attribute data-requires-login
+            document.addEventListener('click', (e) => {
+                const trigger = e.target.closest('[data-requires-login]');
+                if (trigger) {
+                    e.preventDefault();
+                    open(trigger.dataset.requiresLogin || '');
+                }
+            });
+        })();
+    </script>
+    {% endif %}
+
     <script src="{% static 'js/main.js' %}" defer></script>
     {% block extra_js %}{% endblock %}
 </body>

@@ -261,6 +261,22 @@ def check_plagiarism_task(assignment_id, report_id=None, threshold=0.85):
             'status', 'language', 'result', 'submissions_count',
             'pairs_count', 'suspicious_count', 'finished_at',
         ])
+        
+        # Notify the teacher (Task 3.2)
+        try:
+            from apps.notifications.services import notify_user
+            msg = f"Đã hoàn thành kiểm tra đạo văn cho '{assignment.title}'. Phát hiện {report.suspicious_count} cặp nghi vấn."
+            notify_user(
+                report.created_by,
+                title='Báo cáo đạo văn hoàn tất',
+                message=msg,
+                link=f'/assignments/{assignment.pk}/plagiarism/',
+                notification_type='plagiarism_report_ready',
+                metadata={'assignment_id': assignment.pk, 'report_id': report.pk}
+            )
+        except Exception:
+            logger.exception('Failed to notify teacher about plagiarism report %s', report.pk)
+            
     except Exception as exc:
         logger.exception('Failed plagiarism task assignment=%s report=%s', assignment_id, report.pk)
         report.status = 'error'

@@ -215,12 +215,30 @@ class Command(BaseCommand):
                 syntax_highlight_mode='cpp',
                 default_template='#include <bits/stdc++.h>\nusing namespace std;\nint main(){ return 0; }',
             ),
+            'csharp': ProgrammingLanguages.objects.create(
+                name='csharp',
+                display_name='C#',
+                version='Mono 6.12',
+                file_extension='.cs',
+                syntax_highlight_mode='csharp',
+                default_template='using System;\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello World");\n    }\n}',
+            ),
+            'java': ProgrammingLanguages.objects.create(
+                name='java',
+                display_name='Java',
+                version='OpenJDK 17',
+                file_extension='.java',
+                syntax_highlight_mode='java',
+                default_template='public class Solution {\n    public static void main(String[] args) {\n        System.out.println("Hello World");\n    }\n}',
+            ),
         }
 
         SandboxConfigs.objects.bulk_create([
             SandboxConfigs(language='python', docker_image='python:3.11-alpine', timeout_seconds=5, memory_limit_mb=256, cpu_limit=1.0),
             SandboxConfigs(language='javascript', docker_image='node:20-alpine', timeout_seconds=5, memory_limit_mb=256, cpu_limit=1.0),
             SandboxConfigs(language='cpp', docker_image='gcc:13-bookworm', timeout_seconds=8, memory_limit_mb=512, cpu_limit=1.0),
+            SandboxConfigs(language='csharp', docker_image='mono:6.12', timeout_seconds=10, memory_limit_mb=512, cpu_limit=1.0),
+            SandboxConfigs(language='java', docker_image='openjdk:17-slim', timeout_seconds=10, memory_limit_mb=512, cpu_limit=1.0),
         ])
 
         SystemSettings.objects.bulk_create([

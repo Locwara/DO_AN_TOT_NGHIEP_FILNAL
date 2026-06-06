@@ -132,13 +132,29 @@ class SubjectForm(forms.ModelForm):
 
 class ClassroomSubjectForm(forms.ModelForm):
     subject = forms.ModelChoiceField(
-        queryset=Subjects.objects.filter(is_active=True, status=SubjectApprovalStatus.APPROVED).order_by('code'),
+        queryset=Subjects.objects.none(),
         empty_label='-- Chọn môn học --',
     )
 
     class Meta:
         model = ClassroomSubjects
         fields = ['subject']
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user:
+            from django.db.models import Q
+            # Hiển thị các môn đã được duyệt HOẶC môn do chính GV này tạo (kể cả pending)
+            self.fields['subject'].queryset = Subjects.objects.filter(
+                Q(status=SubjectApprovalStatus.APPROVED) | Q(created_by=user),
+                is_active=True
+            ).order_by('code')
+        else:
+            self.fields['subject'].queryset = Subjects.objects.filter(
+                status=SubjectApprovalStatus.APPROVED,
+                is_active=True
+            ).order_by('code')
 
 
 class SemesterForm(forms.ModelForm):

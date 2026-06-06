@@ -139,6 +139,25 @@ def structural_similarity(code_a, code_b):
     return intersection / magnitude
 
 
+def winnowing_similarity(code_a, code_b, language):
+    """Advanced fingerprint similarity using Winnowing algorithm (copydetect)."""
+    try:
+        from copydetect import CodeFingerprint, compare_files
+        lang_map = {
+            'python': 'python', 'python3': 'python',
+            'cpp': 'cpp', 'c': 'c', 'java': 'java',
+            'javascript': 'js', 'nodejs': 'js', 'csharp': 'cs',
+        }
+        target_lang = lang_map.get(language.lower(), 'python')
+        
+        fp_a = CodeFingerprint(code=code_a, k=25, win_size=15, language=target_lang)
+        fp_b = CodeFingerprint(code=code_b, k=25, win_size=15, language=target_lang)
+        return compare_files(fp_a, fp_b)[0]
+    except Exception as e:
+        logger.warning(f"Winnowing similarity failed: {str(e)}")
+        return 0.0
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -152,7 +171,8 @@ def check_similarity(code_a, code_b, language='python'):
             text_score        – raw text similarity
             token_score       – token-level similarity
             structural_score  – bag-of-tokens similarity
-            is_suspicious     – True if score >= 0.85
+            winnowing_score   – fingerprint similarity
+            is_suspicious     – True if score >= 0.80
     """
     norm_a = normalize_code(code_a, language)
     norm_b = normalize_code(code_b, language)
@@ -160,15 +180,18 @@ def check_similarity(code_a, code_b, language='python'):
     t_score = text_similarity(norm_a, norm_b)
     tk_score = token_similarity(norm_a, norm_b)
     s_score = structural_similarity(norm_a, norm_b)
+    w_score = winnowing_similarity(code_a, code_b, language)
 
-    weighted = 0.3 * t_score + 0.4 * tk_score + 0.3 * s_score
+    # Weighted: Winnowing is strongest (40%), followed by Tokens (30%)
+    weighted = 0.1 * t_score + 0.3 * tk_score + 0.2 * s_score + 0.4 * w_score
 
     return {
         'similarity_score': round(weighted, 4),
         'text_score': round(t_score, 4),
         'token_score': round(tk_score, 4),
         'structural_score': round(s_score, 4),
-        'is_suspicious': weighted >= 0.85,
+        'winnowing_score': round(w_score, 4),
+        'is_suspicious': weighted >= 0.80,
     }
 
 
@@ -202,6 +225,7 @@ def check_plagiarism_batch(submissions, language='python'):
                 'text_score': report['text_score'],
                 'token_score': report['token_score'],
                 'structural_score': report['structural_score'],
+                'winnowing_score': report['winnowing_score'],
                 'is_suspicious': report['is_suspicious'],
             })
     results.sort(key=lambda r: r['similarity_score'], reverse=True)

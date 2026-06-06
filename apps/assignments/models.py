@@ -22,6 +22,17 @@ class Assignments(models.Model):
         (GRADING_MIXED, 'Kết hợp'),
     ]
 
+    SCORE_AGG_BEST = 'best'
+    SCORE_AGG_LATEST = 'latest'
+    SCORE_AGG_AVERAGE = 'average'
+    SCORE_AGG_FIRST = 'first'
+    SCORE_AGG_CHOICES = [
+        (SCORE_AGG_BEST, 'Lấy điểm cao nhất'),
+        (SCORE_AGG_LATEST, 'Lấy điểm lần cuối'),
+        (SCORE_AGG_AVERAGE, 'Lấy điểm trung bình'),
+        (SCORE_AGG_FIRST, 'Lấy điểm lần đầu'),
+    ]
+
     classroom = models.ForeignKey(Classrooms, models.CASCADE, blank=True, null=True)
     classroom_subject = models.ForeignKey(
         ClassroomSubjects, models.SET_NULL,
@@ -54,6 +65,11 @@ class Assignments(models.Model):
     late_penalty_percent = models.FloatField(default=0)
     max_score = models.FloatField(default=100)
     max_attempts = models.IntegerField(blank=True, null=True)
+    score_aggregation_mode = models.CharField(
+        max_length=12,
+        choices=SCORE_AGG_CHOICES,
+        default=SCORE_AGG_BEST,
+    )
 
     show_testcase_result = models.BooleanField(default=True)
     enable_leaderboard = models.BooleanField(default=False)

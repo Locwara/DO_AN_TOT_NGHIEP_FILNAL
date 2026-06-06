@@ -1,38 +1,49 @@
-from django.db.models import Q, F
+from django.db.models import Q
 from django.contrib.postgres.search import TrigramSimilarity
 from django.http import JsonResponse
 from django.urls import reverse
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from .models import Classrooms, ClassroomMembers, Subjects, ClassroomSubjects
 from apps.assignments.models import Assignments
 from apps.accounts.models import SearchHistory
 
-@login_required
+
 def unified_search_suggestions(request):
     """
     Gợi ý tìm kiếm tổng hợp cho lớp học, môn học, bài tập và bài thi.
+
+    - Khách (chưa đăng nhập) chỉ có thể tìm thấy lớp học công khai.
+      Mỗi item sẽ được gắn cờ ``requires_login`` để frontend hiện popup
+      yêu cầu đăng nhập thay vì điều hướng.
+    - User đã đăng nhập: tìm thêm môn / bài tập / bài thi trong các
+      lớp đã tham gia, có lịch sử tìm kiếm.
     """
     query = request.GET.get('q', '').strip()
     search_type = request.GET.get('type', 'all')
-    
-    # Lấy lịch sử tìm kiếm nếu không có query
-    if not query:
-        history = SearchHistory.objects.filter(user=request.user).order_by('-created_at')[:8]
-        return JsonResponse({
-            'history': [{'query': h.query, 'created_at': h.created_at.isoformat()} for h in history],
-            'results': []
-        })
+    is_authenticated = request.user.is_authenticated
 
-    # Lấy danh sách lớp người dùng đã tham gia
-    joined_classroom_ids = list(ClassroomMembers.objects.filter(
-        student=request.user, status='approved'
-    ).values_list('classroom_id', flat=True))
+    # Lấy lịch sử tìm kiếm nếu không có query (chỉ áp dụng cho user đã login)
+    if not query:
+        if is_authenticated:
+            history = SearchHistory.objects.filter(user=request.user).order_by('-created_at')[:8]
+            return JsonResponse({
+                'history': [{'query': h.query, 'created_at': h.created_at.isoformat()} for h in history],
+                'results': []
+            })
+        return JsonResponse({'history': [], 'results': []})
+
+    # Lấy danh sách lớp người dùng đã tham gia (nếu đã login)
+    if is_authenticated:
+        joined_classroom_ids = list(ClassroomMembers.objects.filter(
+            student=request.user, status='approved'
+        ).values_list('classroom_id', flat=True))
+    else:
+        joined_classroom_ids = []
 
     results = []
 
-    # 1. Tìm kiếm Lớp học
+    # 1. Tìm kiếm Lớp học - mọi user (kể cả khách) đều xem được
     if search_type in ['all', 'classroom']:
         classroom_qs = Classrooms.objects.filter(is_active=True).annotate(
             similarity=TrigramSimilarity('name', query)
@@ -47,11 +58,13 @@ def unified_search_suggestions(request):
                 'title': c.name,
                 'subtitle': f"Mã: {c.invite_code} · GV: {c.teacher.get_full_name() if c.teacher else 'Hệ thống'}",
                 'is_joined': c.id in joined_classroom_ids,
+                # Khách hoặc user chưa join lớp này -> cần login để xem chi tiết
+                'requires_login': not is_authenticated,
                 'url': reverse('classrooms:classroom_detail', kwargs={'pk': c.id})
             })
 
-    # 2. Tìm kiếm Môn học
-    if joined_classroom_ids and search_type in ['all', 'subject']:
+    # 2. Tìm kiếm Môn học - chỉ cho user đã join lớp
+    if is_authenticated and joined_classroom_ids and search_type in ['all', 'subject']:
         subject_ids_in_joined = ClassroomSubjects.objects.filter(
             classroom_id__in=joined_classroom_ids,
             is_active=True
@@ -65,7 +78,7 @@ def unified_search_suggestions(request):
 
         for s in subject_qs:
             link = ClassroomSubjects.objects.filter(
-                subject=s, 
+                subject=s,
                 classroom_id__in=joined_classroom_ids,
                 is_active=True
             ).first()
@@ -75,11 +88,12 @@ def unified_search_suggestions(request):
                     'id': s.id,
                     'title': s.name,
                     'subtitle': f"Mã môn: {s.code}",
+                    'requires_login': False,
                     'url': reverse('classrooms:subject_detail', kwargs={'pk': link.classroom_id, 'link_pk': link.id})
                 })
 
-    # 3. Tìm kiếm Bài tập & Bài thi
-    if joined_classroom_ids:
+    # 3. Tìm kiếm Bài tập & Bài thi - chỉ cho user đã join lớp
+    if is_authenticated and joined_classroom_ids:
         assignment_base_qs = Assignments.objects.filter(
             classroom_id__in=joined_classroom_ids,
             is_published=True
@@ -89,7 +103,6 @@ def unified_search_suggestions(request):
             Q(similarity__gt=0.1) | Q(title__icontains=query)
         )
 
-        # Bài tập (không phải exam)
         if search_type in ['all', 'assignment']:
             for a in assignment_base_qs.filter(is_exam=False).order_by('-similarity', '-created_at')[:5]:
                 results.append({
@@ -97,10 +110,10 @@ def unified_search_suggestions(request):
                     'id': a.id,
                     'title': a.title,
                     'subtitle': f"Lớp: {a.classroom.name}",
+                    'requires_login': False,
                     'url': reverse('assignments:detail', kwargs={'pk': a.id})
                 })
 
-        # Bài thi (exam)
         if search_type in ['all', 'exam']:
             for a in assignment_base_qs.filter(is_exam=True).order_by('-similarity', '-created_at')[:5]:
                 results.append({
@@ -108,23 +121,32 @@ def unified_search_suggestions(request):
                     'id': a.id,
                     'title': a.title,
                     'subtitle': f"Lớp: {a.classroom.name}",
+                    'requires_login': False,
                     'url': reverse('submissions:exam_lobby', kwargs={'assignment_pk': a.id})
                 })
 
-    return JsonResponse({'results': results})
+    return JsonResponse({'results': results, 'is_authenticated': is_authenticated})
 
-@login_required
+
 def search_results_view(request):
-    """Trang kết quả tìm kiếm chi tiết."""
+    """Trang kết quả tìm kiếm chi tiết. Khách xem được nhưng phải login để vào chi tiết."""
     query = request.GET.get('q', '').strip()
     search_type = request.GET.get('type', 'all')
-    
-    if not query:
-        return render(request, 'classrooms/search_results.html', {'query': '', 'results': {}})
+    is_authenticated = request.user.is_authenticated
 
-    joined_classroom_ids = list(ClassroomMembers.objects.filter(
-        student=request.user, status='approved'
-    ).values_list('classroom_id', flat=True))
+    if not query:
+        return render(request, 'classrooms/search_results.html', {
+            'query': '',
+            'results': {},
+            'is_authenticated': is_authenticated,
+        })
+
+    if is_authenticated:
+        joined_classroom_ids = list(ClassroomMembers.objects.filter(
+            student=request.user, status='approved'
+        ).values_list('classroom_id', flat=True))
+    else:
+        joined_classroom_ids = []
 
     results = {
         'classrooms': [],
@@ -133,7 +155,7 @@ def search_results_view(request):
         'exams': []
     }
 
-    # Search Classrooms
+    # Search Classrooms - public
     if search_type in ['all', 'classroom']:
         results['classrooms'] = Classrooms.objects.filter(is_active=True).annotate(
             similarity=TrigramSimilarity('name', query)
@@ -141,26 +163,26 @@ def search_results_view(request):
             Q(similarity__gt=0.05) | Q(name__icontains=query) | Q(invite_code__iexact=query)
         ).order_by('-similarity', 'name')[:20]
 
-    # Search Subjects
-    if joined_classroom_ids and search_type in ['all', 'subject']:
+    # Search Subjects - chỉ user đã join lớp
+    if is_authenticated and joined_classroom_ids and search_type in ['all', 'subject']:
         subject_ids = ClassroomSubjects.objects.filter(
             classroom_id__in=joined_classroom_ids, is_active=True
         ).values_list('subject_id', flat=True).distinct()
-        
+
         results['subjects'] = Subjects.objects.filter(id__in=subject_ids, is_active=True).annotate(
             similarity=TrigramSimilarity('name', query)
         ).filter(
             Q(similarity__gt=0.05) | Q(name__icontains=query) | Q(code__icontains=query)
         ).order_by('-similarity', 'name')[:20]
 
-    # Search Assignments & Exams
-    if joined_classroom_ids:
+    # Search Assignments & Exams - chỉ user đã join lớp
+    if is_authenticated and joined_classroom_ids:
         asg_qs = Assignments.objects.filter(
             classroom_id__in=joined_classroom_ids, is_published=True
         ).annotate(similarity=TrigramSimilarity('title', query)).filter(
             Q(similarity__gt=0.05) | Q(title__icontains=query)
         )
-        
+
         if search_type in ['all', 'assignment']:
             results['assignments'] = asg_qs.filter(is_exam=False).order_by('-similarity', '-created_at')[:20]
         if search_type in ['all', 'exam']:
@@ -170,28 +192,36 @@ def search_results_view(request):
         'query': query,
         'search_type': search_type,
         'results': results,
-        'joined_classroom_ids': joined_classroom_ids
+        'joined_classroom_ids': joined_classroom_ids,
+        'is_authenticated': is_authenticated,
     })
 
-@login_required
+
 @require_POST
 def save_search_history(request):
-    """Lưu từ khóa vào lịch sử tìm kiếm."""
+    """Lưu từ khóa tìm kiếm. No-op nếu khách (chưa login)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'skipped', 'reason': 'anonymous'})
+
     query = request.POST.get('q', '').strip()
     if query and len(query) <= 255:
-        # Xóa các bản ghi cũ trùng query để đưa lên đầu
+        # Đưa lên đầu nếu trùng từ khóa
         SearchHistory.objects.filter(user=request.user, query__iexact=query).delete()
         SearchHistory.objects.create(user=request.user, query=query)
-        
+
         # Giới hạn 15 bản ghi gần nhất
-        history_to_keep = SearchHistory.objects.filter(user=request.user).values_list('id', flat=True)[:15]
+        history_to_keep = list(
+            SearchHistory.objects.filter(user=request.user)
+            .values_list('id', flat=True)[:15]
+        )
         SearchHistory.objects.filter(user=request.user).exclude(id__in=history_to_keep).delete()
-        
     return JsonResponse({'status': 'ok'})
 
-@login_required
+
 @require_POST
 def clear_search_history(request):
-    """Xóa toàn bộ lịch sử tìm kiếm của người dùng."""
+    """Xóa toàn bộ lịch sử tìm kiếm. No-op nếu khách."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'skipped', 'reason': 'anonymous'})
     SearchHistory.objects.filter(user=request.user).delete()
     return JsonResponse({'status': 'ok'})

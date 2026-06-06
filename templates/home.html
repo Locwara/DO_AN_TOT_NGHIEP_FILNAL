@@ -13,11 +13,11 @@
                 <p class="text-lg mt-6 text-primary-200">Hệ thống quản lý học tập tích hợp Web IDE, chấm điểm tự động và giám sát thi trực tuyến dành riêng cho sinh viên CNTT.</p>
                 <div class="hero-actions mt-10">
                     <a href="{% url 'accounts:register' %}" class="btn btn-primary h-14 px-8 text-lg font-bold shadow-2xl">Bắt đầu ngay</a>
-                    <a href="#features" class="btn btn-ghost h-14 px-8 text-lg font-bold text-white">Khám phá tính năng</a>
+                    <a href="{% url 'accounts:login' %}" class="btn btn-ghost h-14 px-8 text-lg font-bold text-white">Khám phá tính năng</a>
                 </div>
             </div>
             <div class="hidden md:block relative">
-                <div class="home-ide-preview bg-primary-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl aspect-video relative overflow-hidden">
+                <div class="home-ide-preview bg-primary-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl aspect-video relative overflow-hidden">
                     <div class="flex items-center gap-2 mb-4 border-b border-white/5 pb-2">
                         <div class="flex gap-1.5">
                             <div class="w-3 h-3 rounded-full bg-rose-500"></div>
@@ -48,10 +48,10 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
             <div>
                 <h1 class="text-3xl font-black text-slate-900 tracking-tight">Chào quay trở lại, {{ user.first_name|default:user.username }}!</h1>
-                <p class="text-slate-500 mt-1 font-medium">{% if user.is_teacher %}Bắt đầu quản lý lớp học và bài nộp của sinh viên.{% else %}Tiếp tục hành trình chinh phục các thử thách lập trình.{% endif %}</p>
+                <p class="text-slate-500 mt-1 font-medium">{% if home_role == 'teacher' %}Bắt đầu quản lý lớp học và bài nộp của sinh viên.{% else %}Tiếp tục hành trình chinh phục các thử thách lập trình.{% endif %}</p>
             </div>
             <div class="flex items-center gap-3">
-                {% if user.is_teacher %}
+                {% if home_role == 'teacher' %}
                 <a href="{% url 'classrooms:create' %}" class="btn btn-outline border-2 border-primary text-primary h-12 px-6 font-bold">
                     <span class="material-symbols-outlined text-sm">add_circle</span>
                     Tạo lớp học
@@ -73,7 +73,7 @@
             </div>
         </div>
 
-        {% if not user.is_teacher %}
+        {% if home_role == 'student' %}
         <!-- Student Dashboard Quick View -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 flex flex-col gap-6">
@@ -161,18 +161,20 @@
                     {% if home_sections.classrooms %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {% for row in home_sections.classrooms|slice:":3" %}
-                        <a href="{% url 'classrooms:classroom_detail' pk=row.classroom.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
+                        {% with classroom_obj=row.classroom|default:row %}
+                        <a href="{% url 'classrooms:classroom_detail' pk=classroom_obj.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <h4 class="font-bold text-primary-900 truncate">{{ row.classroom.name }}</h4>
-                                    <p class="caption mt-1">{{ row.subject_count }} môn · {{ row.completed_count }}/{{ row.assignment_count }} bài</p>
+                                    <h4 class="font-bold text-primary-900 truncate">{{ classroom_obj.name }}</h4>
+                                    <p class="caption mt-1">{{ row.subject_count|default:0 }} môn · {{ row.completed_count|default:0 }}/{{ row.assignment_count|default:0 }} bài</p>
                                 </div>
                                 <span class="material-symbols-outlined text-primary">chevron_right</span>
                             </div>
                             <div class="h-2 bg-primary-100 rounded-full overflow-hidden mt-4">
-                                <div class="h-full bg-primary" style="width: {{ row.completion_rate }}%"></div>
+                                <div class="h-full bg-primary" style="width: {{ row.completion_rate|default:0 }}%"></div>
                             </div>
                         </a>
+                        {% endwith %}
                         {% endfor %}
                     </div>
                     {% else %}
@@ -251,8 +253,8 @@
                 </section>
             </div>
         </div>
-        {% else %}
-        <!-- Teacher Dashboard Quick View -->
+        {% elif home_role == 'teacher' %}
+        <!-- Teacher Portal Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 flex flex-col gap-6">
                 <section class="course-card p-6">
@@ -426,55 +428,17 @@
                 </section>
             </div>
         </div>
+        {% else %}
+        <!-- Default Portal (Admin/Other) -->
+        <div class="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <span class="material-symbols-outlined text-6xl text-primary mb-4">admin_panel_settings</span>
+            <h2 class="text-2xl font-black text-slate-900 mb-2">Trung tâm quản trị</h2>
+            <p class="text-slate-500 mb-8">Bạn đang đăng nhập với tư cách quản trị viên hệ thống.</p>
+            <a href="{% url 'administation:dashboard' %}" class="btn btn-primary h-12 px-8 font-bold shadow-lg shadow-primary/20 hover-lift">
+                Vào Dashboard quản trị
+            </a>
+        </div>
         {% endif %}
-    </section>
-    {% endif %}
-
-    {% if not user.is_authenticated %}
-    <!-- Public Landing Sections -->
-    <section id="features" class="py-20 px-4 bg-slate-50 border-t border-slate-100">
-        <div class="container-md">
-            <div class="text-center max-w-2xl mx-auto mb-16">
-                <p class="eyebrow">Tại sao chọn DevLearn?</p>
-                <h2 class="text-3xl md:text-4xl font-black mt-4">Giải pháp toàn diện cho đào tạo lập trình</h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="bg-white p-8 rounded-2xl shadow-sm border border-primary-100">
-                    <div class="size-12 rounded-xl bg-primary-500 text-white flex items-center justify-center mb-6 shadow-lg">
-                        <span class="material-symbols-outlined">code</span>
-                    </div>
-                    <h3 class="text-xl font-bold mb-4">Web IDE Hiện Đại</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">Viết và chạy code trực tiếp trên trình duyệt với đầy đủ tính năng highlight, autocomplete mà không cần cài đặt môi trường.</p>
-                </div>
-                <div class="bg-white p-8 rounded-2xl shadow-sm border border-primary-100">
-                    <div class="size-12 rounded-xl bg-success-500 text-white flex items-center justify-center mb-6 shadow-lg">
-                        <span class="material-symbols-outlined">verified</span>
-                    </div>
-                    <h3 class="text-xl font-bold mb-4">Chấm Điểm Tự Động</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">Hệ thống sandbox Docker an toàn giúp kiểm tra code qua hàng loạt testcase và trả kết quả ngay lập tức cho sinh viên.</p>
-                </div>
-                <div class="bg-white p-8 rounded-2xl shadow-sm border border-primary-100">
-                    <div class="size-12 rounded-xl bg-amber-500 text-white flex items-center justify-center mb-6 shadow-lg">
-                        <span class="material-symbols-outlined">security</span>
-                    </div>
-                    <h3 class="text-xl font-bold mb-4">Giám Sát Thi Cử</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">Công nghệ chống gian lận thông minh theo dõi tab focus, yêu cầu fullscreen và cảnh báo hành vi bất thường trong kỳ thi.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="py-20 px-4">
-        <div class="container-md bg-primary-900 rounded-[2.5rem] p-10 md:p-16 text-center relative overflow-hidden">
-            <div class="relative z-10">
-                <h2 class="text-3xl md:text-5xl font-black text-white leading-tight">Sẵn sàng nâng tầm <br/>kỹ năng lập trình?</h2>
-                <p class="text-primary-200 mt-6 max-w-xl mx-auto">Tham gia cùng hàng nghìn sinh viên và giáo viên đang sử dụng DevLearn mỗi ngày.</p>
-                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
-                    <a href="{% url 'accounts:register' %}" class="btn btn-primary h-14 px-10 text-lg font-bold min-w-48">Tạo tài khoản</a>
-                    <a href="{% url 'accounts:login' %}" class="btn bg-white/10 text-white hover:bg-white/20 h-14 px-10 text-lg font-bold min-w-48">Đăng nhập</a>
-                </div>
-            </div>
-        </div>
     </section>
     {% endif %}
 </div>

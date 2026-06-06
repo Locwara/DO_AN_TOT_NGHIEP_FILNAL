@@ -37,7 +37,7 @@
             </div>
             <div class="classroom-overview-actions">
                 {% if is_teacher %}
-                <a href="{% url 'classrooms:classroom_edit' pk=classroom.pk %}" class="btn btn-outline">
+                <a href="{% url 'classrooms:edit' pk=classroom.pk %}" class="btn btn-outline">
                     <span class="material-symbols-outlined text-sm">edit</span> Chỉnh sửa
                 </a>
                 <a href="{% url 'classrooms:gradebook' pk=classroom.pk %}" class="btn btn-dark">
@@ -82,9 +82,9 @@
                         {% endif %}
                     </div>
                     
-                    {% if subject_links %}
+                    {% if subjects %}
                     <div class="subject-grid">
-                        {% for cs in subject_links|slice:":4" %}
+                        {% for cs in subjects|slice:":4" %}
                         <div class="subject-card">
                             <div class="subject-card-head">
                                 <div>
@@ -156,6 +156,76 @@
             </div>
 
             <div class="classroom-aside">
+                <!-- Classroom Progress (Teacher only) -->
+                {% if is_teacher and classroom_progress %}
+                <section class="classroom-side-panel">
+                    <div class="side-panel-head">
+                        <span class="material-symbols-outlined text-primary">analytics</span>
+                        <h2>Tiến độ chung lớp</h2>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex items-end justify-between mb-2">
+                            <span class="text-3xl font-black text-primary">{{ classroom_progress.avg_completion }}%</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pb-1">Tỷ lệ hoàn thành</span>
+                        </div>
+                        <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-4 border border-slate-50">
+                            <div class="h-full bg-primary shadow-sm" style="width: {{ classroom_progress.avg_completion }}%"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100/50">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Bài tập</p>
+                                <p class="text-lg font-black text-slate-700 mt-0.5">{{ classroom_progress.published_count }}</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100/50">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Lượt đã xong</p>
+                                <p class="text-lg font-black text-slate-700 mt-0.5">{{ classroom_progress.total_finished }}</p>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-3 italic leading-relaxed">
+                            * Tính dựa trên số sinh viên đã có ít nhất một bài nộp hợp lệ cho mỗi bài tập đã công bố.
+                        </p>
+                        <a href="{% url 'classrooms:gradebook' pk=classroom.pk %}" class="btn btn-primary w-full mt-4 text-xs h-10">
+                            Chi tiết sổ điểm
+                        </a>
+                    </div>
+                </section>
+                {% endif %}
+
+                <!-- Pending Members (Teacher only) -->
+                {% if is_teacher and pending_members %}
+                <section class="classroom-side-panel">
+                    <div class="side-panel-head">
+                        <span class="material-symbols-outlined text-primary">person_add</span>
+                        <h2>Yêu cầu tham gia</h2>
+                        <span class="ml-auto bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">{{ pending_members|length }}</span>
+                    </div>
+                    <div class="space-y-3 p-4 pt-0">
+                        {% for pm in pending_members %}
+                        <div class="flex items-center justify-between gap-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold text-slate-900 truncate">{{ pm.student.get_full_name|default:pm.student.username }}</p>
+                                <p class="text-[10px] text-slate-400 font-medium">{{ pm.joined_at|timesince }} trước</p>
+                            </div>
+                            <div class="flex gap-1.5">
+                                <form method="post" action="{% url 'classrooms:approve_member' pk=classroom.pk member_id=pm.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center hover:bg-primary-600 transition-all shadow-sm" title="Duyệt">
+                                        <span class="material-symbols-outlined text-sm">check</span>
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'classrooms:remove_member' pk=classroom.pk member_id=pm.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-8 h-8 rounded-lg bg-white text-slate-400 border border-slate-200 flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shadow-sm" title="Từ chối" onclick="return confirm('Từ chối học sinh này?')">
+                                        <span class="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
+
                 <!-- Notifications/Stream Panel -->
                 <section class="classroom-side-panel">
                     <div class="side-panel-head">
@@ -223,7 +293,7 @@
                 <p class="text-sm">Chọn môn học bạn muốn đưa vào chương trình giảng dạy của lớp <strong>{{ classroom.name }}</strong>.</p>
                 <div>
                     <label class="form-label">Danh sách môn học khả dụng</label>
-                    <select name="subject_id" class="form-select" required>
+                    <select name="subject" class="form-select" required>
                         <option value="">-- Chọn môn học --</option>
                         {% for sub in available_subjects_to_assign %}
                         <option value="{{ sub.pk }}">{{ sub.code }} - {{ sub.name }}</option>

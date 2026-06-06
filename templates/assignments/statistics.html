@@ -266,8 +266,8 @@
     </section>
     {% endif %}
 
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="stats-panel p-5 sm:p-6">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="stats-panel p-5 sm:p-6 lg:col-span-2">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <div>
                     <p class="eyebrow">Score distribution</p>
@@ -284,7 +284,22 @@
             </div>
         </div>
 
-        {% if assignment.submission_mode == 'code' %}
+        <div class="stats-panel p-5 sm:p-6">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <p class="eyebrow">Pass rate</p>
+                    <h2 class="text-xl font-bold text-primary-900">Tỷ lệ đạt</h2>
+                </div>
+                <span class="material-symbols-outlined text-success-600 text-3xl">pie_chart</span>
+            </div>
+            <div class="stats-chart-box">
+                <canvas id="passRateChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    {% if assignment.submission_mode == 'code' %}
+    <section class="grid grid-cols-1 gap-6 mb-6">
         <div class="stats-panel p-5 sm:p-6">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <div>
@@ -293,7 +308,7 @@
                 </div>
                 <span class="material-symbols-outlined text-danger-600 text-3xl">error</span>
             </div>
-            <div class="stats-chart-box">
+            <div class="stats-chart-box" style="height: 320px;">
                 <canvas id="errorChart"></canvas>
                 <div id="errorChartEmpty" class="stats-empty hidden">
                     <span class="material-symbols-outlined text-4xl text-success-600 mb-2">verified</span>
@@ -301,8 +316,8 @@
                 </div>
             </div>
         </div>
-        {% endif %}
     </section>
+    {% endif %}
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="stats-panel p-5 sm:p-6">
@@ -541,6 +556,7 @@
 <script>
 const scoreDist = {{ score_distribution_json|safe }};
 const errorDist = {{ error_distribution_json|safe }};
+const passRate = {{ pass_rate_val|default:0 }};
 const chartTextColor = '#64748b';
 const chartGridColor = 'rgba(184, 217, 253, 0.35)';
 const palette = ['#137fec', '#16a34a', '#ea580c', '#7c3aed', '#dc2626'];
@@ -548,6 +564,28 @@ const palette = ['#137fec', '#16a34a', '#ea580c', '#7c3aed', '#dc2626'];
 function hasChartData(data) {
     return Array.isArray(data) && data.some((value) => Number(value) > 0);
 }
+
+// Pass Rate Chart
+new Chart(document.getElementById('passRateChart'), {
+    type: 'pie',
+    data: {
+        labels: ['Đạt (>=50%)', 'Chưa đạt'],
+        datasets: [{
+            data: [passRate, 100 - passRate],
+            backgroundColor: ['#16a34a', '#dc2626'],
+            borderColor: '#ffffff',
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: chartTextColor } },
+            tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}%` } }
+        }
+    }
+});
 
 if (hasChartData(scoreDist.data)) {
     new Chart(document.getElementById('scoreChart'), {

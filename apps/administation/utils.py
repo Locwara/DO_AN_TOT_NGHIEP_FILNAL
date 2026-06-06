@@ -131,6 +131,15 @@ def csv_filename(base, export_type='', filtered=False, timestamp='', extension='
     return '_'.join(part for part in parts if part) + f'.{extension}'
 
 
+def xlsx_response(filename):
+    from django.http import HttpResponse
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
 def get_client_ip_from_request(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR') if request else None
     if x_forwarded_for:

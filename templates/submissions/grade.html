@@ -276,18 +276,43 @@
                     </div>
 
                     {% if not is_quiz_submission %}
-                    <div class="space-y-2 mb-4 max-h-[220px] overflow-y-auto">
+                    <div class="space-y-2 mb-4 max-h-[400px] overflow-y-auto pr-1">
                         {% for d in details %}
-                        <div class="flex items-center justify-between px-3 py-2 rounded-lg text-xs border {% if d.result_status == 'accepted' or d.result_status == 'passed' %}bg-success-100 border-green-200{% else %}bg-danger-100 border-red-200{% endif %}">
-                            <div class="flex items-center gap-2">
-                                {% if d.result_status == 'accepted' or d.result_status == 'passed' %}
-                                <span class="material-symbols-outlined text-success-600 text-sm">check_circle</span>
-                                {% else %}
-                                <span class="material-symbols-outlined text-danger-600 text-sm">cancel</span>
-                                {% endif %}
-                                <span class="font-bold text-slate-700">{{ d.testcase.name|default:"TC" }}</span>
+                        <div class="flex flex-col p-3 rounded-lg border {% if d.result_status == 'accepted' or d.result_status == 'passed' %}bg-success-50/50 border-green-200{% else %}bg-danger-50/50 border-red-200{% endif %}">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    {% if d.result_status == 'accepted' or d.result_status == 'passed' %}
+                                    <span class="material-symbols-outlined text-success-600 text-sm">check_circle</span>
+                                    {% else %}
+                                    <span class="material-symbols-outlined text-danger-600 text-sm">cancel</span>
+                                    {% endif %}
+                                    <span class="font-bold text-slate-700 text-xs">{{ d.testcase.name|default:"TC" }}</span>
+                                    <span class="text-[10px] uppercase font-bold text-slate-400">{{ d.result_status }}</span>
+                                </div>
+                                <span class="text-[10px] text-slate-500 font-bold">{{ d.execution_time|floatformat:0 }}ms · +{{ d.score_earned|floatformat:1 }}</span>
                             </div>
-                            <span class="text-slate-500">{{ d.execution_time|floatformat:0 }}ms · +{{ d.score_earned|floatformat:1 }}</span>
+                            
+                            {% if d.testcase.input_data %}
+                            <div class="mt-2">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Input</p>
+                                <pre class="p-1.5 bg-slate-900 text-slate-200 text-[10px] rounded overflow-x-auto font-mono max-h-24">{{ d.testcase.input_data }}</pre>
+                            </div>
+                            {% endif %}
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Expected</p>
+                                    <pre class="p-1.5 bg-slate-900 text-slate-200 text-[10px] rounded overflow-x-auto font-mono max-h-24">{{ d.expected_output }}</pre>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Actual</p>
+                                    <pre class="p-1.5 bg-white text-slate-800 text-[10px] rounded border border-slate-200 overflow-x-auto font-mono max-h-24">{{ d.actual_output }}</pre>
+                                </div>
+                            </div>
+                            {% if d.error_message %}
+                            <div class="mt-2 p-2 bg-red-50 text-red-700 text-[10px] font-mono rounded border border-red-100 break-words">
+                                {{ d.error_message }}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>

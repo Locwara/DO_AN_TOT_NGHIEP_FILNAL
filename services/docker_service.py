@@ -51,6 +51,7 @@ def _get_file_extension(language):
         'java': '.java',
         'javascript': '.js',
         'nodejs': '.js',
+        'csharp': '.cs',
     }
     return extensions.get(language.lower(), '.txt')
 
@@ -60,6 +61,7 @@ def _get_compile_command(language, filename):
         'cpp': ['g++', '-o', 'solution', filename, '-std=c++17'],
         'c': ['gcc', '-o', 'solution', filename],
         'java': ['javac', filename],
+        'csharp': ['mcs', '-out:solution.exe', filename],
     }
     return commands.get(language.lower())
 
@@ -73,6 +75,7 @@ def _get_run_command(language, filename):
         'java': ['java', filename.replace('.java', '')],
         'javascript': ['node', filename],
         'nodejs': ['node', filename],
+        'csharp': ['mono', 'solution.exe'],
     }
     return commands.get(language.lower(), ['python3', filename])
 
@@ -86,6 +89,7 @@ def _get_default_docker_image(language):
         'java': 'openjdk:17-slim',
         'javascript': 'node:20-alpine',
         'nodejs': 'node:20-alpine',
+        'csharp': 'mono:6.12',
     }
     return images.get(language.lower(), 'python:3.11-alpine')
 

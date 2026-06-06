@@ -3654,6 +3654,14 @@ form.bg-white,
   color: var(--success-600);
 }
 
+.search-item-badge--lock {
+  background: var(--warning-100);
+  color: var(--warning-600);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .search-history-item {
   display: flex;
   align-items: center;
@@ -3946,4 +3954,85 @@ form.bg-white,
 .assignment-section-tab span, 
 .assignment-section-tab {
   white-space: nowrap;
+}
+
+/* ============================================================
+   LANDING PAGE (HOME) STYLES
+   ============================================================ */
+.home-shell {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.container-md {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.hero {
+  padding: 6rem 2rem;
+  background: var(--primary-900);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(19, 127, 236, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(124, 58, 237, 0.1) 0%, transparent 40%);
+  border-radius: 2rem;
+  color: var(--white);
+  margin-bottom: 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero p {
+  color: var(--primary-100);
+}
+
+.hero h1 {
+  color: var(--white);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary-400);
+  margin-bottom: 0.5rem;
+}
+
+.hero .eyebrow {
+  color: var(--primary-300);
+}
+
+.home-ide-preview {
+  background: var(--primary-950);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.home-ide-code {
+  color: var(--code-var);
+}
+
+.feature-card {
+  background: var(--white);
+  padding: 2rem;
+  border-radius: 1.5rem;
+  border: 1px solid var(--primary-100);
+  transition: all 0.3s ease;
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary-700);
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--neutral-500);
+  letter-spacing: 0.05em;
 }

@@ -69,7 +69,7 @@ class AssignmentForm(forms.ModelForm):
             'submission_mode', 'grading_mode',
             'type', 'difficulty',
             'start_date', 'due_date', 'late_submission_allowed', 'late_penalty_percent',
-            'max_score', 'max_attempts', 'show_testcase_result', 'enable_leaderboard',
+            'max_score', 'max_attempts', 'score_aggregation_mode', 'show_testcase_result', 'enable_leaderboard',
             'is_exam', 'exam_duration_minutes', 'exam_start_time', 'exam_end_time',
             'exam_require_fullscreen', 'exam_allow_custom_input',
             'exam_allow_sample_run', 'exam_max_run_count', 'exam_grace_seconds',
@@ -152,9 +152,6 @@ class AssignmentForm(forms.ModelForm):
     file_scan_required = forms.BooleanField(required=False, label='Yêu cầu quét file trước khi chấm')
     quiz_random_questions = forms.BooleanField(required=False, label='Đảo thứ tự câu hỏi')
     quiz_random_choices = forms.BooleanField(required=False, label='Đảo thứ tự đáp án')
-    quiz_show_correct_answers = forms.BooleanField(required=False, label='Hiện đáp án đúng khi xem lại')
-    quiz_show_explanation = forms.BooleanField(required=False, label='Hiện giải thích khi xem lại')
-    quiz_show_score_after_submit = forms.BooleanField(required=False, label='Hiện điểm sau khi nộp')
     quiz_show_score_after_submit = forms.BooleanField(required=False, initial=True, label='Hiện điểm sau khi nộp')
     quiz_show_correct_answers = forms.BooleanField(required=False, label='Hiện đáp án đúng')
     quiz_show_explanation = forms.BooleanField(required=False, label='Hiện giải thích')
@@ -175,7 +172,9 @@ class AssignmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         classroom = kwargs.pop('classroom', None)
+        user = kwargs.pop('user', None)  # Extract user here
         super().__init__(*args, **kwargs)
+        self.user = user  # Store user for later use in queryset filtering
         self.fields['start_date'].input_formats = ['%Y-%m-%dT%H:%M']
         self.fields['due_date'].input_formats = ['%Y-%m-%dT%H:%M']
         self.fields['exam_start_time'].input_formats = ['%Y-%m-%dT%H:%M']
@@ -197,12 +196,20 @@ class AssignmentForm(forms.ModelForm):
             target_classroom_id = self.instance.classroom_id
 
         if target_classroom_id is not None:
+            # Lấy tất cả link môn học của lớp này,
+            # nhưng chỉ hiển thị những môn đã APPROVED hoặc do user hiện tại tạo.
             base_filter = Q(
                 classroom_id=target_classroom_id,
                 is_active=True,
                 subject__is_active=True,
-                subject__status=SubjectApprovalStatus.APPROVED,
             )
+            
+            # Filter subjects: Approved OR Created by this user
+            if self.user:  # Use self.user here
+                base_filter &= (Q(subject__status=SubjectApprovalStatus.APPROVED) | Q(subject__created_by=self.user))
+            else:
+                base_filter &= Q(subject__status=SubjectApprovalStatus.APPROVED)
+
             # Luôn include classroom_subject hiện tại (nếu đang edit) để tránh mất giá trị
             if self.instance and self.instance.pk and self.instance.classroom_subject_id:
                 base_filter = base_filter | Q(pk=self.instance.classroom_subject_id)

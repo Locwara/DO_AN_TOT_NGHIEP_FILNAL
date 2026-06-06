@@ -19,7 +19,12 @@
             <h1 class="text-3xl font-black tracking-tight">{{ assignment.title }}</h1>
             <p class="text-slate-600 mt-1">{{ assignment.exam_duration_minutes|default:"-" }} phút{% if assignment.exam_start_time %} • Mở {{ assignment.exam_start_time|date:"d/m/Y H:i" }}{% endif %}</p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center gap-2 px-3 h-10 rounded-lg bg-slate-100 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors">
+                <input type="checkbox" id="auto-refresh-toggle" class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary">
+                <span class="text-xs font-bold text-slate-700">Tự động cập nhật</span>
+                <div id="refresh-badge" class="hidden h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            </label>
             {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-primary' only %}
             <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="btn btn-outline">
                 <span class="material-symbols-outlined text-sm">arrow_back</span>
@@ -154,4 +159,48 @@
         {% endif %}
     </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        const REFRESH_INTERVAL = 30000; // 30 seconds
+        let refreshTimer = null;
+        const toggleBtn = document.getElementById('auto-refresh-toggle');
+        const badge = document.getElementById('refresh-badge');
+
+        function startTimer() {
+            if (refreshTimer) return;
+            refreshTimer = setTimeout(() => {
+                window.location.reload();
+            }, REFRESH_INTERVAL);
+            localStorage.setItem('exam_monitor_auto_refresh', 'true');
+            if (toggleBtn) toggleBtn.checked = true;
+            if (badge) badge.classList.remove('hidden');
+        }
+
+        function stopTimer() {
+            clearTimeout(refreshTimer);
+            refreshTimer = null;
+            localStorage.setItem('exam_monitor_auto_refresh', 'false');
+            if (toggleBtn) toggleBtn.checked = false;
+            if (badge) badge.classList.add('hidden');
+        }
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('change', (e) => {
+                if (e.target.checked) startTimer();
+                else stopTimer();
+            });
+        }
+
+        // Initialize based on saved preference, default to TRUE for exam monitor
+        const saved = localStorage.getItem('exam_monitor_auto_refresh');
+        if (saved === 'true' || saved === null) {
+            startTimer();
+        } else {
+            stopTimer();
+        }
+    })();
+</script>
 {% endblock %}

@@ -166,7 +166,7 @@
             {% if recent_submissions %}
             <div class="space-y-2">
                 {% for sub in recent_submissions|slice:":3" %}
-                <a href="{% url 'submissions:detail' pk=sub.pk %}" class="block p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <a href="{% url 'submissions:detail' pk=sub.pk %}" class="block p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                     <p class="text-xs font-bold truncate">{{ sub.assignment.title }}</p>
                     <div class="flex items-center gap-2 mt-1">
                         <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {% if sub.status == 'finished' %}bg-emerald-500/10 text-emerald-500{% elif sub.status == 'error' %}bg-red-500/10 text-red-500{% else %}bg-amber-500/10 text-amber-500{% endif %}">{{ sub.status }}</span>
@@ -218,25 +218,23 @@
                 <a href="{% url 'classrooms:classroom_list' %}" class="text-xs font-bold text-primary hover:underline">Xem thêm</a>
                 {% endif %}
             </div>
-            {% if pending_admin_items %}
+            {% if pending_classrooms or pending_subjects %}
             <div class="space-y-3">
-                {% for entry in pending_admin_items %}
-                <div class="p-3 border border-slate-100 bg-slate-50/50 rounded-lg border-l-4 {% if entry.type == 'classroom' %}border-l-amber-500{% else %}border-l-primary{% endif %}">
-                    <p class="text-sm font-bold truncate">
-                        {% if entry.type == 'classroom' %}
-                        {{ entry.item.name }}
-                        {% else %}
-                        {{ entry.item.code }} - {{ entry.item.name }}
-                        {% endif %}
-                    </p>
-                    <p class="text-[10px] text-slate-500 uppercase font-black mt-1">
-                        {% if entry.type == 'classroom' %}Lớp học{% else %}Môn học{% endif %} • {{ entry.date|timesince }} trước
-                    </p>
+                {% for classroom in pending_classrooms|slice:":3" %}
+                <div class="p-3 border border-amber-500/20 bg-amber-500/5 rounded-lg">
+                    <p class="text-sm font-bold truncate">{{ classroom.name }}</p>
+                    <p class="text-xs text-slate-600">Lớp học đang chờ duyệt • {{ classroom.created_at|timesince }} trước</p>
+                </div>
+                {% endfor %}
+                {% for subject in pending_subjects|slice:":3" %}
+                <div class="p-3 border border-amber-500/20 bg-amber-500/5 rounded-lg">
+                    <p class="text-sm font-bold truncate">{{ subject.code }} - {{ subject.name }}</p>
+                    <p class="text-xs text-slate-600">Môn học đang chờ duyệt • {{ subject.created_at|timesince }} trước</p>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-sm text-slate-600 text-center py-6">Không có yêu cầu nào đang chờ duyệt.</p>
+            <p class="text-sm text-slate-600 text-center py-6">Không có lớp hoặc môn nào đang chờ duyệt.</p>
             {% endif %}
         </section>
     </div>

@@ -165,6 +165,55 @@ def validate_uploaded_files(
     return errors
 
 
+def can_reveal_testcase_io(testcase, viewer, assignment):
+    """Determine if a testcase's input/output/error should be visible to the viewer."""
+    if not testcase or not viewer or not assignment:
+        return False
+
+    from apps.classrooms.views import _is_classroom_teacher
+    if _is_classroom_teacher(viewer, assignment.classroom):
+        return True
+
+    # Students can see sample testcases
+    if getattr(testcase, 'is_sample', False):
+        return True
+
+    # Students can only see non-hidden testcases if assignment allows it
+    if not getattr(testcase, 'is_hidden', True) and assignment.show_testcase_result:
+        return True
+
+    return False
+
+
+def get_assignment_final_score(assignment, student):
+    """Calculate the final score for a student in an assignment based on the aggregation mode."""
+    from django.db.models import Max, Avg
+    from apps.submissions.models import Submissions
+
+    submissions = Submissions.objects.filter(
+        assignment=assignment,
+        student=student
+    ).exclude(status='error')
+
+    if not submissions.exists():
+        return 0
+
+    mode = getattr(assignment, 'score_aggregation_mode', 'best')
+
+    if mode == 'best':
+        return submissions.aggregate(Max('total_score'))['total_score__max'] or 0
+    elif mode == 'latest':
+        latest = submissions.order_by('-created_at').first()
+        return latest.total_score if latest else 0
+    elif mode == 'first':
+        first = submissions.order_by('created_at').first()
+        return first.total_score if first else 0
+    elif mode == 'average':
+        return submissions.aggregate(Avg('total_score'))['total_score__avg'] or 0
+
+    return 0
+
+
 def submission_final_score(submission):
     """Return the score that should be shown in gradebook/statistics."""
     if submission is None:
@@ -316,19 +365,30 @@ def update_assignment_statistics(assignment):
     """Recalculate assignment statistics after grading."""
     from apps.assignments.models import AssignmentStatistics
     from apps.submissions.models import Submissions
+    from django.contrib.auth.models import User
 
-    submissions = Submissions.objects.filter(assignment=assignment)
+    submissions = Submissions.objects.filter(assignment=assignment).exclude(status='error')
     total = submissions.count()
     if total == 0:
         return
 
-    unique_students = submissions.values('student').distinct().count()
-    scores = [submission_final_score(sub) or 0 for sub in submissions]
-    avg_score = sum(scores) / len(scores) if scores else 0
-    max_score = max(scores) if scores else 0
-    min_score = min(scores) if scores else 0
-    pass_count = sum(1 for s in scores if s >= assignment.max_score * 0.5)
-    pass_rate = (pass_count / total * 100) if total > 0 else 0
+    student_ids = submissions.values_list('student_id', flat=True).distinct()
+    unique_students = len(student_ids)
+    
+    # Calculate final score for each student based on aggregation mode
+    final_scores = []
+    for student_id in student_ids:
+        # Optimization: we could do this in memory if we fetch all submissions, 
+        # but for simplicity and correctness we use the helper.
+        # For large classes, this might need further optimization.
+        student = User(pk=student_id)
+        final_scores.append(get_assignment_final_score(assignment, student))
+
+    avg_score = sum(final_scores) / len(final_scores) if final_scores else 0
+    max_score = max(final_scores) if final_scores else 0
+    min_score = min(final_scores) if final_scores else 0
+    pass_count = sum(1 for s in final_scores if s >= assignment.max_score * 0.5)
+    pass_rate = (pass_count / unique_students * 100) if unique_students > 0 else 0
     avg_attempts = total / unique_students if unique_students > 0 else 0
 
     stats, _ = AssignmentStatistics.objects.get_or_create(assignment=assignment)

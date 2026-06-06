@@ -373,26 +373,27 @@ def student_dashboard_view(request):
     )
     completed_count = len(completed_assignment_ids)
 
-    # Điểm trung bình (lấy điểm cao nhất mỗi bài, ưu tiên điểm chấm tay nếu có)
-    best_scores = Submissions.objects.filter(
-        student=user, status='finished',
-        assignment__in=all_assignments,
-    ).values('assignment_id').annotate(best=Max(Coalesce('manual_score', 'total_score')))
-    if best_scores:
-        avg_score = round(sum(b['best'] for b in best_scores) / len(best_scores), 1)
+    # Điểm trung bình (tôn trọng aggregation mode của từng bài)
+    from apps.submissions.utils import get_assignment_final_score
+    final_scores = []
+    for assignment in all_assignments:
+        # Chỉ tính những bài đã hoàn thành
+        if assignment.pk in completed_assignment_ids:
+            score = get_assignment_final_score(assignment, user)
+            final_scores.append(score)
+
+    if final_scores:
+        avg_score = round(sum(final_scores) / len(final_scores), 1)
     else:
         avg_score = 0
 
     # Pass rate cá nhân (pass = điểm >= 50%)
-    max_scores_by_assignment = {
-        assignment.pk: assignment.max_score
-        for assignment in all_assignments.only('id', 'max_score')
-    }
     passed = 0
-    for b in best_scores:
-        max_score = max_scores_by_assignment.get(b['assignment_id'])
-        if max_score and b['best'] >= max_score * 0.5:
-            passed += 1
+    for assignment in all_assignments:
+        if assignment.pk in completed_assignment_ids:
+            score = get_assignment_final_score(assignment, user)
+            if score >= assignment.max_score * 0.5:
+                passed += 1
     pass_rate = round(passed / completed_count * 100, 1) if completed_count > 0 else 0
 
     # Rank trong từng lớp
@@ -515,17 +516,6 @@ def teacher_dashboard_view(request):
         status=SubjectApprovalStatus.PENDING,
     ).order_by('-created_at')[:4]
 
-    # Combined pending items for the UI panel
-    pending_admin_items = []
-    for c in pending_classrooms[:3]:
-        pending_admin_items.append({'type': 'classroom', 'item': c, 'date': c.created_at})
-    for s in pending_subjects[:3]:
-        pending_admin_items.append({'type': 'subject', 'item': s, 'date': s.created_at})
-    
-    # Sort by date and take top 3
-    pending_admin_items.sort(key=lambda x: x['date'], reverse=True)
-    pending_admin_items = pending_admin_items[:3]
-
     members_count = ClassroomMembers.objects.filter(
         classroom_id__in=active_classroom_ids,
         status='approved',
@@ -556,7 +546,6 @@ def teacher_dashboard_view(request):
         'weak_assignments': weak_assignments,
         'pending_classrooms': pending_classrooms,
         'pending_subjects': pending_subjects,
-        'pending_admin_items': pending_admin_items,
         'class_summaries': class_summaries,
         'breadcrumbs': [{'label': 'Dashboard giáo viên'}],
         'dashboard_subtitle': f"Chào {request.user.first_name or request.user.username}! Đây là các việc cần chú ý trong lớp học của bạn.",

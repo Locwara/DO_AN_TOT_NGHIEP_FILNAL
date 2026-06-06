@@ -619,11 +619,16 @@ def assignment_list_view(request, classroom_pk):
     assignments = assignments.order_by('-created_at')
 
     # Danh sách classroom_subjects của lớp (để filter UI)
+    from django.db.models import Q
+    subj_q = Q(subject__status=SubjectApprovalStatus.APPROVED)
+    if is_teacher:
+        subj_q |= Q(subject__created_by=request.user)
+
     classroom_subjects = ClassroomSubjects.objects.filter(
+        subj_q,
         classroom=classroom,
         is_active=True,
         subject__is_active=True,
-        subject__status=SubjectApprovalStatus.APPROVED,
     ).select_related('subject', 'semester').order_by('-semester__is_current', '-semester__start_date', 'subject__code')
 
     context = {
@@ -1431,7 +1436,7 @@ def create_assignment_view(request, classroom_pk):
     languages = ProgrammingLanguages.objects.filter(is_active=True).order_by('display_name')
 
     if request.method == 'POST':
-        form = AssignmentForm(request.POST, classroom=classroom)
+        form = AssignmentForm(request.POST, classroom=classroom, user=request.user)
         if form.is_valid():
             assignment = form.save(commit=False)
             assignment.classroom = classroom
@@ -1570,7 +1575,7 @@ def create_assignment_view(request, classroom_pk):
         if request.GET.get('exam') == '1':
             initial['is_exam'] = True
             initial['max_attempts'] = 1
-        form = AssignmentForm(initial=initial, classroom=classroom)
+        form = AssignmentForm(initial=initial, classroom=classroom, user=request.user)
 
     # Chuẩn bị map môn học -> ngôn ngữ cho frontend
     subject_lang_map = {}
@@ -1598,7 +1603,7 @@ def edit_assignment_view(request, pk):
     languages = ProgrammingLanguages.objects.filter(is_active=True).order_by('display_name')
 
     if request.method == 'POST':
-        form = AssignmentForm(request.POST, instance=assignment, classroom=classroom)
+        form = AssignmentForm(request.POST, instance=assignment, classroom=classroom, user=request.user)
         if form.is_valid():
             assignment = form.save(commit=False)
             selected_langs = request.POST.getlist('allowed_languages')
@@ -1693,7 +1698,7 @@ def edit_assignment_view(request, pk):
             messages.success(request, 'Cập nhật bài tập thành công!')
             return redirect('assignments:detail', pk=assignment.pk)
     else:
-        form = AssignmentForm(instance=assignment, classroom=classroom)
+        form = AssignmentForm(instance=assignment, classroom=classroom, user=request.user)
 
     # Load existing testcases for the integrated manager
     from .models import Testcases
@@ -2261,6 +2266,7 @@ def statistics_view(request, pk):
         'testcases': testcases,
         'submissions': recent_submissions,
         'total_submissions_count': submissions.count(),
+        'pass_rate_val': statistics.get('pass_rate', 0),
         'score_distribution_json': json.dumps(score_distribution),
         'error_distribution_json': json.dumps(error_distribution),
         'avg_exec_time': avg_exec_time,

@@ -212,16 +212,25 @@ def _build_gradebook_data(classroom, request):
         bucket = grouped.setdefault(key, {
             'best': None,
             'latest': None,
+            'first': None,
+            'all_graded_scores': [],
             'attempts': 0,
             'has_late': False,
         })
         bucket['attempts'] += 1
         bucket['has_late'] = bucket['has_late'] or submission.is_late
+        
         if bucket['latest'] is None or submission.submitted_at > bucket['latest'].submitted_at:
             bucket['latest'] = submission
+            
+        if bucket['first'] is None or submission.submitted_at < bucket['first'].submitted_at:
+            bucket['first'] = submission
+
         if submission.status == 'finished':
-            best = bucket['best']
             current_score = _submission_grade_value(submission) or 0
+            bucket['all_graded_scores'].append(current_score)
+            
+            best = bucket['best']
             best_score = _submission_grade_value(best) or 0
             if best is None or current_score > best_score:
                 bucket['best'] = submission
@@ -240,22 +249,37 @@ def _build_gradebook_data(classroom, request):
 
         for assignment in assignments:
             bucket = grouped.get((member.student_id, assignment.pk), {})
-            best = bucket.get('best')
-            latest = bucket.get('latest')
-            display_submission = best or latest
-            score = _submission_grade_value(best)
+            mode = getattr(assignment, 'score_aggregation_mode', 'best')
+            
+            if mode == 'best':
+                display_submission = bucket.get('best') or bucket.get('latest')
+                score = _submission_grade_value(bucket.get('best'))
+            elif mode == 'latest':
+                display_submission = bucket.get('latest')
+                score = _submission_grade_value(display_submission)
+            elif mode == 'first':
+                display_submission = bucket.get('first')
+                score = _submission_grade_value(display_submission)
+            elif mode == 'average':
+                display_submission = bucket.get('latest')
+                scores = bucket.get('all_graded_scores', [])
+                score = sum(scores) / len(scores) if scores else None
+            else:
+                display_submission = bucket.get('best') or bucket.get('latest')
+                score = _submission_grade_value(bucket.get('best'))
+
             percent = None
             if score is not None and assignment.max_score:
                 percent = round(score / assignment.max_score * 100, 1)
 
-            if best:
+            if score is not None:
                 completed_count += 1
                 submitted_cells += 1
-                student_score_sum += score or 0
+                student_score_sum += score
                 student_score_count += 1
-                total_score_sum += score or 0
+                total_score_sum += score
                 total_score_count += 1
-            elif latest:
+            elif display_submission:
                 submitted_cells += 1
 
             if bucket.get('has_late'):
@@ -328,9 +352,16 @@ def _build_gradebook_data(classroom, request):
             {
                 'url': reverse('classrooms:gradebook_export', kwargs={'pk': classroom.pk}),
                 'type': '',
-                'icon': 'filter_alt',
-                'label': 'Xuất sổ điểm theo lọc hiện tại' if has_filters else 'Xuất toàn bộ sổ điểm',
+                'icon': 'csv',
+                'label': 'Xuất CSV sổ điểm theo lọc' if has_filters else 'Xuất CSV toàn bộ sổ điểm',
                 'primary': True,
+            },
+            {
+                'url': reverse('classrooms:gradebook_export', kwargs={'pk': classroom.pk}) + '?format=xlsx',
+                'type': '',
+                'icon': 'table_chart',
+                'label': 'Xuất Excel sổ điểm theo lọc' if has_filters else 'Xuất Excel toàn bộ sổ điểm',
+                'primary': False,
             },
             {
                 'url': reverse('classrooms:members_export', kwargs={'pk': classroom.pk}),
@@ -351,18 +382,20 @@ def _build_gradebook_data(classroom, request):
     }
 
 
-@login_required
 def classroom_list_view(request):
-    role = _get_user_role(request.user)
+    role = _get_user_role(request.user) if request.user.is_authenticated else 'guest'
     query = request.GET.get('q', '').strip()
 
-    # Lớp user đang có quan hệ (teacher sở hữu hoặc student đã approved)
+    # Lớp user đang có quan hệ
+    joined_ids = set()
+    pending_ids = set()
+
     if role == 'teacher':
         # Giáo viên được xem cả lớp đã duyệt và lớp đang chờ duyệt của mình
         my_classrooms = Classrooms.objects.filter(teacher=request.user)
         joined_ids = set(my_classrooms.values_list('id', flat=True))
         pending_ids = set()
-    else:
+    elif role == 'student':
         approved_ids = set(ClassroomMembers.objects.filter(
             student=request.user, status='approved'
         ).values_list('classroom_id', flat=True))
@@ -372,6 +405,11 @@ def classroom_list_view(request):
         # Học sinh chỉ được thấy lớp đã duyệt và active
         my_classrooms = Classrooms.objects.filter(id__in=approved_ids, is_active=True)
         joined_ids = approved_ids
+    else:
+        # Khách xem danh sách lớp công khai
+        my_classrooms = Classrooms.objects.filter(is_active=True)
+        joined_ids = set()
+        pending_ids = set()
 
     if query:
         my_classrooms = my_classrooms.filter(
@@ -394,12 +432,15 @@ def classroom_list_view(request):
     )
 
     # Lớp khám phá (không phải lớp của mình / chưa tham gia)
-    # Teacher chỉ thấy lớp của mình, sinh viên thấy tất cả lớp có thể tham gia
+    # Teacher chỉ thấy lớp của mình, sinh viên thấy tất cả lớp có thể tham gia, Guest thấy tất cả lớp active
     discover_classrooms = []
     if role != 'teacher':
         discover_qs = Classrooms.objects.filter(is_active=True).exclude(
             id__in=joined_ids
-        ).exclude(teacher=request.user)
+        )
+        if request.user.is_authenticated:
+            discover_qs = discover_qs.exclude(teacher=request.user)
+            
         if query:
             discover_qs = discover_qs.filter(
                 Q(name__icontains=query) | Q(description__icontains=query)
@@ -459,23 +500,58 @@ def classroom_detail_view(request, pk):
         classroom=classroom
     ).order_by('-is_pinned', '-created_at')[:10]
 
-    subject_links_qs = ClassroomSubjects.objects.filter(
+    # Hiển thị các môn đã được duyệt HOẶC môn do chính GV này tạo (kể cả pending)
+    from django.db.models import Q
+    subjects_qs = ClassroomSubjects.objects.filter(
+        Q(subject__status=SubjectApprovalStatus.APPROVED) | Q(subject__created_by=request.user),
         classroom=classroom,
         is_active=True,
         subject__is_active=True,
     ).select_related(
-        'subject', 'subject__created_by', 'subject__approved_by', 'assigned_by', 'semester'
-    ).prefetch_related('subject__languages').order_by('-semester__is_current', '-semester__start_date', 'subject__status', 'subject__code')
+        'subject', 'subject__created_by', 'assigned_by'
+    ).prefetch_related('subject__languages').order_by('subject__code')
+
     if not is_teacher:
-        subject_links_qs = subject_links_qs.filter(subject__status=SubjectApprovalStatus.APPROVED)
-        subject_links_qs = subject_links_qs.annotate(assignment_count=Count('assignments', filter=Q(assignments__is_published=True), distinct=True))
+        subjects_qs = subjects_qs.annotate(
+            assignment_count=Count('assignments', filter=Q(assignments__is_published=True), distinct=True)
+        )
     else:
-        subject_links_qs = subject_links_qs.annotate(assignment_count=Count('assignments', distinct=True))
+        subjects_qs = subjects_qs.annotate(assignment_count=Count('assignments', distinct=True))
 
     from apps.assignments.models import Assignments
-    assignments = Assignments.objects.filter(
-        classroom=classroom, is_published=True
-    ).order_by('-created_at')[:10]
+    assignments_qs = Assignments.objects.filter(classroom=classroom)
+    if not is_teacher:
+        assignments_qs = assignments_qs.filter(is_published=True)
+    assignments = assignments_qs.order_by('-created_at')[:10]
+
+    # Classroom Progress (Phase 2 Task 2.3)
+    classroom_progress = None
+    if is_teacher and members.exists():
+        published_assignments = Assignments.objects.filter(classroom=classroom, is_published=True)
+        pub_count = published_assignments.count()
+        if pub_count > 0:
+            from apps.submissions.models import Submissions
+            from django.db.models import Max
+            
+            # Count how many students have completed each assignment
+            # Completion = having at least one submission with status 'finished'
+            finished_subs = Submissions.objects.filter(
+                assignment__in=published_assignments,
+                status='finished'
+            ).values('student_id', 'assignment_id').distinct()
+            
+            total_completions = finished_subs.count()
+            student_count = members.count()
+            
+            # Simple average completion rate: (total finished pairs) / (students * assignments)
+            avg_completion = round((total_completions / (student_count * pub_count)) * 100, 1)
+            
+            classroom_progress = {
+                'avg_completion': avg_completion,
+                'published_count': pub_count,
+                'total_expected': student_count * pub_count,
+                'total_finished': total_completions,
+            }
 
     context = {
         'classroom': classroom,
@@ -485,10 +561,15 @@ def classroom_detail_view(request, pk):
         'members': members,
         'pending_members': pending_members,
         'announcements': announcements,
-        'subject_links': subject_links_qs,
+        'subjects': subjects_qs,
         'assignments': assignments,
         'member_count': members.count(),
-        'assign_form': ClassroomSubjectForm() if is_teacher else None,
+        'classroom_progress': classroom_progress,
+        'assign_form': ClassroomSubjectForm(user=request.user) if is_teacher else None,
+        'available_subjects_to_assign': Subjects.objects.filter(
+            Q(status=SubjectApprovalStatus.APPROVED) | Q(created_by=request.user),
+            is_active=True
+        ).order_by('code') if is_teacher else [],
         'breadcrumbs': [
             {'label': 'Lớp học', 'url': reverse('classrooms:classroom_list')},
             {'label': classroom.name},
@@ -524,30 +605,23 @@ def gradebook_export_view(request, pk):
         messages.error(request, 'Bạn không có quyền xuất sổ điểm lớp này.')
         return redirect('classrooms:classroom_list')
 
+    from apps.administation.utils import xlsx_response
+    export_format = request.GET.get('format', 'csv')
     data = _build_gradebook_data(classroom, request)
     safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', classroom.name).strip('-') or f'classroom-{classroom.pk}'
-    response = _csv_response(csv_filename(
-        f'gradebook_{safe_name}',
-        filtered=bool(data['csv_query_string']),
-        timestamp=timezone.now().strftime('%Y%m%d_%H%M'),
-    ))
+    filename_base = f'gradebook_{safe_name}'
+    is_filtered = bool(data['csv_query_string'])
+    timestamp = timezone.now().strftime('%Y%m%d_%H%M')
 
-    writer = csv.writer(response)
     header = [
-        'Username',
-        'Ho ten',
-        'Email',
-        'Da hoan thanh',
-        'Ti le hoan thanh',
-        'Diem trung binh',
-        'Bai nop tre',
+        'Username', 'Ho ten', 'Email', 'Da hoan thanh', 'Ti le hoan thanh', 'Diem trung binh', 'Bai nop tre'
     ]
     header.extend([
         f"{assignment.title} [{_assignment_mode_meta(assignment)['label']}] ({assignment.max_score:g} diem)"
         for assignment in data['assignments']
     ])
-    writer.writerow(header)
 
+    rows_data = []
     for row in data['rows']:
         student = row['student']
         values = [
@@ -572,9 +646,26 @@ def gradebook_export_view(request, pk):
             else:
                 value = ''
             values.append(value)
-        writer.writerow(values)
+        rows_data.append(values)
 
-    return response
+    if export_format == 'xlsx':
+        from openpyxl import Workbook
+        response = xlsx_response(csv_filename(filename_base, filtered=is_filtered, timestamp=timestamp, extension='xlsx'))
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Gradebook"
+        ws.append(header)
+        for r in rows_data:
+            ws.append(r)
+        wb.save(response)
+        return response
+    else:
+        response = _csv_response(csv_filename(filename_base, filtered=is_filtered, timestamp=timestamp))
+        writer = csv.writer(response)
+        writer.writerow(header)
+        for r in rows_data:
+            writer.writerow(r)
+        return response
 
 
 @login_required
@@ -1211,8 +1302,9 @@ def classroom_subjects_view(request, pk):
         'semester_filter': semester_filter,
         'is_teacher': is_teacher,
         'can_manage_subjects': _can_manage_subjects(request.user, classroom),
-        'assign_form': ClassroomSubjectForm() if is_teacher else None,
-    })
+        'assign_form': ClassroomSubjectForm(user=request.user) if is_teacher else None,
+        })
+
 
 
 @login_required
@@ -1580,7 +1672,7 @@ def assign_subject_view(request, pk):
         return redirect('classrooms:classroom_detail', pk=pk)
 
     if request.method == 'POST':
-        form = ClassroomSubjectForm(request.POST)
+        form = ClassroomSubjectForm(request.POST, user=request.user)
         if form.is_valid():
             subject = form.cleaned_data['subject']
             # Không cần lấy semester từ form nữa

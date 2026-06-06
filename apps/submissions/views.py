@@ -1774,9 +1774,16 @@ def exam_monitor_view(request, assignment_pk):
         {
             'url': reverse('submissions:exam_monitor_export', kwargs={'assignment_pk': assignment.pk}),
             'type': '',
-            'icon': 'filter_alt',
-            'label': 'Xuất phiên thi theo lọc hiện tại' if context['has_active_filters'] else 'Xuất toàn bộ phiên thi',
+            'icon': 'csv',
+            'label': 'Xuất CSV phiên thi theo lọc' if context['has_active_filters'] else 'Xuất CSV toàn bộ phiên thi',
             'primary': True,
+        },
+        {
+            'url': reverse('submissions:exam_monitor_export', kwargs={'assignment_pk': assignment.pk}) + '?format=xlsx',
+            'type': '',
+            'icon': 'table_chart',
+            'label': 'Xuất Excel phiên thi theo lọc' if context['has_active_filters'] else 'Xuất Excel toàn bộ phiên thi',
+            'primary': False,
         },
         {
             'url': reverse('submissions:exam_monitor_export', kwargs={'assignment_pk': assignment.pk}),
@@ -2443,7 +2450,14 @@ def submission_detail_view(request, pk):
 
     details = SubmissionDetails.objects.filter(
         submission=submission
-    ).select_related('testcase').order_by('testcase__order_index')
+    ).select_related('testcase').order_by('testcase__order_index', 'id')
+
+    sample_details = [d for d in details if getattr(d.testcase, 'is_sample', False)]
+    hidden_details = [d for d in details if not getattr(d.testcase, 'is_sample', False)]
+    
+    # Calculate stats for display
+    sample_passed = sum(1 for d in sample_details if d.result_status in ('accepted', 'passed'))
+    hidden_passed = sum(1 for d in hidden_details if d.result_status in ('accepted', 'passed'))
 
     code_comments = CodeComments.objects.filter(
         submission=submission
@@ -3025,6 +3039,10 @@ def grade_submission_view(request, pk):
         'assignment': assignment,
         'classroom': classroom,
         'details': details,
+        'sample_details': sample_details,
+        'hidden_details': hidden_details,
+        'sample_stats': {'passed': sample_passed, 'total': len(sample_details)},
+        'hidden_stats': {'passed': hidden_passed, 'total': len(hidden_details)},
         'code_comments': code_comments,
         'comments_by_line': comments_by_line,
         'code_lines': code_lines,
