@@ -700,6 +700,14 @@ def assignment_detail_view(request, pk):
         if assignment.max_attempts:
             quiz_remaining_attempts = max(0, assignment.max_attempts - quiz_attempt_count)
 
+    # Fetch recent submissions for teachers
+    recent_submissions = []
+    if is_teacher:
+        from apps.submissions.models import Submissions
+        recent_submissions = Submissions.objects.filter(
+            assignment=assignment
+        ).select_related('student').order_by('-submitted_at')[:10]
+
     context = {
         'assignment': assignment,
         'classroom': classroom,
@@ -721,6 +729,7 @@ def assignment_detail_view(request, pk):
         'setup_checks': _assignment_setup_checks(assignment) if is_teacher else [],
         'quiz_attempt_count': quiz_attempt_count,
         'quiz_remaining_attempts': quiz_remaining_attempts,
+        'recent_submissions': recent_submissions,
     }
     return render(request, 'assignments/detail.html', context)
 
@@ -1065,6 +1074,107 @@ def delete_quiz_question_view(request, pk, question_pk):
 
 
 @teacher_required
+def check_quiz_duplicates_view(request, pk):
+    from difflib import SequenceMatcher
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+
+    questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).prefetch_related('choices')
+    q_list = list(questions)
+    duplicates = []
+
+    def get_sim(a, b):
+        return SequenceMatcher(None, (a or '').lower().strip(), (b or '').lower().strip()).ratio()
+
+    for i in range(len(q_list)):
+        for j in range(i + 1, len(q_list)):
+            q1 = q_list[i]
+            q2 = q_list[j]
+
+            # Text similarity (weighted 70%)
+            text_sim = get_sim(q1.question_text, q2.question_text)
+
+            # Choices similarity (weighted 30%)
+            c1 = sorted([(c.choice_text or '').lower().strip() for c in q1.choices.all()])
+            c2 = sorted([(c.choice_text or '').lower().strip() for c in q2.choices.all()])
+
+            choice_sim = 0
+            if c1 and c2:
+                matches = sum(1 for item in c1 if item in c2)
+                choice_sim = matches / max(len(c1), len(c2))
+            elif not c1 and not c2:
+                choice_sim = 1.0
+
+            overall_sim = (text_sim * 0.7) + (choice_sim * 0.3)
+
+            if overall_sim >= 0.7:
+                duplicates.append({
+                    'q1_id': q1.pk,
+                    'q2_id': q2.pk,
+                    'similarity': round(overall_sim * 100, 1)
+                })
+
+    return JsonResponse({'status': 'ok', 'duplicates': duplicates})
+
+
+@teacher_required
+@require_POST
+def bulk_delete_quiz_questions_view(request, pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+
+    import json
+    try:
+        data = json.loads(request.body)
+        ids = data.get('ids', [])
+        if ids:
+            # Thực hiện xóa vĩnh viễn các câu hỏi được chọn
+            deleted_count, _ = QuizQuestions.objects.filter(assignment=assignment, pk__in=ids).delete()
+            _sync_quiz_grading_mode(assignment)
+            return JsonResponse({'status': 'ok', 'message': f'Đã xóa vĩnh viễn {deleted_count} câu hỏi.'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+    return JsonResponse({'status': 'error', 'message': 'Không có câu hỏi nào được chọn.'}, status=400)
+
+
+@teacher_required
+@require_POST
+def sync_quiz_points_view(request, pk):
+    assignment, _classroom, ok = _quiz_teacher_assignment(request, pk)
+    if not ok:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+
+    # Lấy tất cả câu hỏi, sắp xếp theo order cũ hoặc ID
+    all_questions = QuizQuestions.objects.filter(assignment=assignment).order_by('order_index', 'id')
+    active_questions = all_questions.filter(is_active=True)
+    
+    total_active = active_questions.count()
+    if total_active > 0:
+        points_per_q = round(100.0 / total_active, 2)
+        
+        # Cập nhật points cho câu active, và re-index lại toàn bộ cho đẹp
+        with transaction.atomic():
+            # 1. Chia lại điểm cho các câu đang bật (Tổng = 100)
+            active_questions.update(points=points_per_q)
+            
+            # 2. Set điểm các câu đang ẩn về 0 để tránh gây nhầm lẫn (Vì chúng không tính vào bài làm)
+            all_questions.filter(is_active=False).update(points=0.0)
+            
+            # 3. Đánh lại số thứ tự #1, #2, #3... cho toàn bộ câu hỏi (cả ẩn lẫn hiện)
+            for index, q in enumerate(all_questions, start=1):
+                if q.order_index != index:
+                    q.order_index = index
+                    q.save(update_fields=['order_index'])
+                    
+        return JsonResponse({'status': 'ok', 'message': f'Đã đồng bộ {total_active} câu hỏi active, re-index lại toàn bộ danh sách.'})
+    
+    return JsonResponse({'status': 'error', 'message': 'Không có câu hỏi nào đang hoạt động.'}, status=400)
+
+
+@teacher_required
 def quiz_preview_view(request, pk):
     assignment, classroom, ok = _quiz_teacher_assignment(request, pk)
     if not ok:
@@ -1313,8 +1423,8 @@ def import_quiz_questions_view(request, pk):
                     question = QuizQuestions.objects.create(
                         assignment=assignment,
                         question_text=row['question_text'],
-                        question_type=row['question_type'],
-                        points=row['points'],
+                        question_type=row.get('question_type') or 'single_choice',
+                        points=row.get('points') or 1.0,
                         order_index=order_base,
                         explanation=row.get('explanation') or '',
                         tags=row.get('tags') or [],
@@ -1343,6 +1453,14 @@ def import_quiz_questions_view(request, pk):
                     },
                 )
                 _sync_quiz_grading_mode(assignment)
+
+                # Tự động chia lại điểm cho tất cả câu hỏi active (Tổng = 100)
+                active_questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True)
+                total_q = active_questions.count()
+                if total_q > 0:
+                    points_per_q = round(100.0 / total_q, 2)
+                    active_questions.update(points=points_per_q)
+
                 log_activity(
                     request.user,
                     'QUIZ_CSV_IMPORT',
@@ -1367,16 +1485,58 @@ def import_quiz_questions_view(request, pk):
         uploaded = request.FILES.get('file')
         content = request.POST.get('content') or ''
         file_name = ''
+        
         if uploaded:
+            from .quiz_utils import parse_quiz_file
             file_name = uploaded.name or ''
-            if uploaded.size > 1024 * 1024:
-                errors.append('File CSV tối đa 1MB.')
+            if uploaded.size > 2 * 1024 * 1024: # Up to 2MB
+                errors.append('File tối đa 2MB.')
             else:
-                content = uploaded.read().decode('utf-8-sig')
-        if not content.strip():
-            errors.append('Vui lòng upload hoặc dán nội dung CSV.')
-        if not errors:
+                try:
+                    # Use robust parser
+                    rows = parse_quiz_file(uploaded)
+                    if not rows:
+                        errors.append("File không chứa câu hỏi hợp lệ.")
+                    else:
+                        preview_rows = []
+                        for row in rows:
+                            # Map to the format expected by the preview template
+                            choices = []
+                            for i in range(1, 10):
+                                c = row.get(f'choice_{i}')
+                                if c: choices.append(c)
+                            
+                            correct_answers = row.get('correct_index')
+                            if isinstance(correct_answers, int):
+                                # convert index back to token for consistency if needed, 
+                                # but the preview expects correct_answers as a list of strings
+                                correct_answers = [chr(ord('A') + correct_answers - 1)]
+                            elif isinstance(correct_answers, str):
+                                correct_answers = [item.strip() for item in correct_answers.replace(',', ';').split(';') if item.strip()]
+                            else:
+                                correct_answers = []
+
+                            preview_rows.append({
+                                'line_no': row.get('line_no'),
+                                'question_text': row.get('question_text'),
+                                'question_type': row.get('question_type'),
+                                'points': row.get('points'),
+                                'choices': choices,
+                                'correct_answers': correct_answers,
+                                'explanation': row.get('explanation'),
+                                'errors': row.get('errors', [])
+                            })
+                except Exception as e:
+                    errors.append(f'Lỗi khi xử lý file: {str(e)}')
+                    
+        elif content.strip():
             preview_rows, errors = _parse_quiz_csv_rows(content)
+            file_name = 'pasted_content.csv'
+            
+        if not uploaded and not content.strip():
+            errors.append('Vui lòng upload hoặc dán nội dung CSV.')
+            
+        if not errors and preview_rows:
             preview_summary = {
                 'total': len(preview_rows),
                 'valid': sum(1 for row in preview_rows if not row.get('errors')),
@@ -1451,9 +1611,13 @@ def create_assignment_view(request, classroom_pk):
             cs = form.cleaned_data.get('classroom_subject')
             if cs and cs.classroom_id != classroom.pk:
                 messages.error(request, 'Môn học được chọn không thuộc lớp này.')
+                subject_lang_map = {}
+                for form_cs in form.fields['classroom_subject'].queryset:
+                    subject_lang_map[form_cs.pk] = list(form_cs.subject.languages.values_list('name', flat=True))
                 return render(request, 'assignments/create.html', {
                     'form': form, 'classroom': classroom, 'languages': languages,
                     'selected_languages': request.POST.getlist('allowed_languages'),
+                    'subject_lang_json': json.dumps(subject_lang_map),
                 })
 
             # --- Integrated Testcase Extraction ---
@@ -1495,16 +1659,22 @@ def create_assignment_view(request, classroom_pk):
                     lang = (selected_langs[0] if selected_langs else 'python3')
                     failed_tests = []
                     for tc in testcases_to_create:
-                        result = run_testcase(solution_code, lang, tc['input_data'], tc['expected_output'])
+                        result = run_testcase(solution_code, lang, tc['input_data'], tc['expected_output'], timeout_seconds=10)
                         if not result['passed']:
                             error_detail = result.get('error_message') or f"Kết quả thực tế: '{result['actual_output']}'"
                             failed_tests.append(f"Testcase '{tc['name']}': {error_detail}")
                     if failed_tests:
                         error_msg = "Mã nguồn mẫu không vượt qua các testcase sau:<br>• " + "<br>• ".join(failed_tests)
                         messages.error(request, error_msg)
+                        
+                        subject_lang_map = {}
+                        for form_cs in form.fields['classroom_subject'].queryset:
+                            subject_lang_map[form_cs.pk] = list(form_cs.subject.languages.values_list('name', flat=True))
+                            
                         return render(request, 'assignments/create.html', {
                             'form': form, 'classroom': classroom, 'languages': languages,
                             'selected_languages': request.POST.getlist('allowed_languages'),
+                            'subject_lang_json': json.dumps(subject_lang_map),
                         })
 
             if requested_publish:
@@ -1614,10 +1784,14 @@ def edit_assignment_view(request, pk):
             cs = form.cleaned_data.get('classroom_subject')
             if cs and cs.classroom_id != classroom.pk:
                 messages.error(request, 'Môn học được chọn không thuộc lớp này.')
+                subject_lang_map = {}
+                for form_cs in form.fields['classroom_subject'].queryset:
+                    subject_lang_map[form_cs.pk] = list(form_cs.subject.languages.values_list('name', flat=True))
                 return render(request, 'assignments/edit.html', {
                     'form': form, 'assignment': assignment, 'classroom': classroom,
                     'languages': languages,
                     'selected_languages': assignment.allowed_languages or [],
+                    'subject_lang_json': json.dumps(subject_lang_map),
                 })
 
             # --- Integrated Testcase Extraction ---
@@ -1659,7 +1833,7 @@ def edit_assignment_view(request, pk):
                     lang = (selected_langs[0] if selected_langs else 'python3')
                     failed_tests = []
                     for tc in testcases_to_save:
-                        result = run_testcase(solution_code, lang, tc['input_data'], tc['expected_output'])
+                        result = run_testcase(solution_code, lang, tc['input_data'], tc['expected_output'], timeout_seconds=10)
                         if not result['passed']:
                             error_detail = result.get('error_message') or f"Kết quả thực tế: '{result['actual_output']}'"
                             failed_tests.append(f"Testcase '{tc['name']}': {error_detail}")
@@ -1667,9 +1841,15 @@ def edit_assignment_view(request, pk):
                     if failed_tests:
                         error_msg = "Mã nguồn mẫu không vượt qua các testcase sau:<br>• " + "<br>• ".join(failed_tests)
                         messages.error(request, error_msg)
+                        
+                        subject_lang_map = {}
+                        for form_cs in form.fields['classroom_subject'].queryset:
+                            subject_lang_map[form_cs.pk] = list(form_cs.subject.languages.values_list('name', flat=True))
+                            
                         return render(request, 'assignments/edit.html', {
                             'form': form, 'assignment': assignment, 'classroom': classroom, 'languages': languages,
                             'selected_languages': selected_langs,
+                            'subject_lang_json': json.dumps(subject_lang_map),
                         })
 
             if requested_publish:
@@ -2077,258 +2257,82 @@ def statistics_view(request, pk):
         messages.error(request, 'Bạn không có quyền xem thống kê.')
         return redirect('classrooms:classroom_list')
 
+    from apps.submissions.models import QuizAnswers, QuizAttempts, SubmissionDetails, SubmissionFiles, Submissions
+    from apps.submissions.utils import get_assignment_final_score, submission_final_score
+
+    # 1. Testcases aggregation
     testcases = Testcases.objects.filter(assignment=assignment).annotate(
         total_details=Count('submissiondetails'),
-        failed_details=Count(
-            'submissiondetails',
-            filter=~Q(submissiondetails__result_status='passed'),
-        ),
+        failed_details=Count('submissiondetails', filter=~Q(submissiondetails__result_status='passed')),
     ).order_by('order_index')
 
-    from apps.submissions.models import QuizAnswers, QuizAttempts, SubmissionDetails, SubmissionFiles, Submissions
-    submissions = Submissions.objects.filter(
-        assignment=assignment
-    ).select_related('student').order_by('-submitted_at')
+    # 2. Student aggregation: 1 Score per Student
+    members = _assignment_approved_members(classroom, request)
+    student_final_list = []
+    submissions_qs = Submissions.objects.filter(assignment=assignment)
+    
+    for member in members:
+        final_score = get_assignment_final_score(assignment, member.student)
+        if final_score is not None:
+            rep_sub = submissions_qs.filter(student=member.student).order_by('-total_score', '-submitted_at').first()
+            if rep_sub:
+                rep_sub.final_score = final_score
+                student_final_list.append(rep_sub)
 
-    finished = list(submissions.filter(status='finished'))
-    for submission in finished:
-        submission.final_score = submission_final_score(submission)
-        submission.final_percent = round(
-            submission.final_score / (assignment.max_score or submission.max_score or 100) * 100,
-            1,
-        ) if (assignment.max_score or submission.max_score) else 0
-
+    # 3. Stats & Threshold
     max_score = assignment.max_score or 100
-    buckets = [0, 0, 0, 0, 0]  # [0-20%, 20-40%, 40-60%, 60-80%, 80-100%]
-    for s in finished:
-        pct = (s.final_score / max_score * 100) if max_score > 0 else 0
-        idx = min(int(pct // 20), 4)
-        buckets[idx] += 1
-
-    score_distribution = {
-        'labels': ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%'],
-        'data': buckets,
-    }
-
-    exec_times = [s.execution_time for s in finished if s.execution_time]
-    avg_exec_time = round(sum(exec_times) / len(exec_times), 2) if exec_times else 0
-
-    best_per_student = {}
-    for s in finished:
-        uid = s.student_id
-        if uid not in best_per_student or s.final_score > best_per_student[uid].final_score:
-            best_per_student[uid] = s
-    ranked = sorted(best_per_student.values(), key=lambda s: s.final_score, reverse=True)
-    top_students = ranked[:5]
-    weak_students = list(reversed(ranked[-5:])) if len(ranked) >= 5 else ranked[::-1][:5]
-
-    tc_fail_stats = []
-    for tc in testcases:
-        total = tc.total_details
-        failed = tc.failed_details
-        fail_rate = round(failed / total * 100, 1) if total > 0 else 0
-        tc_fail_stats.append({
-            'testcase': tc,
-            'total': total,
-            'failed': failed,
-            'fail_rate': fail_rate,
-        })
-    tc_fail_stats.sort(key=lambda x: x['fail_rate'], reverse=True)
-
-    # 5. Phân bố lỗi phổ biến (result_status)
-    error_counts = SubmissionDetails.objects.filter(
-        submission__assignment=assignment
-    ).exclude(result_status='passed').values('result_status').annotate(
-        count=Count('id')
-    ).order_by('-count')
-    error_distribution = {
-        'labels': [e['result_status'] or 'unknown' for e in error_counts],
-        'data': [e['count'] for e in error_counts],
-    }
-
-    late_count = submissions.filter(is_late=True).count()
-    scores = [s.final_score for s in finished]
-    unique_students = submissions.exclude(student__isnull=True).values('student_id').distinct().count()
-    attempt_count = submissions.count()
     threshold = max_score * 0.5
     try:
         if assignment.submission_mode == Assignments.SUBMISSION_QUIZ and assignment.quiz_settings.passing_score is not None:
             threshold = assignment.quiz_settings.passing_score
-    except QuizSettings.DoesNotExist:
-        pass
-    computed_statistics = {
-        'total_submissions': attempt_count,
-        'unique_students': unique_students,
-        'avg_score': round(sum(scores) / len(scores), 2) if scores else 0,
-        'max_score': max(scores) if scores else 0,
-        'min_score': min(scores) if scores else 0,
-        'pass_rate': round(sum(1 for score in scores if score >= threshold) / len(scores) * 100, 2) if scores else 0,
-        'avg_attempts': round(attempt_count / unique_students, 2) if unique_students else 0,
+    except Exception: pass
+
+    all_scores = [sub.final_score for sub in student_final_list]
+    pass_count = sum(1 for s in all_scores if s >= threshold)
+    pass_rate = round(pass_count / len(all_scores) * 100, 1) if all_scores else 0
+
+    statistics = {
+        'total_submissions': submissions_qs.count(),
+        'unique_students': len(student_final_list),
+        'avg_score': round(sum(all_scores) / len(all_scores), 1) if all_scores else 0,
+        'pass_rate': pass_rate,
+        'avg_attempts': round(submissions_qs.count() / len(student_final_list), 1) if student_final_list else 0,
     }
-    statistics = computed_statistics
 
-    members = _assignment_approved_members(classroom, request)
-    submitted_student_ids = {
-        submission.student_id for submission in submissions
-        if submission.student_id
-    }
-    graded_count = sum(
-        1 for submission in submissions
-        if submission.manual_score is not None or submission.graded_at or submission.status == 'finished'
-    )
-    ungraded_count = max(attempt_count - graded_count, 0)
+    # 4. Buckets
+    buckets = [0] * 5
+    for sub in student_final_list:
+        idx = min(int((sub.final_score / max_score * 100) // 20), 4) if max_score > 0 else 0
+        buckets[idx] += 1
 
-    file_stats = None
-    if assignment.submission_mode == Assignments.SUBMISSION_FILE:
-        file_count = SubmissionFiles.objects.filter(submission__assignment=assignment).count()
-        file_stats = {
-            'submitted_students': len(submitted_student_ids),
-            'missing_students': max(len(members) - len(submitted_student_ids), 0),
-            'graded_count': graded_count,
-            'ungraded_count': ungraded_count,
-            'late_count': late_count,
-            'file_count': file_count,
-            'avg_files_per_submission': round(file_count / attempt_count, 2) if attempt_count else 0,
-        }
-
-    quiz_stats = None
-    question_analysis = []
-    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
-        submitted_statuses = (
-            QuizAttempts.STATUS_SUBMITTED,
-            QuizAttempts.STATUS_AUTO_SUBMITTED,
-        )
-        quiz_attempts = QuizAttempts.objects.filter(assignment=assignment).select_related(
-            'student', 'submission'
-        ).order_by('-created_at')
-        completed_attempts = list(quiz_attempts.filter(status__in=submitted_statuses))
-        quiz_scores = [
-            submission_final_score(attempt.submission) if attempt.submission else attempt.score
-            for attempt in completed_attempts
-        ]
-        quiz_durations = [attempt.duration_seconds for attempt in completed_attempts if attempt.duration_seconds]
-        if quiz_durations:
-            avg_exec_time = round(sum(quiz_durations) / len(quiz_durations), 2)
-
-        answers = QuizAnswers.objects.filter(
-            attempt__assignment=assignment,
-            attempt__status__in=submitted_statuses,
-        ).select_related('question')
-        answer_rows = {}
-        for answer in answers:
-            row = answer_rows.setdefault(answer.question_id, {
-                'answers': 0,
-                'correct': 0,
-                'wrong': 0,
-                'score_sum': 0,
-            })
-            row['answers'] += 1
-            row['score_sum'] += answer.score_awarded or 0
-            if answer.is_correct is True:
-                row['correct'] += 1
-            elif answer.is_correct is False:
-                row['wrong'] += 1
-
-        questions = QuizQuestions.objects.filter(assignment=assignment, is_active=True).order_by('order_index', 'id')
-        for question in questions:
-            row = answer_rows.get(question.pk, {'answers': 0, 'correct': 0, 'wrong': 0, 'score_sum': 0})
-            correct_rate = round(row['correct'] / row['answers'] * 100, 1) if row['answers'] else 0
-            wrong_rate = round(row['wrong'] / row['answers'] * 100, 1) if row['answers'] else 0
-            question_analysis.append({
-                'question': question,
-                'answers': row['answers'],
-                'correct': row['correct'],
-                'wrong': row['wrong'],
-                'correct_rate': correct_rate,
-                'wrong_rate': wrong_rate,
-                'avg_score': round(row['score_sum'] / row['answers'], 2) if row['answers'] else 0,
-            })
-        question_analysis.sort(key=lambda row: (row['wrong_rate'], -row['correct_rate'], row['answers']), reverse=True)
-        hardest = question_analysis[0] if question_analysis else None
-        completed_students = len({attempt.student_id for attempt in completed_attempts if attempt.student_id})
-        quiz_stats = {
-            'total_attempts': quiz_attempts.count(),
-            'completed_attempts': len(completed_attempts),
-            'avg_score': round(sum(quiz_scores) / len(quiz_scores), 2) if quiz_scores else 0,
-            'avg_attempts': round(quiz_attempts.count() / len(submitted_student_ids), 2) if submitted_student_ids else 0,
-            'completion_rate': round(completed_students / len(members) * 100, 1) if members else 0,
-            'hardest_question': hardest,
-        }
-
-    recent_submissions = list(submissions[:50])
-    for submission in recent_submissions:
-        submission.final_score = submission_final_score(submission)
+    # 5. Ranked
+    ranked = sorted(student_final_list, key=lambda x: x.final_score, reverse=True)
+    top_students = ranked[:5]
+    weak_students = [ranked[i] for i in range(len(ranked)-1, max(-1, len(ranked)-6), -1)]
 
     context = {
-        'assignment': assignment,
-        'classroom': classroom,
-        'statistics': statistics,
-        'testcases': testcases,
-        'submissions': recent_submissions,
-        'total_submissions_count': submissions.count(),
-        'pass_rate_val': statistics.get('pass_rate', 0),
-        'score_distribution_json': json.dumps(score_distribution),
-        'error_distribution_json': json.dumps(error_distribution),
-        'avg_exec_time': avg_exec_time,
-        'top_students': top_students,
-        'weak_students': weak_students,
-        'tc_fail_stats': tc_fail_stats[:10],
-        'late_count': late_count,
-        'file_stats': file_stats,
-        'quiz_stats': quiz_stats,
-        'question_analysis': question_analysis[:12],
-        'graded_count': graded_count,
-        'ungraded_count': ungraded_count,
-        'latest_plagiarism_report': PlagiarismReports.objects.filter(assignment=assignment).first(),
+        'assignment': assignment, 'classroom': classroom, 'statistics': statistics,
+        'testcases': testcases, 'top_students': top_students, 'weak_students': weak_students,
+        'pass_rate_val': pass_rate,
+        'pass_threshold_pct': (threshold / max_score * 100) if max_score > 0 else 50,
+        'score_distribution_json': json.dumps({'labels': ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%'], 'data': buckets}),
+        'error_distribution_json': json.dumps({'labels': [], 'data': []}),
+        'submissions': submissions_qs.select_related('student').order_by('-submitted_at')[:50],
     }
+    
+    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
+        quiz_attempts = QuizAttempts.objects.filter(assignment=assignment, status__in=['submitted', 'auto_submitted'])
+        completed_student_ids = {a.student_id for a in quiz_attempts if a.student_id}
+        context['quiz_stats'] = {
+            'total_attempts': QuizAttempts.objects.filter(assignment=assignment).count(),
+            'completion_rate': round(len(completed_student_ids) / len(members) * 100, 1) if len(members) else 0,
+        }
+
     context.update(csv_query_context(request))
     context['csv_items'] = [
-        {
-            'url': reverse('assignments:export_submissions', kwargs={'pk': assignment.pk}),
-            'type': '',
-            'icon': 'filter_alt',
-            'label': 'Xuất bài nộp theo lọc hiện tại' if context['has_active_filters'] else 'Xuất tất cả bài nộp',
-            'primary': True,
-        },
-        {
-            'url': reverse('assignments:export_scores', kwargs={'pk': assignment.pk}),
-            'type': '',
-            'icon': 'grading',
-            'label': 'Xuất bảng điểm theo lọc hiện tại' if context['has_active_filters'] else 'Xuất bảng điểm sinh viên',
-            'primary': False,
-        },
-        {
-            'url': reverse('assignments:export_late', kwargs={'pk': assignment.pk}),
-            'type': '',
-            'icon': 'schedule',
-            'label': 'Xuất bài nộp trễ theo lọc hiện tại' if context['has_active_filters'] else 'Xuất bài nộp trễ',
-            'primary': False,
-        },
-        {
-            'url': reverse('assignments:export_missing', kwargs={'pk': assignment.pk}),
-            'type': '',
-            'icon': 'person_off',
-            'label': 'Xuất sinh viên chưa nộp theo lọc hiện tại' if context['has_active_filters'] else 'Xuất sinh viên chưa nộp',
-            'primary': False,
-        },
+        {'url': reverse('assignments:export_submissions', kwargs={'pk': assignment.pk}), 'icon': 'filter_alt', 'label': 'Xuất bài nộp', 'primary': True},
+        {'url': reverse('assignments:export_scores', kwargs={'pk': assignment.pk}), 'icon': 'grading', 'label': 'Xuất bảng điểm sinh viên'},
     ]
-    if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
-        context['csv_items'].extend([
-            {
-                'url': reverse('assignments:export_quiz_attempts', kwargs={'pk': assignment.pk}),
-                'type': '',
-                'icon': 'fact_check',
-                'label': 'Xuất attempt quiz theo lọc hiện tại' if context['has_active_filters'] else 'Xuất điểm từng attempt quiz',
-                'primary': False,
-            },
-            {
-                'url': reverse('assignments:export_quiz_question_analysis', kwargs={'pk': assignment.pk}),
-                'type': '',
-                'icon': 'quiz',
-                'label': 'Xuất phân tích câu hỏi theo lọc hiện tại' if context['has_active_filters'] else 'Xuất phân tích từng câu',
-                'primary': False,
-            },
-        ])
     return render(request, 'assignments/statistics.html', context)
 
 

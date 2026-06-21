@@ -203,10 +203,10 @@ def get_assignment_final_score(assignment, student):
     if mode == 'best':
         return submissions.aggregate(Max('total_score'))['total_score__max'] or 0
     elif mode == 'latest':
-        latest = submissions.order_by('-created_at').first()
+        latest = submissions.order_by('-submitted_at').first()
         return latest.total_score if latest else 0
     elif mode == 'first':
-        first = submissions.order_by('created_at').first()
+        first = submissions.order_by('submitted_at').first()
         return first.total_score if first else 0
     elif mode == 'average':
         return submissions.aggregate(Avg('total_score'))['total_score__avg'] or 0

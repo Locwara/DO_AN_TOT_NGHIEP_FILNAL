@@ -13,6 +13,7 @@ urlpatterns = [
     path('exam/<int:assignment_pk>/ping/', views.exam_ping_view, name='exam_ping'),
     path('exam/<int:assignment_pk>/event/', views.exam_event_view, name='exam_event'),
     path('exam/<int:assignment_pk>/monitor/', views.exam_monitor_view, name='exam_monitor'),
+    path('exam/<int:assignment_pk>/monitor/json/', views.exam_monitor_json_view, name='exam_monitor_json'),
     path('exam/<int:assignment_pk>/monitor/export/', views.exam_monitor_export_view, name='exam_monitor_export'),
     path('exam-session/<int:session_pk>/extend/', views.extend_exam_session_view, name='extend_exam_session'),
     path('exam-session/<int:session_pk>/force-submit/', views.force_submit_exam_session_view, name='force_submit_exam_session'),

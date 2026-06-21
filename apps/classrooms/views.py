@@ -159,6 +159,7 @@ def _build_gradebook_data(classroom, request):
     sem_filter = request.GET.get('semester', '').strip()
     published_filter = request.GET.get('published', 'all').strip()
     status_filter = request.GET.get('status', 'all').strip()
+    asg_filter = request.GET.get('assignment', '').strip()
 
     classroom_subjects = ClassroomSubjects.objects.filter(
         classroom=classroom,
@@ -168,7 +169,9 @@ def _build_gradebook_data(classroom, request):
         '-semester__is_current', '-semester__start_date', 'subject__code'
     )
 
-    assignments = Assignments.objects.filter(classroom=classroom).select_related(
+    all_assignments_qs = Assignments.objects.filter(classroom=classroom).order_by('due_date', 'created_at')
+    
+    assignments = all_assignments_qs.select_related(
         'classroom_subject', 'classroom_subject__subject', 'classroom_subject__semester'
     )
     if published_filter == 'published':
@@ -180,6 +183,9 @@ def _build_gradebook_data(classroom, request):
         assignments = assignments.filter(classroom_subject__isnull=True)
     elif cs_filter.isdigit():
         assignments = assignments.filter(classroom_subject_id=int(cs_filter))
+
+    if asg_filter.isdigit():
+        assignments = assignments.filter(pk=int(asg_filter))
 
     if sem_filter == 'none':
         assignments = assignments.filter(classroom_subject__semester__isnull=True)
@@ -286,10 +292,8 @@ def _build_gradebook_data(classroom, request):
                 late_count += 1
 
             cell_status = 'missing'
-            if best:
-                cell_status = 'finished'
-            elif latest:
-                cell_status = latest.status
+            if display_submission:
+                cell_status = display_submission.status
 
             cells.append({
                 'assignment': assignment,
@@ -340,8 +344,10 @@ def _build_gradebook_data(classroom, request):
         'semesters': semesters,
         'cs_filter': cs_filter,
         'sem_filter': sem_filter,
+        'asg_filter': asg_filter,
         'published_filter': published_filter,
         'status_filter': status_filter,
+        'all_assignments_filter_qs': all_assignments_qs,
         'members_count': len(rows),
         'assignments_count': len(assignments),
         'submitted_cells': submitted_cells,

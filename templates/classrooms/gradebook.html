@@ -68,13 +68,24 @@
     </div>
 
     <form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
             <label class="block">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Công bố</span>
                 <select name="published" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
                     <option value="all" {% if published_filter == 'all' %}selected{% endif %}>Tất cả</option>
                     <option value="published" {% if published_filter == 'published' %}selected{% endif %}>Đã công bố</option>
                     <option value="draft" {% if published_filter == 'draft' %}selected{% endif %}>Bản nháp</option>
+                </select>
+            </label>
+            <label class="block">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lọc theo Bài tập</span>
+                <select name="assignment" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="" {% if not asg_filter %}selected{% endif %}>Tất cả bài tập</option>
+                    {% for asg in all_assignments_filter_qs %}
+                    <option value="{{ asg.pk }}" {% if asg_filter == asg.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ asg.title|truncatechars:40 }}
+                    </option>
+                    {% endfor %}
                 </select>
             </label>
             <label class="block">
@@ -103,7 +114,7 @@
                 </select>
             </label>
             <label class="block">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</span>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái HS</span>
                 <select name="status" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
                     <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả học sinh</option>
                     <option value="missing" {% if status_filter == 'missing' %}selected{% endif %}>Còn thiếu bài</option>
@@ -251,8 +262,29 @@
 
         function startTimer() {
             if (refreshTimer) return;
-            refreshTimer = setTimeout(() => {
-                window.location.reload();
+            refreshTimer = setInterval(() => {
+                fetch(window.location.href)
+                    .then(r => r.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        
+                        // Update table body
+                        const newTbody = doc.querySelector('tbody');
+                        if (newTbody) {
+                            document.querySelector('tbody').innerHTML = newTbody.innerHTML;
+                        }
+                        
+                        // Update stats boxes
+                        const countBoxes = document.querySelectorAll('div.grid > div.bg-white > p.text-3xl');
+                        const newCountBoxes = doc.querySelectorAll('div.grid > div.bg-white > p.text-3xl');
+                        if (countBoxes.length === newCountBoxes.length) {
+                            for (let i = 0; i < countBoxes.length; i++) {
+                                countBoxes[i].innerHTML = newCountBoxes[i].innerHTML;
+                            }
+                        }
+                    })
+                    .catch(err => console.error("Error auto-refreshing gradebook:", err));
             }, REFRESH_INTERVAL);
             localStorage.setItem('gradebook_auto_refresh', 'true');
             if (toggleBtn) toggleBtn.checked = true;
@@ -260,7 +292,7 @@
         }
 
         function stopTimer() {
-            clearTimeout(refreshTimer);
+            clearInterval(refreshTimer);
             refreshTimer = null;
             localStorage.setItem('gradebook_auto_refresh', 'false');
             if (toggleBtn) toggleBtn.checked = false;

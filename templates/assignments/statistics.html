@@ -569,7 +569,7 @@ function hasChartData(data) {
 new Chart(document.getElementById('passRateChart'), {
     type: 'pie',
     data: {
-        labels: ['Đạt (>=50%)', 'Chưa đạt'],
+        labels: ['Đạt (≥{{ pass_threshold_pct|floatformat:0 }}%)', 'Chưa đạt'],
         datasets: [{
             data: [passRate, 100 - passRate],
             backgroundColor: ['#16a34a', '#dc2626'],

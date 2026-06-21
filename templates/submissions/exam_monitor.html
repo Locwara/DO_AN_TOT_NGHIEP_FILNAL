@@ -164,15 +164,53 @@
 {% block extra_js %}
 <script>
     (function() {
-        const REFRESH_INTERVAL = 30000; // 30 seconds
+        const REFRESH_INTERVAL = 10000; // 10 seconds
         let refreshTimer = null;
         const toggleBtn = document.getElementById('auto-refresh-toggle');
         const badge = document.getElementById('refresh-badge');
+        
+        function updateDOM(data) {
+            if (data.status !== 'ok') return;
+            
+            // Update counts
+            const counts = data.counts;
+            const cNotStarted = document.querySelector('p.text-xs:contains("Chưa vào") + p');
+            const cRunning = document.querySelector('p.text-xs:contains("Đang thi") + p');
+            const cSubmitted = document.querySelector('p.text-xs:contains("Đã nộp") + p');
+            const cExpired = document.querySelector('p.text-xs:contains("Hết giờ") + p');
+            const cWarnings = document.querySelector('p.text-xs:contains("Cảnh báo") + p');
+            
+            // Simple mapping since the structure is static
+            const countBoxes = document.querySelectorAll('section.grid > div > p.text-3xl');
+            if (countBoxes.length === 5) {
+                countBoxes[0].textContent = counts.not_started;
+                countBoxes[1].textContent = counts.running;
+                countBoxes[2].textContent = counts.submitted;
+                countBoxes[3].textContent = counts.expired;
+                countBoxes[4].textContent = counts.warnings;
+            }
+            
+            // Re-fetch HTML to update table body
+            fetch(window.location.href)
+                .then(r => r.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newTbody = doc.querySelector('tbody');
+                    if (newTbody) {
+                        document.querySelector('tbody').innerHTML = newTbody.innerHTML;
+                    }
+                });
+        }
 
         function startTimer() {
             if (refreshTimer) return;
-            refreshTimer = setTimeout(() => {
-                window.location.reload();
+            refreshTimer = setInterval(() => {
+                const jsonUrl = 'json/' + window.location.search;
+                fetch(jsonUrl)
+                    .then(r => r.json())
+                    .then(updateDOM)
+                    .catch(err => console.error("Error auto-refreshing:", err));
             }, REFRESH_INTERVAL);
             localStorage.setItem('exam_monitor_auto_refresh', 'true');
             if (toggleBtn) toggleBtn.checked = true;
@@ -180,7 +218,7 @@
         }
 
         function stopTimer() {
-            clearTimeout(refreshTimer);
+            clearInterval(refreshTimer);
             refreshTimer = null;
             localStorage.setItem('exam_monitor_auto_refresh', 'false');
             if (toggleBtn) toggleBtn.checked = false;

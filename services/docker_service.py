@@ -102,7 +102,13 @@ def _build_docker_script(language, filename):
     lines = ['#!/bin/sh', 'set -e', 'cd /sandbox']
     if compile_cmd:
         lines.append(' '.join(compile_cmd))
-    lines.append('exec ' + ' '.join(run_cmd))
+    # Use /usr/bin/time -v -o to measure memory and redirect time output to .metrics, preserving program stderr
+    # Fallback to normal execution if /usr/bin/time is missing
+    lines.append('if [ -x /usr/bin/time ]; then')
+    lines.append('    exec /usr/bin/time -v -o /sandbox/.metrics ' + ' '.join(run_cmd))
+    lines.append('else')
+    lines.append('    exec ' + ' '.join(run_cmd))
+    lines.append('fi')
     return '\n'.join(lines)
 
 
@@ -157,13 +163,23 @@ def _execute_with_docker(code, language, input_data='', timeout_seconds=5,
                 timeout=timeout_seconds + 5,
             )
             execution_time = time.time() - start_time
+            
+            memory_usage_mb = 0.0
+            metrics_path = os.path.join(tmpdir, '.metrics')
+            if os.path.exists(metrics_path):
+                with open(metrics_path, 'r', encoding='utf-8') as f:
+                    metrics_content = f.read()
+                    # GNU time outputs "Maximum resident set size (kbytes): <num>"
+                    match = re.search(r'Maximum resident set size \(kbytes\):\s+(\d+)', metrics_content)
+                    if match:
+                        memory_usage_mb = round(int(match.group(1)) / 1024.0, 2)
 
             return CodeExecutionResult(
                 stdout=result.stdout,
                 stderr=result.stderr,
                 exit_code=result.returncode,
                 execution_time=round(execution_time * 1000, 2),
-                memory_usage=0,
+                memory_usage=memory_usage_mb,
             )
         except subprocess.TimeoutExpired:
             execution_time = time.time() - start_time

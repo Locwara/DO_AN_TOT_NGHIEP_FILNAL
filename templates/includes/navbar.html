@@ -124,3 +124,107 @@
     </div>
 </header>
 
+{# Mobile Navigation Drawer #}
+<div
+  id="mobile-drawer"
+  class="fixed inset-0 z-[150] hidden"
+  aria-hidden="true"
+>
+  {# Overlay backdrop #}
+  <div
+    id="drawer-backdrop"
+    class="absolute inset-0 bg-primary-950/60 backdrop-blur-sm"
+  ></div>
+
+  {# Drawer panel #}
+  <nav
+    class="absolute top-0 right-0 h-full w-72 bg-white shadow-modal
+           flex flex-col pt-[var(--header-h)] overflow-y-auto"
+    aria-label="Menu điều hướng di động"
+  >
+    {# Close button #}
+    <button
+      id="drawer-close"
+      class="absolute top-3 right-4 btn-icon"
+      aria-label="Đóng menu"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+
+    <div class="flex flex-col gap-1 px-4 py-4">
+      {% if user.is_authenticated %}
+        {# Avatar + tên #}
+        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-primary-100">
+          {% if user.profiles.avatar_url %}
+            <div class="w-9 h-9 rounded-full bg-center bg-cover border border-primary-100"
+                 style="background-image: url('{{ user.profiles.avatar_url }}');"
+                 aria-hidden="true"></div>
+          {% else %}
+            <div class="w-9 h-9 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center">
+              {{ user.first_name|first|default:user.username|first|upper }}
+            </div>
+          {% endif %}
+          <div>
+            <p class="text-sm font-semibold text-neutral-900">{{ user.get_full_name|default:user.username }}</p>
+            <p class="text-xs text-neutral-500">{{ user.email }}</p>
+          </div>
+        </div>
+
+        {# Nav links theo role #}
+        {% if user.is_superuser or user.profiles.role == 'admin' %}
+          <a href="{% url 'administation:dashboard' %}" class="drawer-link">
+            <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
+            Dashboard Admin
+          </a>
+        {% elif user.profiles.role == 'teacher' %}
+          <a href="{% url 'accounts:teacher_dashboard' %}" class="drawer-link">
+            <span class="material-symbols-outlined" aria-hidden="true">school</span>
+            Dashboard Giáo viên
+          </a>
+          <a href="{% url 'classrooms:create' %}" class="drawer-link">
+            <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+            Tạo lớp
+          </a>
+        {% else %}
+          <a href="{% url 'accounts:student_dashboard' %}" class="drawer-link">
+            <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
+            Dashboard Học sinh
+          </a>
+        {% endif %}
+
+        <a href="{% url 'classrooms:classroom_list' %}" class="drawer-link">
+          <span class="material-symbols-outlined" aria-hidden="true">class</span>
+          Lớp học
+        </a>
+        <a href="{% url 'assignments:calendar' %}" class="drawer-link">
+          <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+          Lịch
+        </a>
+        <a href="{% url 'notifications:list' %}" class="drawer-link">
+          <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+          Thông báo
+        </a>
+
+        <div class="border-t border-primary-100 my-2"></div>
+
+        <a href="{% url 'accounts:profile' %}" class="drawer-link">
+          <span class="material-symbols-outlined" aria-hidden="true">person</span>
+          Hồ sơ
+        </a>
+        <a href="{% url 'accounts:logout' %}" class="drawer-link text-danger-600 hover:bg-danger-100">
+          <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+          Đăng xuất
+        </a>
+
+      {% else %}
+        <a href="#features" class="drawer-link">Tính năng</a>
+        <a href="#ide" class="drawer-link">IDE</a>
+        <a href="#community" class="drawer-link">Cộng đồng</a>
+        <div class="border-t border-primary-100 my-2"></div>
+        <a href="{% url 'accounts:login' %}" class="btn btn-outline w-full justify-center">Đăng nhập</a>
+        <a href="{% url 'accounts:register' %}" class="btn btn-primary w-full justify-center mt-2">Đăng ký</a>
+      {% endif %}
+    </div>
+  </nav>
+</div>
+

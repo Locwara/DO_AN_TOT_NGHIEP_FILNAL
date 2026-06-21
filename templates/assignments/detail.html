@@ -126,9 +126,11 @@
                 <span class="material-symbols-outlined text-sm">folder_zip</span> Tải file nộp
             </a>
             {% endif %}
-            <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="flex items-center gap-2 bg-red-500/10 text-red-500 font-bold py-2.5 px-5 rounded-lg hover:bg-red-500/20 transition-colors text-sm">
+            {% if assignment.submission_mode != 'quiz' %}
+            <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="flex items-center gap-2 bg-red-50/50 text-red-500 font-bold py-2 px-4 rounded-lg hover:bg-red-50 transition-colors text-sm border border-red-100">
                 <span class="material-symbols-outlined text-sm">policy</span> Đạo văn
             </a>
+            {% endif %}
             {% if assignment.is_exam %}
             <a href="{% url 'submissions:exam_monitor' assignment_pk=assignment.pk %}" class="flex items-center gap-2 bg-amber-500/10 text-amber-600 font-bold py-2.5 px-5 rounded-lg hover:bg-amber-500/20 transition-colors text-sm">
                 <span class="material-symbols-outlined text-sm">monitoring</span> Phòng thi
@@ -410,6 +412,68 @@
                 </div>
                 {% endif %}
             </section>
+
+            {% if is_teacher %}
+            <!-- Recent Submissions for Teachers -->
+            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="text-xl font-bold flex items-center gap-2 text-slate-900">
+                        <span class="material-symbols-outlined text-primary">groups</span>
+                        Danh sách bài nộp
+                    </h2>
+                    <a href="{% url 'submissions:teacher_list' assignment_pk=assignment.pk %}" class="text-sm font-bold text-primary hover:underline">Xem tất cả →</a>
+                </div>
+                {% if recent_submissions %}
+                <div class="divide-y divide-slate-100">
+                    {% for sub in recent_submissions %}
+                    <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-black text-primary">
+                                {{ sub.student.username|first|upper }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-900">
+                                    {{ sub.student.get_full_name|default:sub.student.username }}
+                                    {% if assignment.submission_mode == 'quiz' %}
+                                    <span class="ml-1 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                                        Lần {{ sub.quiz_attempts.first.attempt_no|default:1 }}
+                                    </span>
+                                    {% endif %}
+                                </p>
+                                <p class="text-[11px] text-slate-500 uppercase font-bold tracking-tight">{{ sub.submitted_at|date:"d/m/Y H:i" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-6">
+                            <div class="text-right">
+                                <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Điểm số</p>
+                                <p class="text-lg font-black text-primary">
+                                    {{ sub.total_score|floatformat:1 }}<span class="text-xs text-slate-400 font-bold">/{{ sub.max_score }}</span>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'submissions:detail' pk=sub.pk %}" class="h-9 px-4 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-1.5" title="Xem bài làm">
+                                    <span class="material-symbols-outlined text-sm">visibility</span>
+                                    Chi tiết
+                                </a>
+                                {% if assignment.submission_mode != 'quiz' %}
+                                <a href="{% url 'submissions:grade' pk=sub.pk %}" class="h-9 px-4 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 flex items-center gap-1.5" title="Chấm bài">
+                                    <span class="material-symbols-outlined text-sm">grading</span>
+                                    Chấm bài
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-12 text-center text-slate-500">
+                    <span class="material-symbols-outlined text-4xl mb-2 text-slate-300">inbox</span>
+                    <p class="font-bold">Chưa có học sinh nào nộp bài.</p>
+                </div>
+                {% endif %}
+            </section>
+            {% endif %}
         </div>
 
         <!-- Sidebar -->

@@ -1897,6 +1897,78 @@ def exam_monitor_export_view(request, assignment_pk):
 
 
 @teacher_required
+def exam_monitor_json_view(request, assignment_pk):
+    assignment = get_object_or_404(Assignments, pk=assignment_pk, is_exam=True)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+        
+    sessions, status_filter = _filtered_exam_monitor_sessions(assignment, request)
+    member_ids = set(ClassroomMembers.objects.filter(classroom=classroom, status='approved').values_list('student_id', flat=True))
+    all_sessions = ExamSessions.objects.filter(assignment=assignment)
+    session_student_ids = set(all_sessions.values_list('student_id', flat=True))
+    
+    counts = {
+        'not_started': len(member_ids - session_student_ids),
+        'running': all_sessions.filter(status=ExamSessions.STATUS_RUNNING).count(),
+        'submitted': all_sessions.filter(status__in=[ExamSessions.STATUS_SUBMITTED, ExamSessions.STATUS_AUTO_SUBMITTED]).count(),
+        'expired': all_sessions.filter(status=ExamSessions.STATUS_EXPIRED).count(),
+        'warnings': sum(all_sessions.values_list('violation_count', flat=True)),
+    }
+    
+    page_obj = Paginator(sessions, 25).get_page(request.GET.get('page'))
+    is_quiz_exam = (assignment.submission_mode == Assignments.SUBMISSION_QUIZ)
+    is_file_exam = (assignment.submission_mode == Assignments.SUBMISSION_FILE)
+    
+    if is_quiz_exam:
+        page_sessions = list(page_obj.object_list)
+        attempts = QuizAttempts.objects.filter(exam_session__in=page_sessions).prefetch_related('answers').select_related('submission')
+        attempts_by_session = {attempt.exam_session_id: attempt for attempt in attempts}
+        for session in page_sessions:
+            attempt = attempts_by_session.get(session.pk)
+            session.quiz_attempt = attempt
+            if attempt:
+                from .views import _quiz_questions_for_attempt, _quiz_active_questions
+                questions = _quiz_questions_for_attempt(attempt)
+                session.quiz_answered_count = sum(1 for q in questions if q.answer_state['answered'])
+                session.quiz_total_questions = len(questions)
+                session.quiz_score = attempt.score if attempt.status != QuizAttempts.STATUS_IN_PROGRESS else None
+            else:
+                session.quiz_answered_count = 0
+                session.quiz_total_questions = _quiz_active_questions(assignment).count()
+                session.quiz_score = None
+
+    sessions_data = []
+    for s in page_obj:
+        name = s.student.get_full_name() or s.student.username
+        
+        progress = str(s.run_count)
+        if is_file_exam:
+            progress = str(s.final_submission.files.count() if s.final_submission else 0)
+        elif is_quiz_exam:
+            progress = f"{getattr(s, 'quiz_answered_count', 0)}/{getattr(s, 'quiz_total_questions', 0)}"
+            
+        sessions_data.append({
+            'id': s.pk,
+            'name': name,
+            'status': s.get_status_display(),
+            'status_raw': s.status,
+            'started_at': timezone.localtime(s.started_at).strftime("%d/%m %H:%M") if s.started_at else "-",
+            'ends_at': timezone.localtime(s.ends_at).strftime("%d/%m %H:%M") if s.ends_at else "-",
+            'progress': progress,
+            'violations': s.violation_count,
+            'quiz_score': getattr(s, 'quiz_score', None),
+            'has_submission': bool(s.final_submission),
+            'submission_id': s.final_submission.pk if s.final_submission else None
+        })
+        
+    return JsonResponse({
+        'status': 'ok',
+        'counts': counts,
+        'sessions': sessions_data
+    })
+
+@teacher_required
 @require_POST
 def extend_exam_session_view(request, session_pk):
     session = get_object_or_404(ExamSessions, pk=session_pk)
@@ -2448,6 +2520,13 @@ def submission_detail_view(request, pk):
         messages.error(request, 'Bạn không có quyền xem bài nộp này.')
         return redirect('classrooms:classroom_list')
 
+    # If it's a quiz, redirect to quiz_result_view if possible
+    if submission.submission_mode_snapshot == Assignments.SUBMISSION_QUIZ:
+        from .models import QuizAttempts
+        attempt = QuizAttempts.objects.filter(submission=submission).first()
+        if attempt:
+            return redirect('submissions:quiz_result', attempt_pk=attempt.pk)
+
     details = SubmissionDetails.objects.filter(
         submission=submission
     ).select_related('testcase').order_by('testcase__order_index', 'id')
@@ -2512,11 +2591,24 @@ def submission_detail_view(request, pk):
         )
     )
 
+    sample_stats = {
+        'passed': sample_passed,
+        'total': len(sample_details)
+    }
+    hidden_stats = {
+        'passed': hidden_passed,
+        'total': len(hidden_details)
+    }
+
     context = {
         'submission': submission,
         'assignment': assignment,
         'classroom': classroom,
         'details': visible_details,
+        'sample_details': sample_details,
+        'hidden_details': hidden_details,
+        'sample_stats': sample_stats,
+        'hidden_stats': hidden_stats,
         'all_details': details,
         'code_comments': code_comments,
         'comments_by_line': comments_by_line,
@@ -2819,6 +2911,13 @@ def grade_submission_view(request, pk):
     details = SubmissionDetails.objects.filter(
         submission=submission
     ).select_related('testcase').order_by('testcase__order_index')
+
+    sample_details = [d for d in details if getattr(d.testcase, 'is_sample', False)]
+    hidden_details = [d for d in details if not getattr(d.testcase, 'is_sample', False)]
+    
+    # Calculate stats for display
+    sample_passed = sum(1 for d in sample_details if d.result_status in ('accepted', 'passed'))
+    hidden_passed = sum(1 for d in hidden_details if d.result_status in ('accepted', 'passed'))
 
     code_comments = CodeComments.objects.filter(
         submission=submission

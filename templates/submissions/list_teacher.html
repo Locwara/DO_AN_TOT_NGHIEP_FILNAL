@@ -136,10 +136,12 @@
                     <input type="checkbox" id="select-all-submissions" class="rounded border-slate-300 text-primary focus:ring-primary">
                     <label for="select-all-submissions" class="text-sm font-bold text-slate-700">Chọn tất cả trang này</label>
                 </div>
+                {% if assignment.submission_mode != 'quiz' %}
                 <button type="submit" class="inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors">
                     <span class="material-symbols-outlined text-sm">done_all</span>
                     Lưu chấm nhanh
                 </button>
+                {% endif %}
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[1100px]">
@@ -152,7 +154,9 @@
                             <th class="px-4 py-3 text-center">Tests</th>
                             <th class="px-4 py-3 text-center">Trạng thái</th>
                             <th class="px-4 py-3 text-center">Thời gian</th>
+                            {% if assignment.submission_mode != 'quiz' %}
                             <th class="px-4 py-3 text-left">Chấm nhanh</th>
+                            {% endif %}
                             <th class="px-4 py-3 text-center">Hành động</th>
                         </tr>
                     </thead>
@@ -214,20 +218,24 @@
                                 {% endif %}
                             </td>
                             <td class="px-4 py-3 text-center text-xs text-slate-500">{{ sub.submitted_at|date:"d/m H:i" }}</td>
+                            {% if assignment.submission_mode != 'quiz' %}
                             <td class="px-4 py-3 min-w-[240px]">
                                 <div class="flex items-center gap-2">
                                     <input type="number" step="0.5" min="0" max="{{ sub.max_score }}" name="quick_score_{{ sub.pk }}" value="{% if sub.manual_score is not None %}{{ sub.manual_score|floatformat:1 }}{% endif %}" placeholder="Điểm" class="w-20 h-9 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
                                     <input type="text" name="quick_comment_{{ sub.pk }}" value="{{ sub.teacher_comment|default:'' }}" placeholder="Nhận xét ngắn" class="w-36 h-9 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
                                 </div>
                             </td>
+                            {% endif %}
                             <td class="px-4 py-3 text-center">
                                 <div class="flex items-center justify-center gap-2">
                                     <a href="{% url 'submissions:detail' pk=sub.pk %}" class="p-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 text-slate-500 hover:text-primary transition-colors" title="Xem chi tiết">
                                         <span class="material-symbols-outlined text-sm">visibility</span>
                                     </a>
+                                    {% if assignment.submission_mode != 'quiz' %}
                                     <a href="{% url 'submissions:grade' pk=sub.pk %}" class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-slate-500 hover:text-amber-600 transition-colors" title="Chấm bài">
                                         <span class="material-symbols-outlined text-sm">grading</span>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

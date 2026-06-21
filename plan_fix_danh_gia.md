@@ -83,7 +83,7 @@
 
 ---
 
-### TASK 1.3 — Auto-refresh Realtime _(1 giờ)_
+### [DONE] TASK 1.3 — Auto-refresh Realtime _(1 giờ)_
 **Mục tiêu**: GV không phải F5 để thấy bài nộp mới / vi phạm thi.
 
 **Phạm vi sửa**:
@@ -142,7 +142,7 @@
 
 ## 🟡 PHASE 2 — QUAN TRỌNG (6–8 giờ)
 
-### TASK 2.1 — Đo memory thực từ Docker _(1 giờ)_
+### [DONE] TASK 2.1 — Đo memory thực từ Docker _(1 giờ)_
 **Mục tiêu**: `submission.memory_usage` ≠ 0; báo cáo MB thật.
 
 **Phạm vi**: `services/docker_service.py::_execute_with_docker`.
@@ -195,7 +195,7 @@
 
 ---
 
-### TASK 2.3 — Upload file code rồi nạp vào IDE _(1 giờ)_
+### [DONE] TASK 2.3 — Upload file code rồi nạp vào IDE _(1 giờ)_
 **Mục tiêu**: HS có thể chọn file `.py/.cpp/.c/.java/.js` từ máy → nội dung tự nhập vào Monaco editor.
 
 **Phạm vi sửa**:

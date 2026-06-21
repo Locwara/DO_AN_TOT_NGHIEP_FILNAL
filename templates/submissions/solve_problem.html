@@ -113,6 +113,11 @@
             <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Sẵn sàng</span>
         </div>
         <div class="flex items-center gap-2">
+            <input type="file" id="upload-code" accept=".py,.cpp,.c,.java,.js,.cs" hidden>
+            <button onclick="document.getElementById('upload-code').click()" class="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all" title="Tải file code lên">
+                <span class="material-symbols-outlined text-sm">upload_file</span>
+                Chạy file
+            </button>
             <button id="btn-run" onclick="runCode()" class="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all">
                 <span class="material-symbols-outlined text-sm">play_arrow</span>
                 Chạy thử
@@ -300,6 +305,7 @@ const MODE_MAP = {
     'java': 'text/x-java',
     'javascript': 'javascript',
     'nodejs': 'javascript',
+    'csharp': 'text/x-csharp',
 };
 
 function startExamTimer(seconds) {
@@ -717,5 +723,6 @@ function escapeHtml(text) {
 </script>
 {% include 'includes/loading.html' %}
 <script src="{% static 'js/main.js' %}"></script>
+<script src="{% static 'js/editor.js' %}"></script>
 </body>
 </html>
