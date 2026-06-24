@@ -426,7 +426,7 @@ def update_classroom_leaderboard(classroom):
     assignments = Assignments.objects.filter(
         classroom=classroom,
         is_published=True,
-    ).only('id')
+    ).only('id', 'score_aggregation_mode')
     assignment_ids = list(assignments.values_list('id', flat=True))
 
     best_scores = {}
@@ -437,12 +437,20 @@ def update_classroom_leaderboard(classroom):
             status='finished',
         ).select_related('assignment', 'student').order_by('student_id', 'assignment_id', '-submitted_at')
 
+        asg_dict = {a.pk: a for a in assignments}
+        
         for submission in submissions:
+            asg = asg_dict.get(submission.assignment_id)
+            if not asg:
+                continue
+                
             key = (submission.student_id, submission.assignment_id)
-            score = submission_final_score(submission) or 0
-            current = best_scores.get(key)
-            if current is None or score > current:
-                best_scores[key] = score
+            if key in best_scores:
+                continue
+            
+            # Use the helper which correctly aggregates all submissions for this assignment/student
+            score = get_assignment_final_score(asg, submission.student)
+            best_scores[key] = score
 
     scores_by_student = {student_id: [] for student_id in member_ids}
     for (student_id, _assignment_id), score in best_scores.items():

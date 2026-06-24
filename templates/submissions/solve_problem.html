@@ -423,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'Ctrl-Shift-Enter': submitCode,
         },
     });
+    window.editor = editor;
 
     if (!editor.getValue().trim()) {
         const starterCode = `{{ assignment.starter_code|safe|default:'' }}`;
@@ -693,12 +694,24 @@ function submitCode() {
     .then(data => {
         if (data.status === 'ok') {
             let html = '<div class="space-y-4">';
-            html += `<div class="text-green-600 font-black text-lg">✅ Nộp bài thành công!</div>`;
-            html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
-            html += `<div class="flex justify-between"><span>Điểm số:</span><span class="text-primary font-black">${data.total_score}/${data.max_score}</span></div>`;
-            html += `<div class="flex justify-between"><span>Testcases đạt:</span><span class="font-bold">${data.passed}/${data.total}</span></div>`;
-            if (data.is_late) html += `<div class="text-amber-600 font-bold">⚠️ Nộp muộn (Bị trừ ${data.penalty_applied}%)</div>`;
-            html += `</div>`;
+            if (data.async) {
+                html += `<div class="text-blue-600 font-black text-lg">⏳ Nộp bài thành công!</div>`;
+                html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
+                html += `<span>Bài nộp của bạn đang được chấm điểm... Vui lòng xem chi tiết để biết kết quả sau ít phút.</span>`;
+                html += `</div>`;
+            } else if (data.total_score !== undefined) {
+                html += `<div class="text-green-600 font-black text-lg">✅ Nộp bài thành công!</div>`;
+                html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
+                html += `<div class="flex justify-between"><span>Điểm số:</span><span class="text-primary font-black">${data.total_score}/${data.max_score}</span></div>`;
+                html += `<div class="flex justify-between"><span>Testcases đạt:</span><span class="font-bold">${data.passed}/${data.total}</span></div>`;
+                if (data.is_late) html += `<div class="text-amber-600 font-bold">⚠️ Nộp muộn (Bị trừ ${data.penalty_applied}%)</div>`;
+                html += `</div>`;
+            } else {
+                html += `<div class="text-green-600 font-black text-lg">✅ Nộp bài thành công!</div>`;
+                html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
+                html += `<span>${data.message || 'Bài nộp không có testcase nào để chấm.'}</span>`;
+                html += `</div>`;
+            }
             html += `<a href="/submissions/detail/${data.submission_id}/" class="inline-flex items-center gap-2 px-6 h-10 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-all">Xem chi tiết bài làm <span class="material-symbols-outlined text-sm">arrow_forward</span></a>`;
             html += '</div>';
             document.getElementById('ocontent-output').innerHTML = html;

@@ -141,10 +141,34 @@ def build_student_home_context(user):
     completed_count = len(completed_assignment_ids)
     missing_count = max(total_assignments - completed_count, 0)
 
-    best_scores = list(
-        finished_submissions.values('assignment_id')
-        .annotate(best=Max(Coalesce('manual_score', 'total_score')))
-    )
+    # Fetch assignments to get their mode
+    asg_dict = {a.pk: a for a in assignments}
+    
+    student_subs = list(finished_submissions)
+    subs_by_asg = {}
+    for sub in student_subs:
+        subs_by_asg.setdefault(sub.assignment_id, []).append(sub)
+
+    best_scores = []
+    for asg_id, subs in subs_by_asg.items():
+        mode = getattr(asg_dict.get(asg_id), 'score_aggregation_mode', 'best')
+        scores = [(s.manual_score if s.manual_score is not None else s.total_score) or 0 for s in subs]
+        
+        if mode == 'best':
+            val = max(scores)
+        elif mode == 'latest':
+            latest_sub = max(subs, key=lambda s: s.submitted_at)
+            val = (latest_sub.manual_score if latest_sub.manual_score is not None else latest_sub.total_score) or 0
+        elif mode == 'first':
+            first_sub = min(subs, key=lambda s: s.submitted_at)
+            val = (first_sub.manual_score if first_sub.manual_score is not None else first_sub.total_score) or 0
+        elif mode == 'average':
+            val = sum(scores) / len(scores) if scores else 0
+        else:
+            val = max(scores)
+            
+        best_scores.append({'assignment_id': asg_id, 'best': val})
+
     avg_score = (
         round(sum(row['best'] or 0 for row in best_scores) / len(best_scores), 1)
         if best_scores

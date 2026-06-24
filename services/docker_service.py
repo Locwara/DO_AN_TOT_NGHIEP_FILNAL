@@ -99,16 +99,24 @@ def _build_docker_script(language, filename):
     compile_cmd = _get_compile_command(language, filename)
     run_cmd = _get_run_command(language, filename)
 
-    lines = ['#!/bin/sh', 'set -e', 'cd /sandbox']
+    lines = ['#!/bin/sh', 'cd /sandbox']
     if compile_cmd:
-        lines.append(' '.join(compile_cmd))
+        lines.append(' '.join(compile_cmd) + ' || exit 1')
     # Use /usr/bin/time -v -o to measure memory and redirect time output to .metrics, preserving program stderr
-    # Fallback to normal execution if /usr/bin/time is missing
+    # Fallback to cgroup if /usr/bin/time is missing
     lines.append('if [ -x /usr/bin/time ]; then')
-    lines.append('    exec /usr/bin/time -v -o /sandbox/.metrics ' + ' '.join(run_cmd))
+    lines.append('    /usr/bin/time -v -o /sandbox/.metrics ' + ' '.join(run_cmd))
+    lines.append('    EXIT_CODE=$?')
     lines.append('else')
-    lines.append('    exec ' + ' '.join(run_cmd))
+    lines.append('    ' + ' '.join(run_cmd))
+    lines.append('    EXIT_CODE=$?')
+    lines.append('    if [ -f /sys/fs/cgroup/memory.peak ]; then')
+    lines.append('        cat /sys/fs/cgroup/memory.peak > /sandbox/.metrics_mem')
+    lines.append('    elif [ -f /sys/fs/cgroup/memory/memory.max_usage_in_bytes ]; then')
+    lines.append('        cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes > /sandbox/.metrics_mem')
+    lines.append('    fi')
     lines.append('fi')
+    lines.append('exit $EXIT_CODE')
     return '\n'.join(lines)
 
 
@@ -166,6 +174,7 @@ def _execute_with_docker(code, language, input_data='', timeout_seconds=5,
             
             memory_usage_mb = 0.0
             metrics_path = os.path.join(tmpdir, '.metrics')
+            metrics_mem_path = os.path.join(tmpdir, '.metrics_mem')
             if os.path.exists(metrics_path):
                 with open(metrics_path, 'r', encoding='utf-8') as f:
                     metrics_content = f.read()
@@ -173,6 +182,14 @@ def _execute_with_docker(code, language, input_data='', timeout_seconds=5,
                     match = re.search(r'Maximum resident set size \(kbytes\):\s+(\d+)', metrics_content)
                     if match:
                         memory_usage_mb = round(int(match.group(1)) / 1024.0, 2)
+            
+            if memory_usage_mb == 0.0 and os.path.exists(metrics_mem_path):
+                with open(metrics_mem_path, 'r', encoding='utf-8') as f:
+                    try:
+                        mem_bytes = int(f.read().strip())
+                        memory_usage_mb = round(mem_bytes / (1024.0 * 1024.0), 2)
+                    except ValueError:
+                        pass
 
             return CodeExecutionResult(
                 stdout=result.stdout,

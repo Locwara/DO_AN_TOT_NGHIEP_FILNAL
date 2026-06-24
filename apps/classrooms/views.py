@@ -336,8 +336,39 @@ def _build_gradebook_data(classroom, request):
     csv_context = csv_query_context(request)
     has_filters = csv_context['has_active_filters']
 
+    assignment_stats = []
+    for asg in assignments:
+        scores = []
+        for r in rows:
+            for c in r['cells']:
+                if c['assignment'] == asg and c['has_score']:
+                    scores.append(c['score'])
+        
+        avg_score = sum(scores) / len(scores) if scores else 0
+        threshold = asg.max_score * 0.5 if asg.max_score else 50
+        try:
+            from apps.assignments.models import Assignments
+            if asg.submission_mode == Assignments.SUBMISSION_QUIZ and asg.quiz_settings.passing_score is not None:
+                threshold = asg.quiz_settings.passing_score
+        except Exception: pass
+
+        pass_count = sum(1 for s in scores if s >= threshold)
+        pass_rate = (pass_count / len(scores) * 100) if scores else 0
+        
+        assignment_stats.append({
+            'title': asg.title,
+            'avg_score': round(avg_score, 1),
+            'pass_rate': round(pass_rate, 1)
+        })
+
+    import json
     return {
         'classroom': classroom,
+        'assignment_stats_json': json.dumps({
+            'labels': [s['title'] for s in assignment_stats],
+            'avg_scores': [s['avg_score'] for s in assignment_stats],
+            'pass_rates': [s['pass_rate'] for s in assignment_stats]
+        }),
         'assignments': assignments,
         'rows': rows,
         'classroom_subjects': classroom_subjects,
@@ -656,13 +687,63 @@ def gradebook_export_view(request, pk):
 
     if export_format == 'xlsx':
         from openpyxl import Workbook
+        from openpyxl.styles import PatternFill, Font, Alignment
         response = xlsx_response(csv_filename(filename_base, filtered=is_filtered, timestamp=timestamp, extension='xlsx'))
         wb = Workbook()
         ws = wb.active
         ws.title = "Gradebook"
         ws.append(header)
-        for r in rows_data:
+        
+        header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+        header_font = Font(bold=True)
+        center_align = Alignment(horizontal="center", vertical="center")
+        
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center_align
+            
+        ws.freeze_panes = "A2"
+        
+        pass_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        fail_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        late_font = Font(color="9C5700")
+        
+        for row_idx, r in enumerate(rows_data, start=2):
             ws.append(r)
+            
+            # Formatting for cells (assignments start at column 8)
+            # data['rows'][row_idx-2] gets the corresponding dict from data
+            cell_data_list = data['rows'][row_idx - 2]['cells']
+            
+            for col_idx, cell_data in enumerate(cell_data_list, start=8):
+                ws_cell = ws.cell(row=row_idx, column=col_idx)
+                ws_cell.alignment = center_align
+                if cell_data['submission']:
+                    if cell_data['is_late']:
+                        ws_cell.font = late_font
+                    
+                    if cell_data.get('has_percent', False):
+                        if cell_data['percent'] >= 50:
+                            ws_cell.fill = pass_fill
+                        else:
+                            ws_cell.fill = fail_fill
+                    elif cell_data.get('status') == 'error':
+                        ws_cell.fill = fail_fill
+
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column].width = min(adjusted_width, 30)
+
         wb.save(response)
         return response
     else:

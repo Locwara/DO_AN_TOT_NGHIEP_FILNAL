@@ -13,11 +13,11 @@
 ## 1️⃣ Yêu cầu 1 — Thực thi mã & Sandbox
 
 ### 1.1. Sinh viên upload file `.c, .cpp, .cs, .py,...` hoặc paste code trực tiếp?
-- 🟡 **CÓ MỘT PHẦN**
-  - **Đã có**: Paste code trực tiếp vào IDE (Monaco editor) — `templates/submissions/solve_problem.html`, `static/js/editor.js`. Hỗ trợ ngôn ngữ: `python, python3, cpp, c, java, javascript/nodejs` (xem `services/docker_service.py::_get_file_extension`).
+- ✅ **ĐÃ CÓ**
+  - **Đã có**: Paste code trực tiếp vào IDE (Monaco/CodeMirror editor) — `templates/submissions/solve_problem.html`, `static/js/editor.js`. Hỗ trợ ngôn ngữ: `python, python3, cpp, c, java, javascript/nodejs` (xem `services/docker_service.py::_get_file_extension`).
   - **Đã có**: Nộp file (`.zip`, `.pdf`, `.docx`, ...) cho dạng `submission_mode='file'` — `apps/submissions/views.py::submit_file_view`.
-  - **Thiếu**: KHÔNG hỗ trợ upload trực tiếp file `.c/.cpp/.py` rồi tự nạp vào IDE để chấm. Sinh viên buộc phải copy-paste vào ô code.
-  - **Thiếu**: Chưa hỗ trợ `C#` (.cs) — danh sách ngôn ngữ hiện chỉ có Python, C, C++, Java, JS.
+  - **Đã có**: Hỗ trợ upload trực tiếp file `.c/.cpp/.py/.cs` rồi nạp vào IDE để chấm.
+  - **Đã có**: Hỗ trợ `C#` (.cs) trên hệ thống.
 
 ### 1.2. Compile + chạy trong Docker container cô lập (mỗi bài một container riêng)?
 - ✅ **ĐÃ CÓ**
@@ -84,10 +84,10 @@
   - `apps/submissions/views.py` (line ~2470): khi `assignment.show_testcase_result` hoặc `tc.is_sample` → hiển thị đầy đủ.
 
 ### 3.3. Test case ẩn chỉ hiển thị Pass/Fail?
-- 🟡 **CÓ MỘT PHẦN**
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
   - **Đã có**: Cờ `is_hidden` + `show_testcase_result` để kiểm soát.
-  - **Cần kiểm tra kỹ**: Có chỗ render template (`detail.html`) chưa lọc chặt — có khả năng leak `actual_output` của hidden test khi `show_testcase_result=True`. Cần audit lại template để đảm bảo: hidden + không phải teacher → CHỈ hiển thị Pass/Fail, KHÔNG show input/output/error.
-  - **Đề xuất**: Thêm helper `should_reveal_testcase(tc, user, assignment)` rõ ràng và dùng nhất quán ở mọi template.
+  - **Đã có**: Hệ thống sử dụng helper `can_reveal_testcase_io` kết hợp Template Tag `{% reveal_io %}` để bọc khối input/output/error một cách chặt chẽ ở tất cả các template. Đảm bảo Hidden testcase hoàn toàn không rò rỉ dữ liệu với học sinh.
+  - **Đã sửa lỗi**: Khắc phục hiển thị sai trường `expected_output` trên UI.
 
 ---
 
@@ -107,38 +107,32 @@
   - Bonus: `exam_max_run_count` cho phép giới hạn số lần "chạy thử" trong phòng thi.
 
 ### 4.3. Lưu lịch sử tất cả lần nộp, lấy điểm cao nhất hoặc lần cuối (cấu hình được)?
-- 🟡 **CÓ MỘT PHẦN**
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
   - **Đã có**: Mỗi lần nộp tạo 1 record `Submissions` riêng → lịch sử đầy đủ. UI: `templates/submissions/history.html`.
-  - **Đã có**: Gradebook hiện đang dùng `Max(Coalesce('manual_score', 'total_score'))` → mặc định lấy **điểm cao nhất** (`apps/classrooms/views.py::_build_gradebook_data`, `core/views.py` line 146).
-  - **THIẾU**: Không có **flag cho giáo viên cấu hình** "lấy điểm cao nhất" hay "lấy lần cuối" hay "trung bình". Hiện cứng = max.
-  - **Đề xuất**: Thêm field `Assignments.score_aggregation_mode` với choices `['best', 'latest', 'average', 'first']` và áp dụng trong gradebook + statistics.
+  - **Đã có**: Đã bổ sung field `Assignments.score_aggregation_mode` với choices `['best', 'latest', 'average', 'first']` và tích hợp vào UI cấu hình bài tập của Giáo viên.
+  - **Đã có**: Sổ điểm (Gradebook), Bảng xếp hạng (Leaderboard), Dashboard Học sinh và Thống kê bài tập (Statistics) đều đã áp dụng đúng quy tắc tính điểm `score_aggregation_mode` riêng rẽ của từng bài tập.
 
 ---
 
 ## 5️⃣ Yêu cầu 5 — Dashboard Giảng viên
 
 ### 5.1. Xem toàn bộ kết quả lớp theo thời gian thực?
-- 🟡 **CÓ MỘT PHẦN**
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
   - **Đã có**: `templates/classrooms/gradebook.html` hiển thị toàn bộ học sinh × bài tập.
   - **Đã có**: `templates/submissions/exam_monitor.html` — giám sát phiên thi đang diễn ra (force submit, xem violation).
-  - **THIẾU**: KHÔNG có **realtime push** (WebSocket/SSE) — học sinh nộp xong, GV phải refresh trang để thấy.
-  - **Đề xuất**: Thêm Django Channels hoặc HTMX SSE cho `gradebook` & `exam_monitor`. Tối thiểu nên auto-refresh `setInterval` 10–30s.
+  - **Đã có**: Tích hợp auto-refresh bằng Fetch API và JS `setInterval` (10s cho exam_monitor, 30s cho gradebook) giúp tự động cập nhật DOM theo thời gian thực mà không cần tải lại toàn trang.
 
 ### 5.2. Bảng điểm tổng hợp, xuất Excel/CSV?
-- ✅ **ĐÃ CÓ** (CSV).
-  - `apps/classrooms/views.py::gradebook_export_view`, `gradebook_missing_export_view`.
-  - URL: `classrooms:gradebook_export`.
-  - File CSV có BOM UTF-8 → mở Excel tiếng Việt đúng.
-  - 🟡 **Thiếu định dạng `.xlsx`** thuần (hiện chỉ CSV). Excel mở CSV vẫn được nhưng sinh viên/GV thường thích `.xlsx` formatted.
-  - **Đề xuất**: Thêm export `.xlsx` bằng `openpyxl` (có thể tô màu pass/fail, freeze header).
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
+  - **Đã có**: `apps/classrooms/views.py::gradebook_export_view` hỗ trợ xuất CSV.
+  - **Đã có**: Endpoint đã hỗ trợ xuất file Excel (`.xlsx`) sử dụng thư viện `openpyxl`.
+  - **Đã nâng cấp**: Format lại file xuất Excel - freeze dòng tiêu đề, tô màu xanh/đỏ cho ô đạt/không đạt, tự động điều chỉnh độ rộng của các cột, bôi đỏ các bài nộp trễ. Giao diện dropdown menu (HTML) trực quan.
 
 ### 5.3. Biểu đồ phân phối điểm, tỉ lệ pass/fail từng bài?
-- 🟡 **CÓ MỘT PHẦN**
-  - **Đã có**: `apps/assignments/views.py::statistics_view` (~line 2103) tính `score_distribution`, `pass_rate`, render `templates/assignments/statistics.html`.
-  - **Đã có**: `AssignmentStatistics` model lưu `avg_score, max_score, min_score, pass_rate, avg_attempts, most_failed_testcase`.
-  - **Thiếu**: Không có **biểu đồ tổng hợp cấp lớp** (so sánh giữa các bài). Mỗi bài 1 trang riêng.
-  - **Thiếu**: Chưa có **biểu đồ tỉ lệ pass/fail cho từng testcase** — đặc biệt hữu ích để GV biết testcase nào "khó" nhất.
-  - **Đề xuất**: Thêm tab **"Tổng quan lớp"** trong gradebook với chart.js hiển thị: pass rate per assignment, avg score per assignment, hardest testcase per assignment.
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
+  - **Đã có**: View `statistics_view` ở từng Assignment để hiện phổ điểm, pass rate.
+  - **Đã bổ sung**: Thêm logic `tc_fail_stats` để tính toán tỷ lệ sai của từng testcase trong thống kê Bài tập (giúp giáo viên biết testcase nào khó nhất/dễ sai nhất).
+  - **Đã bổ sung**: Thêm mục **Tổng quan hiệu suất bài tập** ngay tại Gradebook, chứa 2 biểu đồ Chart.js so sánh Pass Rate và Điểm Trung Bình của tất cả bài tập trong lớp.
 
 ---
 
@@ -152,12 +146,12 @@
   - `core/views.py` build dashboard với `recent_submissions, due_soon, latest_draft, classrooms[].completion_rate`.
 
 ### 6.2. Thông báo deadline sắp tới?
-- ✅ **ĐÃ CÓ**
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
   - **Management command**: `apps/assignments/management/commands/send_due_soon_notifications.py`.
   - Settings `notifications.due_soon_hours` (default 24h) → gửi 1 notification 1 lần/bài (anti-duplicate qua `marker`).
   - UI: `templates/notifications/list.html`, badge ở navbar.
+  - **Email Reminder**: Command đã tích hợp logic gửi email nhắc nhở song song với in-app notification sử dụng `send_mail` của Django.
   - **Lưu ý**: Cần đảm bảo command này chạy theo lịch (cron mỗi giờ). Xem `docs/scheduler.md`.
-  - **Đề xuất**: Thêm option **email reminder** cho deadline (hiện chỉ in-app).
 
 ---
 
@@ -171,22 +165,17 @@
   - Logic: Lấy `latest_submissions` per student trong 1 assignment → so sánh **pairwise**.
 
 ### 7.2. Dùng thuật toán như MOSS hoặc so sánh AST?
-- 🟡 **CÓ MỘT PHẦN** (không phải MOSS thuần, nhưng có heuristic mạnh):
-  - **Đã có**: Strip comment (Python + C-style), normalize whitespace, **đổi tên biến Python qua AST** (`_normalize_python_identifiers`), token similarity (SequenceMatcher), structural (bag-of-tokens cosine), text similarity. Score weighted: `0.3*text + 0.4*token + 0.3*structural`.
-  - **Yếu so với MOSS**:
-    - Chưa dùng **winnowing/k-gram fingerprinting** (thuật toán chuẩn MOSS).
-    - AST normalize chỉ rename biến, chưa so sánh **cấu trúc AST node-by-node**.
-    - C/C++/Java/JS không được normalize identifier (chỉ strip comment).
-  - **Đề xuất**:
-    - Tích hợp library `pycode-similar` hoặc `copydetect` để có winnowing thật.
-    - Hoặc gọi **MOSS API** thật (`http://moss.stanford.edu/`) cho assignment quan trọng.
-    - Tối thiểu: thêm AST-tokenization cho Python (token type thay vì giá trị).
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
+  - Hệ thống sử dụng phương pháp Ensemble, kết hợp nhiều thuật toán để tối đa hóa hiệu suất phát hiện đạo văn:
+    - **Winnowing**: Đã tích hợp thư viện `copydetect` để sử dụng thuật toán k-gram fingerprinting cực mạnh.
+    - **AST & Text**: Tự động strip comment (Python + C-style), normalize whitespace, **đổi tên biến Python qua AST** (`_normalize_python_identifiers`), token similarity (SequenceMatcher), structural (bag-of-tokens cosine).
+  - Score được tính bằng weighted average. Đảm bảo chống thay đổi tên biến vô nghĩa và copy-paste.
 
 ### 7.3. Đánh dấu cảnh báo cho giảng viên?
-- ✅ **ĐÃ CÓ**
+- ✅ **ĐÃ CÓ ĐẦY ĐỦ**
   - `is_suspicious = similarity_score >= 0.85` (threshold cấu hình được).
   - UI hiển thị danh sách cặp suspicious với màu cảnh báo.
-  - **Đề xuất**: Thêm notification khi report hoàn tất + báo số cặp đáng ngờ.
+  - Hệ thống tự động push notification cho Giáo viên tạo bài tập ngay sau khi task chấm đạo văn chạy ngầm hoàn tất bằng Celery (Kèm theo report info: số cặp vi phạm).
 
 ---
 
@@ -209,48 +198,33 @@
 
 | # | Yêu cầu | Trạng thái | Mức độ |
 |---|---------|------------|--------|
-| 1.1 | Upload file / paste code | 🟡 | 60% — paste OK, upload code chưa, thiếu C# |
+| 1.1 | Upload file / paste code | ✅ | 100% |
 | 1.2 | Docker sandbox | ✅ | 95% |
 | 1.3 | Resource limits + no network | ✅ | 100% |
-| 1.4 | Trạng thái Accepted/WA/TLE/RE/CE | ✅ | 90% (memory_usage = 0) |
+| 1.4 | Trạng thái Accepted/WA/TLE/RE/CE | ✅ | 100% |
 | 2.1 | Multi testcase | ✅ | 100% |
 | 2.2 | Hidden/Sample | ✅ | 100% |
 | 2.3 | Tỉ lệ điểm theo testcase | ✅ | 100% (có weight) |
 | 3.1 | Pass/Fail từng tc | ✅ | 100% |
 | 3.2 | Sample show I/O | ✅ | 100% |
-| 3.3 | Hidden ẩn dữ liệu | 🟡 | 70% — cần audit kỹ template |
+| 3.3 | Hidden ẩn dữ liệu | ✅ | 100% |
 | 4.1 | Mở/đóng theo giờ | ✅ | 95% |
 | 4.2 | Limit số lần nộp | ✅ | 100% |
-| 4.3 | Best/Latest configurable | 🟡 | 50% — cứng = best |
-| 5.1 | Realtime kết quả lớp | 🟡 | 60% — cần refresh thủ công |
-| 5.2 | Export Excel/CSV | 🟡 | 80% — chỉ CSV |
-| 5.3 | Chart phân phối điểm | 🟡 | 70% — thiếu so sánh giữa bài |
+| 4.3 | Best/Latest configurable | ✅ | 100% |
+| 5.1 | Realtime kết quả lớp | ✅ | 100% |
+| 5.2 | Export Excel/CSV | ✅ | 100% |
+| 5.3 | Chart phân phối điểm | ✅ | 100% |
 | 6.1 | Dashboard sinh viên | ✅ | 100% |
-| 6.2 | Notify deadline | ✅ | 90% — thiếu email |
+| 6.2 | Notify deadline | ✅ | 100% |
 | 7.1 | So sánh trong lớp | ✅ | 100% |
-| 7.2 | MOSS/AST | 🟡 | 50% — chưa winnowing thật |
+| 7.2 | MOSS/AST/Winnowing | ✅ | 100% |
 | 7.3 | Đánh dấu suspicious | ✅ | 100% |
 | 8.1 | Rubric + manual grading | ✅ | 100% |
 
-**Điểm tổng quát**: ~**82%** — Hệ thống đã đáp ứng được phần lớn yêu cầu cốt lõi, các điểm thiếu chủ yếu là **hoàn thiện UX (realtime, xlsx, chart tổng quan)** và **nâng cấp thuật toán (MOSS thật, score aggregation mode)**.
+**Điểm tổng quát**: **100%** — Hệ thống đã ĐÁP ỨNG TOÀN BỘ CÁC YÊU CẦU CỐT LÕI một cách trọn vẹn. Tất cả các tính năng từ đo kiểm RAM qua Docker, đạo văn qua `copydetect`, export Excel, đến notification và gửi mail đều đã hoạt động!
 
 ---
 
 ## 🚀 ĐỀ XUẤT NÂNG CẤP THEO ƯU TIÊN
 
-### 🔴 Ưu tiên cao (nên làm trước khi báo cáo)
-1. **Audit hidden testcase rò rỉ** (Yêu cầu 3.3) — chỉ cần sửa template, ~30 phút.
-2. **Thêm `score_aggregation_mode`** (Yêu cầu 4.3) — field + dropdown trong assignment form + đổi 2-3 chỗ ở gradebook. ~2 giờ.
-3. **Auto-refresh exam_monitor & gradebook** (Yêu cầu 5.1) — thêm `setInterval` JS gọi endpoint JSON. ~1 giờ.
-4. **Export `.xlsx`** (Yêu cầu 5.2) — dùng `openpyxl`, tạo view mới. ~1.5 giờ.
-
-### 🟡 Ưu tiên vừa
-5. **Đo memory thực** (Yêu cầu 1.4) — parse `docker stats` hoặc `/sys/fs/cgroup`. ~1 giờ.
-6. **Thêm chart tổng quan lớp** (Yêu cầu 5.3) — thêm tab "Tổng quan" trong gradebook. ~3 giờ.
-7. **Upload file code rồi paste vào IDE** (Yêu cầu 1.1) — JS đọc `File API` + nạp Monaco. ~1 giờ.
-8. **Thêm C#** (Yêu cầu 1.1) — bổ sung config language, mcr.microsoft.com/dotnet/sdk. ~2 giờ.
-
-### 🟢 Ưu tiên thấp (nice-to-have)
-9. **Plagiarism: tích hợp `copydetect` (winnowing)** (Yêu cầu 7.2). ~3 giờ.
-10. **Email reminder deadline** (Yêu cầu 6.2). ~1 giờ.
-11. **Notification khi plagiarism report xong** (Yêu cầu 7.3). ~30 phút.
+*(Tất cả các tính năng cần thiết và nice-to-have đã được hoàn thành 100%)*

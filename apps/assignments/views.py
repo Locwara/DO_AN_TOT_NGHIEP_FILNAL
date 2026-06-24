@@ -2320,6 +2320,21 @@ def statistics_view(request, pk):
         'submissions': submissions_qs.select_related('student').order_by('-submitted_at')[:50],
     }
     
+    if assignment.submission_mode == Assignments.SUBMISSION_CODE:
+        tc_fail_stats = []
+        for tc in testcases:
+            total = tc.total_details
+            failed = tc.failed_details
+            fail_rate = round(failed / total * 100, 1) if total else 0
+            tc_fail_stats.append({
+                'testcase': tc,
+                'total': total,
+                'failed': failed,
+                'fail_rate': fail_rate
+            })
+        tc_fail_stats.sort(key=lambda x: x['fail_rate'], reverse=True)
+        context['tc_fail_stats'] = tc_fail_stats
+    
     if assignment.submission_mode == Assignments.SUBMISSION_QUIZ:
         quiz_attempts = QuizAttempts.objects.filter(assignment=assignment, status__in=['submitted', 'auto_submitted'])
         completed_student_ids = {a.student_id for a in quiz_attempts if a.student_id}

@@ -2,8 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadInput = document.getElementById('upload-code');
     const langSelect = document.getElementById('language-select');
 
-    if (uploadInput && langSelect && window.editor) {
+    if (uploadInput && langSelect) {
         uploadInput.addEventListener('change', async (e) => {
+            if (!window.editor) {
+                alert('Trình soạn thảo chưa được khởi tạo.');
+                return;
+            }
+
             const file = e.target.files[0];
             if (!file) return;
 
