@@ -1,0 +1,99 @@
+classDiagram
+    direction LR
+
+    class classrooms {
+        +id : integer «PK»
+        ... (chi tiết xem Module 1)
+    }
+
+    class auth_user {
+        +id : integer «PK»
+        ... (chi tiết xem Module 1)
+    }
+
+    class assignments {
+        +id : integer «PK»
+        classroom_id : integer «FK -> classrooms.id»
+        title : text
+        description : text
+        instructions : text
+        type : assignment_type
+        difficulty : text
+        allowed_languages : array
+        start_date : timestamp
+        due_date : timestamp
+        max_score : float
+        max_attempts : integer
+        is_published : boolean
+        is_exam : boolean
+        exam_duration_minutes : integer
+        grading_mode : varchar
+        submission_mode : varchar
+        starter_code : text
+        solution_code : text
+        created_by : integer «FK -> auth_user.id»
+    }
+
+    class testcases {
+        +id : integer «PK»
+        assignment_id : integer «FK -> assignments.id»
+        name : text
+        input_data : text
+        expected_output : text
+        is_hidden : boolean
+        is_sample : boolean
+        weight : float
+        order_index : integer
+        timeout_override : integer
+    }
+
+    class assignment_file_requirements {
+        +id : bigint «PK»
+        assignment_id : bigint «FK -> assignments.id, unique»
+        allowed_extensions : array
+        allowed_mime_types : array
+        max_file_size_mb : integer
+        max_files : integer
+        require_comment : boolean
+        allow_resubmit : boolean
+        scan_required : boolean
+    }
+
+    class assignment_files {
+        +id : integer «PK»
+        assignment_id : integer «FK -> assignments.id»
+        file_name : text
+        file_url : text
+        file_size : bigint
+        mime_type : text
+    }
+
+    class plagiarism_reports {
+        +id : bigint «PK»
+        assignment_id : bigint «FK -> assignments.id»
+        status : varchar
+        threshold : float
+        language : varchar
+        result : jsonb
+        suspicious_count : integer
+    }
+
+    %% ===== QUAN HỆ =====
+
+    %% 1-N: một lớp học có nhiều bài tập
+    classrooms "1" --o "0..*" assignments : có bài tập
+
+    %% 1-N: một auth_user (giảng viên) tạo nhiều bài tập
+    auth_user "1" --o "0..*" assignments : tạo (created_by)
+
+    %% 1-N: một bài tập có nhiều testcase
+    assignments "1" --o "0..*" testcases : có testcase
+
+    %% 1-1: một bài tập có tối đa một cấu hình yêu cầu file (unique FK)
+    assignments "1" -- "0..1" assignment_file_requirements : cấu hình nộp file
+
+    %% 1-N: một bài tập có nhiều file đính kèm
+    assignments "1" --o "0..*" assignment_files : đính kèm
+
+    %% 1-N: một bài tập có thể có nhiều báo cáo đạo văn (theo từng lần chạy check)
+    assignments "1" --o "0..*" plagiarism_reports : kiểm tra đạo văn

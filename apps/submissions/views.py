@@ -2374,6 +2374,8 @@ def submit_code_view(request, assignment_pk):
     total_score = 0
     total_exec_time = 0
     max_memory = 0
+    has_timeout = False
+    has_memory_limit = False
 
     try:
         for tc in all_testcases:
@@ -2386,6 +2388,11 @@ def submit_code_view(request, assignment_pk):
                 docker_image,
                 cpu_limit,
             )
+            
+            if tc_result.get('status') == 'time_limit_exceeded':
+                has_timeout = True
+            if tc_result.get('status') == 'memory_limit_exceeded':
+                has_memory_limit = True
 
             score_earned = 0
             if tc_result['passed']:
@@ -2446,6 +2453,7 @@ def submit_code_view(request, assignment_pk):
             'total': all_testcases.count(),
             'is_late': is_late,
             'penalty_applied': penalty_percent,
+            'has_timeout': has_timeout,
         })
     except DataError:
         logger.exception('DataError while grading submission=%s', submission.pk)
@@ -2995,10 +3003,11 @@ def grade_submission_view(request, pk):
         return redirect('submissions:grade', pk=pk)
     elif request.method == 'POST':
         use_rubric_score = bool(request.POST.get('use_rubric_score')) and bool(rubrics)
+        add_rubric_to_total = bool(request.POST.get('add_rubric_to_total')) and bool(rubrics)
         form = GradeSubmissionForm(
             request.POST,
             max_score=submission.max_score,
-            require_manual=not use_rubric_score,
+            require_manual=not (use_rubric_score or add_rubric_to_total),
         )
         rubric_errors = []
         parsed_rubric_scores = []
@@ -3023,7 +3032,12 @@ def grade_submission_view(request, pk):
                 parsed_rubric_scores.append((rubric, max(0, min(score, rubric.max_points)), raw_comment))
                 rubric_total_score += max(0, min(score, rubric.max_points))
 
-            manual_score = round(rubric_total_score, 2) if use_rubric_score else form.cleaned_data['manual_score']
+            if use_rubric_score:
+                manual_score = round(rubric_total_score, 2)
+            elif add_rubric_to_total:
+                manual_score = min(submission.total_score + round(rubric_total_score, 2), submission.max_score)
+            else:
+                manual_score = form.cleaned_data['manual_score']
             if manual_score is None:
                 rubric_errors.append('Vui lòng nhập điểm thủ công hoặc bật dùng tổng rubric.')
             elif manual_score > submission.max_score:
@@ -3247,3 +3261,130 @@ def resolve_comment_view(request, pk):
     comment.is_resolved = not comment.is_resolved
     comment.save(update_fields=['is_resolved'])
     return JsonResponse({'status': 'ok', 'is_resolved': comment.is_resolved})
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from apps.classrooms.models import Classrooms
+from apps.assignments.models import Assignments
+from .models import Submissions, QuizAttempts
+from django.db.models import Max
+
+@login_required
+def my_grades_view(request):
+    user = request.user
+    
+    # 1. Get Classrooms
+    classrooms = Classrooms.objects.filter(classroommembers__student=user, classroommembers__status='approved', status='approved').prefetch_related(
+        'classroom_subject_links__subject',
+        'classroom_subject_links__assignments',
+    )
+    
+    classes_data = []
+    
+    stats = {
+        'completed': 0,
+        'pending': 0,
+        'missing': 0
+    }
+    
+    for cls in classrooms:
+        cls_info = {
+            'classroom': cls,
+            'subjects': []
+        }
+        for cs in cls.classroom_subject_links.all():
+            subj_info = {
+                'subject': cs.subject,
+                'assignments': []
+            }
+            
+            for assignment in cs.assignments.all():
+                # Get max score
+                score = None
+                status = None
+                submission = None
+                
+                if assignment.submission_mode == 'quiz':
+                    attempts = QuizAttempts.objects.filter(assignment=assignment, student=user)
+                    if attempts.exists():
+                        best_attempt = attempts.order_by('-score').first()
+                        score = best_attempt.score
+                        status = 'Đã nộp' if best_attempt.status == 'submitted' else 'Đang làm'
+                        submission = best_attempt
+                else:
+                    subs = Submissions.objects.filter(assignment=assignment, student=user)
+                    if subs.exists():
+                        best_sub = subs.order_by('-total_score').first()
+                        score = best_sub.total_score
+                        
+                        status_map = {
+                            'pending': 'Đang chờ',
+                            'running': 'Đang chạy',
+                            'graded': 'Đã chấm',
+                            'error': 'Lỗi'
+                        }
+                        status = status_map.get(best_sub.status, best_sub.status.capitalize())
+                        submission = best_sub
+                        
+                subj_info['assignments'].append({
+                    'assignment': assignment,
+                    'score': score,
+                    'status': status,
+                    'submission': submission,
+                    'is_exam': assignment.is_exam
+                })
+                
+                # Update stats
+                if status in ['Đã nộp', 'Đã chấm']:
+                    stats['completed'] += 1
+                elif status in ['Đang chờ', 'Đang chạy', 'Đang làm']:
+                    stats['pending'] += 1
+                else:
+                    stats['missing'] += 1
+            
+            if subj_info['assignments']:
+                cls_info['subjects'].append(subj_info)
+                
+        if cls_info['subjects']:
+            classes_data.append(cls_info)
+            
+    recent_subs = list(Submissions.objects.filter(student=user).order_by('-submitted_at').select_related('assignment', 'assignment__classroom')[:10])
+    recent_quizzes = list(QuizAttempts.objects.filter(student=user, status='submitted').order_by('-submitted_at').select_related('assignment', 'assignment__classroom')[:10])
+    
+    for sub in recent_subs:
+        sub.display_score = sub.total_score
+    for q in recent_quizzes:
+        q.display_score = q.score
+        
+    recent_activity = recent_subs + recent_quizzes
+    recent_activity.sort(key=lambda x: x.submitted_at, reverse=True)
+    recent_activity = recent_activity[:10]
+    
+    # Trend Data
+    import json
+    trend_labels = []
+    trend_scores = []
+    
+    # Only take items that have a score, reversed to chronological order
+    trend_items = [a for a in recent_activity if a.display_score is not None]
+    trend_items.reverse()
+    
+    for item in trend_items:
+        # label could be DD/MM
+        dt = item.submitted_at
+        if dt:
+            trend_labels.append(dt.strftime("%d/%m"))
+        else:
+            trend_labels.append("N/A")
+        trend_scores.append(item.display_score)
+        
+    trend_data_json = json.dumps({
+        'labels': trend_labels,
+        'scores': trend_scores
+    })
+    
+    return render(request, 'submissions/my_grades.html', {
+        'classes_data': classes_data,
+        'recent_activity': recent_activity,
+        'stats': stats,
+        'trend_data_json': trend_data_json
+    })

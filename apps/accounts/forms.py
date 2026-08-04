@@ -110,3 +110,9 @@ class CustomSetPasswordForm(SetPasswordForm):
     new_password2 = forms.CharField(
         widget=forms.PasswordInput(attrs={'placeholder': 'Xác nhận mật khẩu mới'})
     )
+
+from django.contrib.auth.forms import PasswordChangeForm
+class CustomPasswordChangeForm(PasswordChangeForm):
+    old_password = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder': 'Mật khẩu hiện tại'}))
+    new_password1 = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder': 'Mật khẩu mới'}))
+    new_password2 = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder': 'Xác nhận mật khẩu mới'}))

@@ -99,6 +99,39 @@
             <span class="material-symbols-outlined text-sm">chevron_right</span>
         </a>
     </div>
+    
+    {% if materials %}
+    <div class="mb-8">
+        <h3 class="text-lg font-bold mb-4">Tài liệu lý thuyết (Mới nhất)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+            {% for material in materials %}
+            <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow relative">
+                <div class="flex items-start gap-3">
+                    <div class="size-10 rounded bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-slate-800 truncate" title="{{ material.title }}">{{ material.title }}</h3>
+                        <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ material.description|default:"Không có mô tả" }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {% if material.is_browser_viewable %}
+                        <a href="{{ material.file.url }}" target="_blank" class="text-xs font-bold text-sky-600 hover:underline flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">visibility</span> Xem
+                        </a>
+                        {% endif %}
+                        <a href="{{ material.file.url }}" download class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">download</span> Tải xuống
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     <!-- Assignment List -->

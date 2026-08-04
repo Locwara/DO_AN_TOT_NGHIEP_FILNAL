@@ -101,7 +101,7 @@ def _build_docker_script(language, filename):
 
     lines = ['#!/bin/sh', 'cd /sandbox']
     if compile_cmd:
-        lines.append(' '.join(compile_cmd) + ' || exit 1')
+        lines.append(' '.join(compile_cmd) + ' || { echo "Compilation Error" >&2; exit 1; }')
     # Use /usr/bin/time -v -o to measure memory and redirect time output to .metrics, preserving program stderr
     # Fallback to cgroup if /usr/bin/time is missing
     lines.append('if [ -x /usr/bin/time ]; then')
@@ -342,8 +342,14 @@ def run_testcase(code, language, input_data, expected_output,
             status = 'time_limit_exceeded'
         elif result.stderr and 'Compilation Error' in result.stderr:
             status = 'compilation_error'
+        elif result.exit_code in (137, 9):
+            status = 'memory_limit_exceeded'
+            result.stderr = 'Memory Limit Exceeded (Tiến trình bị hệ thống ngắt do tràn bộ nhớ RAM).'
         else:
             status = 'runtime_error'
+            if not result.stderr:
+                result.stderr = f'Runtime Error (Chương trình thoát đột ngột với mã lỗi {result.exit_code}).'
+                
         return {
             'status': status,
             'actual_output': _normalize_output_for_display(result.stdout),

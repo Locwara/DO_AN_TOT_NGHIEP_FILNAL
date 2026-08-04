@@ -1,0 +1,5 @@
+Seeding database...
+✅ Data seeded successfully!
+Teacher: gv_demo / 123456
+Student: hs_demo / 123456
+Assignment URL ID: 81

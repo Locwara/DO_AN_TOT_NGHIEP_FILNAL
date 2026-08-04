@@ -33,7 +33,7 @@
                             {% if discussion.is_pinned %}
                             <span class="material-symbols-outlined text-amber-500 text-sm">push_pin</span>
                             {% endif %}
-                            <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100 leading-tight">{{ title }}</h1>
+                            <h1 class="text-2xl font-black text-slate-900 leading-tight">{{ title }}</h1>
                         </div>
                         {% if is_teacher or discussion.user == request.user %}
                         <div class="flex items-center gap-2 flex-shrink-0">
@@ -55,7 +55,7 @@
                         {% endif %}
                     </div>
 
-                    <div class="prose max-w-none text-slate-700 text-[15px] leading-relaxed mb-4">
+                    <div class="text-slate-900 text-[15px] leading-relaxed mb-4">
                         {{ body|linebreaksbr }}
                     </div>
 
@@ -105,7 +105,7 @@
                 </div>
 
                 <div class="flex-1 min-w-0">
-                    <div class="prose max-w-none text-slate-700 text-[15px] leading-relaxed mb-4">
+                    <div class="text-slate-900 text-[15px] leading-relaxed mb-4">
                         {{ item.reply.content|linebreaksbr }}
                     </div>
 

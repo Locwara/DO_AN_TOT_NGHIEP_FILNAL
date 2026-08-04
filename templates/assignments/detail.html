@@ -33,6 +33,10 @@
             <span class="material-symbols-outlined">assignment</span>
             Bài tập
         </a>
+        <a href="{% url 'discussions:list' assignment.pk %}" class="frontend-tab">
+            <span class="material-symbols-outlined">forum</span>
+            Thảo luận
+        </a>
         {% if is_teacher %}
         <a href="{% url 'submissions:teacher_list' assignment_pk=assignment.pk %}" class="frontend-tab">
             <span class="material-symbols-outlined">grading</span>
@@ -126,7 +130,7 @@
                 <span class="material-symbols-outlined text-sm">folder_zip</span> Tải file nộp
             </a>
             {% endif %}
-            {% if assignment.submission_mode != 'quiz' %}
+            {% if assignment.submission_mode == 'code' %}
             <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="flex items-center gap-2 bg-red-50/50 text-red-500 font-bold py-2 px-4 rounded-lg hover:bg-red-50 transition-colors text-sm border border-red-100">
                 <span class="material-symbols-outlined text-sm">policy</span> Đạo văn
             </a>
@@ -665,7 +669,7 @@
                 {% endif %}
             </section>
 
-            {% if rubrics and not is_teacher %}
+            {% if rubrics and not is_teacher and assignment.submission_mode != 'quiz' %}
             <section class="bg-white border border-slate-200 rounded-xl p-6">
                 <h3 class="font-bold mb-4 flex items-center justify-between gap-3">
                     <span class="flex items-center gap-2">
@@ -688,7 +692,7 @@
             </section>
             {% endif %}
 
-            {% if is_teacher %}
+            {% if is_teacher and assignment.submission_mode != 'quiz' %}
             <!-- Rubric -->
             <section class="bg-white border border-slate-200 rounded-xl p-6">
                 <h3 class="font-bold mb-4 flex items-center justify-between gap-3">
@@ -712,8 +716,8 @@
                             </div>
                             <form method="post" action="{% url 'assignments:delete_rubric' pk=assignment.pk rubric_pk=rubric.pk %}">
                                 {% csrf_token %}
-                                <button type="submit" onclick="return confirm('Ẩn tiêu chí rubric này? Các điểm đã chấm vẫn được lưu.')" class="text-slate-400 hover:text-red-500 transition-colors" title="Ẩn tiêu chí">
-                                    <span class="material-symbols-outlined text-sm">delete</span>
+                                <button type="submit" onclick="return confirm('Ẩn tiêu chí này? Các điểm đã chấm vẫn được lưu.')" class="text-slate-400 hover:text-red-500 transition-colors" title="Ẩn tiêu chí">
+                                    <span class="material-symbols-outlined text-lg">visibility_off</span>
                                 </button>
                             </form>
                         </div>
@@ -721,15 +725,27 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-slate-600 mb-4">Chưa có tiêu chí rubric.</p>
+                <p class="text-sm text-slate-600 mb-4">Chưa có tiêu chí chấm điểm.</p>
                 {% endif %}
                 <form method="post" action="{% url 'assignments:add_rubric' pk=assignment.pk %}" class="space-y-3 border-t border-slate-200 pt-4">
                     {% csrf_token %}
-                    <input type="text" name="name" placeholder="Tên tiêu chí" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
-                    <textarea name="description" rows="2" placeholder="Mô tả ngắn" class="w-full rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary"></textarea>
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="number" name="max_points" step="0.5" min="0" placeholder="Điểm" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
-                        <input type="number" name="order_index" min="0" value="{{ rubrics|length }}" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 mb-1 block">Tên tiêu chí</label>
+                            <input type="text" name="name" placeholder="VD: Tính sáng tạo" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary" required>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 mb-1 block">Thứ tự hiển thị</label>
+                            <input type="number" name="order_index" min="0" value="{{ rubrics|length }}" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 mb-1 block">Mô tả chi tiết</label>
+                        <textarea name="description" rows="2" placeholder="Mô tả tiêu chuẩn đạt điểm..." class="w-full rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 mb-1 block">Điểm tối đa</label>
+                        <input type="number" name="max_points" step="0.5" min="0" placeholder="VD: 2.0" class="w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary" required>
                     </div>
                     <button type="submit" class="w-full inline-flex items-center justify-center gap-2 h-10 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">
                         <span class="material-symbols-outlined text-sm">add</span>

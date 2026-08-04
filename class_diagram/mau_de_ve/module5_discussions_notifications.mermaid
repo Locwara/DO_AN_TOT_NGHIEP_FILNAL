@@ -1,0 +1,66 @@
+classDiagram
+    direction LR
+
+    class assignments {
+        +id : integer «PK»
+        ... (chi tiết xem Module 2)
+    }
+
+    class auth_user {
+        +id : integer «PK»
+        ... (chi tiết xem Module 1)
+    }
+
+    class discussions {
+        +id : integer «PK»
+        assignment_id : integer «FK -> assignments.id»
+        user_id : integer «FK -> auth_user.id»
+        parent_id : integer «FK -> discussions.id»
+        content : text
+        is_pinned : boolean
+        is_answer : boolean
+        upvotes : integer
+        created_at : timestamp
+    }
+
+    class discussion_votes {
+        +id : integer «PK»
+        discussion_id : integer «FK -> discussions.id»
+        user_id : integer «FK -> auth_user.id»
+        vote_type : integer
+    }
+
+    class notifications {
+        +id : bigint «PK»
+        recipient_id : integer «FK -> auth_user.id»
+        actor_id : integer «FK -> auth_user.id»
+        notification_type : varchar
+        title : text
+        message : text
+        link : text
+        is_read : boolean
+        created_at : timestamp
+    }
+
+    %% ===== QUAN HỆ =====
+
+    %% 1-N: một bài tập có nhiều bài đăng thảo luận
+    assignments "1" --o "0..*" discussions : có thảo luận
+
+    %% 1-N: một auth_user viết nhiều bài đăng/bình luận
+    auth_user "1" --o "0..*" discussions : đăng bài (user_id)
+
+    %% Đệ quy 1-N: một discussion (bài gốc) có nhiều discussion con (reply lồng nhau)
+    discussions "1" --o "0..*" discussions : reply (parent_id)
+
+    %% 1-N: một bài thảo luận có nhiều lượt vote
+    discussions "1" --o "0..*" discussion_votes : được vote
+
+    %% 1-N: một auth_user thực hiện nhiều lượt vote
+    auth_user "1" --o "0..*" discussion_votes : vote (user_id)
+
+    %% 1-N: một auth_user (người nhận) có nhiều thông báo
+    auth_user "1" --o "0..*" notifications : nhận (recipient_id)
+
+    %% 1-N: một auth_user (người thực hiện hành động) tạo ra nhiều thông báo
+    auth_user "1" --o "0..*" notifications : gây ra (actor_id)

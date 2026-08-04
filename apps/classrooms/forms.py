@@ -1,7 +1,18 @@
 from django import forms
 from django.utils.text import slugify
 from apps.administation.models import ProgrammingLanguages
-from .models import Classrooms, Announcements, Subjects, SubjectApprovalStatus, ClassroomSubjects, Semesters
+from .models import Classrooms, Announcements, Subjects, SubjectApprovalStatus, ClassroomSubjects, Semesters, SubjectMaterials
+
+class SubjectMaterialForm(forms.ModelForm):
+    class Meta:
+        model = SubjectMaterials
+        fields = ['title', 'description', 'file']
+        widgets = {
+            'title': forms.TextInput(attrs={'placeholder': 'Tiêu đề tài liệu'}),
+            'description': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Mô tả ngắn (tùy chọn)'}),
+            'file': forms.FileInput(),
+        }
+
 
 # NOTE: slugify vẫn được dùng bởi SemesterForm.clean_code bên dưới.
 
@@ -38,11 +49,12 @@ class ClassroomForm(forms.ModelForm):
 
     class Meta:
         model = Classrooms
-        fields = ['name', 'description', 'school_year', 'semester_term', 'max_students']
+        fields = ['name', 'description', 'school_year', 'semester_term', 'max_students', 'password']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Tên lớp học'}),
             'description': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Mô tả lớp học...'}),
             'max_students': forms.NumberInput(attrs={'min': 1, 'max': 500}),
+            'password': forms.TextInput(attrs={'placeholder': 'Mật khẩu bảo vệ tham gia lớp học (Tùy chọn)'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -57,6 +69,11 @@ class JoinClassroomForm(forms.Form):
     invite_code = forms.CharField(
         max_length=10,
         widget=forms.TextInput(attrs={'placeholder': 'Nhập mã mời lớp học'})
+    )
+    password = forms.CharField(
+        required=False,
+        max_length=50,
+        widget=forms.PasswordInput(attrs={'placeholder': 'Nhập mật khẩu (nếu có)'})
     )
 
 

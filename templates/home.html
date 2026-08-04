@@ -99,8 +99,14 @@
                                     {% endif %}
                                 </div>
                                 <a href="{{ row.action_url }}" class="font-bold text-primary-900 hover:text-primary-600 truncate block">{{ row.assignment.title }}</a>
-                                <p class="caption mt-1">
-                                    {{ row.assignment.classroom.name }} · Hạn {{ row.assignment.due_date|date:"d/m/Y H:i" }}
+                                <p class="caption mt-1 text-xs">
+                                    <span class="font-bold text-primary">{{ row.assignment.classroom.name }}</span>
+                                    {% if row.assignment.classroom_subject %}
+                                    <span class="mx-1">•</span> Môn: {{ row.assignment.classroom_subject.subject.name }}
+                                    {% endif %}
+                                </p>
+                                <p class="caption mt-1 text-slate-500">
+                                    Hạn: {{ row.assignment.due_date|date:"d/m/Y H:i" }}
                                 </p>
                             </div>
                             <a href="{{ row.action_url }}" class="btn btn-primary flex-shrink-0">
@@ -138,7 +144,12 @@
                                 <span class="material-symbols-outlined text-primary">quiz</span>
                             </div>
                             <p class="font-bold mt-3 line-clamp-1">{{ row.assignment.title }}</p>
-                            <p class="caption mt-1 truncate">{{ row.assignment.classroom.name }}</p>
+                            <p class="caption mt-1 text-xs">
+                                <span class="font-bold text-primary">{{ row.assignment.classroom.name }}</span>
+                                {% if row.assignment.classroom_subject %}
+                                <br><span class="text-slate-500">Môn: {{ row.assignment.classroom_subject.subject.name }}</span>
+                                {% endif %}
+                            </p>
                             {% if row.assignment.exam_start_time %}
                             <p class="caption mt-2 font-bold text-amber-600">Mở: {{ row.assignment.exam_start_time|date:"H:i d/m" }}</p>
                             {% endif %}

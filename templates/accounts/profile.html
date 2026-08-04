@@ -41,6 +41,10 @@
                         <span class="material-symbols-outlined text-sm">edit</span>
                         Chỉnh sửa
                     </a>
+                    <a href="{% url 'accounts:password_change' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                        <span class="material-symbols-outlined text-sm">lock</span>
+                        Đổi mật khẩu
+                    </a>
                     {% if profile.role == 'student' %}
                     <a href="{% url 'accounts:teacher_register' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
                         <span class="material-symbols-outlined text-sm">school</span>

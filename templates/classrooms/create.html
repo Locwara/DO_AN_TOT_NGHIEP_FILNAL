@@ -69,6 +69,12 @@
                             placeholder="Mô tả lớp học...">{{ form.description.value|default:'' }}</textarea>
                     </div>
                     <div>
+                        <label class="block text-sm font-medium mb-1">Mật khẩu bảo vệ tham gia (Tùy chọn)</label>
+                        <input type="text" name="password" value="{{ form.password.value|default:'' }}"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                            placeholder="Nhập mật khẩu (hoặc để trống)"/>
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium mb-1">Số sinh viên tối đa</label>
                         <input type="number" name="max_students" value="{{ form.max_students.value|default:'100' }}" min="1" max="500"
                             class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary outline-none text-sm"/>

@@ -27,7 +27,7 @@
     <form id="quizForm" method="post" action="{% url 'submissions:quiz_submit' attempt_pk=attempt.pk %}" data-loading-text="Đang nộp quiz...">
         {% csrf_token %}
         <div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
-            <main class="space-y-5">
+            <main class="space-y-5 max-h-[800px] overflow-y-auto custom-scrollbar pr-2">
                 {% for question in questions %}
                 <section id="question-{{ question.pk }}" class="quiz-question bg-white border border-slate-200 rounded-xl p-6" data-question-id="{{ question.pk }}" data-question-type="{{ question.question_type }}">
                     <div class="flex flex-wrap items-start justify-between gap-3 mb-4">

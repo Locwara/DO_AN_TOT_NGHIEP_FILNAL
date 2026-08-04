@@ -18,6 +18,16 @@ urlpatterns = [
     path('teacher-dashboard/', views.teacher_dashboard_view, name='teacher_dashboard'),
     path('teacher-register/', views.teacher_register_view, name='teacher_register'),
 
+    # Password Change
+    path('password-change/', auth_views.PasswordChangeView.as_view(
+        template_name='accounts/password_change.html',
+        form_class=__import__('apps.accounts.forms', fromlist=['CustomPasswordChangeForm']).CustomPasswordChangeForm,
+        success_url='/accounts/password-change/done/',
+    ), name='password_change'),
+    path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(
+        template_name='accounts/password_change_done.html',
+    ), name='password_change_done'),
+
     # Password Reset
     path('password-reset/', auth_views.PasswordResetView.as_view(
         template_name='accounts/password_reset.html',

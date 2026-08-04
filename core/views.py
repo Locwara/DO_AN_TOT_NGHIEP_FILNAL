@@ -287,7 +287,7 @@ def build_student_home_context(user):
     ).order_by('-submitted_at')[:5]
     for submission in recent_submissions:
         earned_score = submission.manual_score if submission.manual_score is not None else submission.total_score
-        is_passed = submission.max_score and earned_score >= submission.max_score * 0.5
+        is_passed = submission.max_score and earned_score is not None and earned_score >= submission.max_score * 0.5
         recent_submission_rows.append({
             'submission': submission,
             'earned_score': earned_score,

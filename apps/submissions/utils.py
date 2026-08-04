@@ -356,8 +356,16 @@ def assignment_open_error(assignment, user, now=None):
         return 'Bài tập chưa được công bố.'
     if assignment.start_date and now < assignment.start_date:
         return 'Bài tập chưa đến thời gian bắt đầu.'
-    if assignment.due_date and now > assignment.due_date and not assignment.late_submission_allowed:
-        return 'Đã quá hạn nộp bài.'
+    if assignment.due_date and now > assignment.due_date:
+        if assignment.is_exam or not assignment.late_submission_allowed:
+            return 'Đã quá hạn (Phòng thi đã đóng).' if assignment.is_exam else 'Đã quá hạn nộp bài.'
+    
+    if assignment.is_exam:
+        if assignment.exam_start_time and now < assignment.exam_start_time:
+            return 'Chưa đến giờ mở phòng thi.'
+        if assignment.exam_end_time and now > assignment.exam_end_time:
+            return 'Đã quá thời gian (Phòng thi đã đóng).'
+            
     return None
 
 

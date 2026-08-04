@@ -246,17 +246,31 @@
                         </div>
                     </div>
 
-                    <div data-code-only class="hidden space-y-6">
+                        <div data-code-only class="hidden space-y-6">
                         <label for="assignment-starter-code" class="block text-sm font-semibold text-slate-700 mb-2">Mã nguồn khởi tạo (Starter Code)</label>
-                        <textarea id="assignment-starter-code" name="starter_code" rows="8"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-                            placeholder="VD: def solution():\n    pass">{{ form.starter_code.value|default:'' }}</textarea>
+                        <div class="relative border border-slate-200 rounded-lg overflow-hidden group mb-6">
+                            <div class="absolute top-2 right-2 z-10 flex gap-2">
+                                <button type="button" id="btn-format-starter" class="bg-white/80 backdrop-blur-sm border border-slate-200 text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-all flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">format_align_left</span>
+                                    Format Code
+                                </button>
+                            </div>
+                            <div id="monaco-starter-editor" style="height: 250px; width: 100%;"></div>
+                            <textarea id="assignment-starter-code" name="starter_code" class="hidden">{{ form.starter_code.value|default:'' }}</textarea>
+                        </div>
                         <p class="text-xs text-slate-500 mt-2 mb-6">Đoạn mã này sẽ hiện sẵn trong IDE khi học sinh mới mở bài tập này lần đầu.</p>
 
                         <label for="assignment-solution-code" class="block text-sm font-semibold text-slate-700 mb-2">Mã nguồn mẫu (Solution Code) *</label>
-                        <textarea id="assignment-solution-code" name="solution_code" rows="10"
-                            class="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary focus:bg-white outline-none resize-none"
-                            placeholder="Nhập mã nguồn giải bài tập này...">{{ form.solution_code.value|default:'' }}</textarea>
+                        <div class="relative border border-slate-200 rounded-lg overflow-hidden group">
+                            <div class="absolute top-2 right-2 z-10 flex gap-2">
+                                <button type="button" id="btn-format-solution" class="bg-white/80 backdrop-blur-sm border border-slate-200 text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-all flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">format_align_left</span>
+                                    Format Code
+                                </button>
+                            </div>
+                            <div id="monaco-solution-editor" style="height: 350px; width: 100%;"></div>
+                            <textarea id="assignment-solution-code" name="solution_code" class="hidden">{{ form.solution_code.value|default:'' }}</textarea>
+                        </div>
                         <p class="text-xs text-slate-500 mt-2 mb-8">Mã nguồn này dùng để hệ thống tự động chạy và kiểm tra tính đúng đắn của các Testcase bên dưới.</p>
 
                         <!-- Integrated Testcase Manager -->
@@ -321,8 +335,14 @@
                             <span class="font-medium">Cho phép nộp muộn (trừ điểm)</span>
                         </label>
                         <label class="flex items-center gap-2 text-sm" data-hide-for-file>
-                            <input type="checkbox" name="is_exam" id="exam-toggle" {% if form.is_exam.value %}checked{% endif %}>
+                            <input type="checkbox" name="is_exam" id="exam-toggle" {% if form.is_exam.value %}checked{% endif %} {% if has_submissions %}disabled{% endif %}>
+                            {% if has_submissions and form.is_exam.value %}
+                            <input type="hidden" name="is_exam" value="on">
+                            {% endif %}
                             <span class="font-bold text-red-600 uppercase tracking-wide">Kích hoạt chế độ thi</span>
+                            {% if has_submissions %}
+                            <span class="text-xs text-slate-500 font-normal">(Không thể đổi do đã có lượt làm)</span>
+                            {% endif %}
                         </label>
                     </div>
 
@@ -483,6 +503,19 @@
             });
 
             if (examSection) examSection.classList.toggle('hidden', !examToggle.checked);
+            
+            // Disable and force max_attempts to 1 if exam
+            const maxAttemptsInput = document.querySelector('input[name="max_attempts"]');
+            if (maxAttemptsInput && examToggle) {
+                if (examToggle.checked) {
+                    maxAttemptsInput.value = 1;
+                    maxAttemptsInput.setAttribute('readonly', 'readonly');
+                    maxAttemptsInput.classList.add('bg-slate-100', 'cursor-not-allowed');
+                } else {
+                    maxAttemptsInput.removeAttribute('readonly');
+                    maxAttemptsInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+                }
+            }
         }
 
         function updateSubjectLanguages() {
@@ -629,4 +662,81 @@ updateUI();
         
         updateUI();
     })();
+</script>
+
+<!-- Monaco Editor Script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script>
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+    require(['vs/editor/editor.main'], function() {
+        // Function to fix python indentation formatting
+        function formatPythonCode(editor) {
+            editor.getAction('editor.action.formatDocument').run();
+            const val = editor.getValue();
+            if (val.trim() !== '') {
+                const lines = val.split('\n');
+                const nonEmptyLines = lines.filter(l => l.trim().length > 0);
+                if (nonEmptyLines.length > 0) {
+                    const minIndent = nonEmptyLines.map(l => l.match(/^\s*/)[0].length).reduce((a, b) => Math.min(a, b), Infinity);
+                    
+                    if (minIndent === 0) {
+                        // Heuristic for copy-paste error: first line has 0 indent, rest have > 0
+                        let firstIdx = -1;
+                        for (let i=0; i<lines.length; i++) { if (lines[i].trim().length > 0) { firstIdx = i; break; } }
+                        if (firstIdx !== -1 && !lines[firstIdx].trim().endsWith(':')) {
+                            let restMin = Infinity;
+                            for (let i=firstIdx+1; i<lines.length; i++) {
+                                if (lines[i].trim().length > 0) restMin = Math.min(restMin, lines[i].match(/^\s*/)[0].length);
+                            }
+                            if (restMin > 0 && restMin !== Infinity) {
+                                const fixed = lines.map((l, i) => {
+                                    if (i <= firstIdx) return l;
+                                    if (l.trim().length === 0) return '';
+                                    return l.substring(restMin);
+                                }).join('\n');
+                                editor.setValue(fixed);
+                                return;
+                            }
+                        }
+                    } else if (minIndent > 0 && minIndent !== Infinity) {
+                        const fixed = lines.map(l => {
+                            if (l.trim().length === 0) return '';
+                            return l.substring(minIndent);
+                        }).join('\n');
+                        editor.setValue(fixed);
+                    }
+                }
+            }
+        }
+
+        // Solution Code
+        const solutionTextarea = document.getElementById('assignment-solution-code');
+        const solutionEditor = monaco.editor.create(document.getElementById('monaco-solution-editor'), {
+            value: solutionTextarea.value,
+            language: 'python',
+            theme: 'vs-dark',
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: "'Fira Code', 'Consolas', monospace"
+        });
+        solutionEditor.onDidChangeModelContent(() => {
+            solutionTextarea.value = solutionEditor.getValue();
+        });
+        document.getElementById('btn-format-solution').addEventListener('click', () => formatPythonCode(solutionEditor));
+
+        // Starter Code
+        const starterTextarea = document.getElementById('assignment-starter-code');
+        const starterEditor = monaco.editor.create(document.getElementById('monaco-starter-editor'), {
+            value: starterTextarea.value,
+            language: 'python',
+            theme: 'vs',
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: "'Fira Code', 'Consolas', monospace"
+        });
+        starterEditor.onDidChangeModelContent(() => {
+            starterTextarea.value = starterEditor.getValue();
+        });
+        document.getElementById('btn-format-starter').addEventListener('click', () => formatPythonCode(starterEditor));
+    });
 </script>

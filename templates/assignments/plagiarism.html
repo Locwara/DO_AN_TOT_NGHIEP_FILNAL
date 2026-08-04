@@ -82,10 +82,10 @@
                         <thead class="bg-slate-50 border-b border-slate-200">
                             <tr>
                                 <th class="text-left px-4 py-3 font-bold text-slate-700">Cặp bài</th>
-                                <th class="text-right px-4 py-3 font-bold text-slate-700">Similarity</th>
-                                <th class="text-right px-4 py-3 font-bold text-slate-700">Text</th>
-                                <th class="text-right px-4 py-3 font-bold text-slate-700">Token</th>
-                                <th class="text-right px-4 py-3 font-bold text-slate-700">Structural</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700" title="Độ tương đồng tổng hợp">Độ tương đồng</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700" title="Tương đồng văn bản thô">Văn bản</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700" title="Tương đồng từ khóa (Token)">Từ khóa</th>
+                                <th class="text-right px-4 py-3 font-bold text-slate-700" title="Tương đồng cấu trúc (AST)">Cấu trúc</th>
                                 <th class="text-left px-4 py-3 font-bold text-slate-700">Trạng thái</th>
                             </tr>
                         </thead>
@@ -94,14 +94,24 @@
                             <tr class="hover:bg-slate-50">
                                 <td class="px-4 py-3">
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        <a href="{% url 'submissions:detail' pk=pair.submission_a.pk %}" class="p-2 rounded-lg border border-slate-200 hover:border-primary transition-colors">
-                                            <p class="font-bold truncate">{{ pair.submission_a.student.get_full_name|default:pair.submission_a.student.username }}</p>
-                                            <p class="text-xs text-slate-500">Submission #{{ pair.submission_a.pk }} • {{ pair.submission_a.submitted_at|date:"d/m H:i" }}</p>
-                                        </a>
-                                        <a href="{% url 'submissions:detail' pk=pair.submission_b.pk %}" class="p-2 rounded-lg border border-slate-200 hover:border-primary transition-colors">
-                                            <p class="font-bold truncate">{{ pair.submission_b.student.get_full_name|default:pair.submission_b.student.username }}</p>
-                                            <p class="text-xs text-slate-500">Submission #{{ pair.submission_b.pk }} • {{ pair.submission_b.submitted_at|date:"d/m H:i" }}</p>
-                                        </a>
+                                        <div class="p-2 rounded-lg border border-slate-200 group relative hover:border-primary transition-colors">
+                                            <a href="{% url 'submissions:detail' pk=pair.submission_a.pk %}" class="block">
+                                                <p class="font-bold truncate pr-6">{{ pair.submission_a.student.get_full_name|default:pair.submission_a.student.username }}</p>
+                                                <p class="text-xs text-slate-500">Submission #{{ pair.submission_a.pk }} • {{ pair.submission_a.submitted_at|date:"d/m H:i" }}</p>
+                                            </a>
+                                            <a href="{% url 'submissions:grade' pk=pair.submission_a.pk %}" class="absolute top-2 right-2 text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Chấm lại">
+                                                <span class="material-symbols-outlined text-[18px]">edit_document</span>
+                                            </a>
+                                        </div>
+                                        <div class="p-2 rounded-lg border border-slate-200 group relative hover:border-primary transition-colors">
+                                            <a href="{% url 'submissions:detail' pk=pair.submission_b.pk %}" class="block">
+                                                <p class="font-bold truncate pr-6">{{ pair.submission_b.student.get_full_name|default:pair.submission_b.student.username }}</p>
+                                                <p class="text-xs text-slate-500">Submission #{{ pair.submission_b.pk }} • {{ pair.submission_b.submitted_at|date:"d/m H:i" }}</p>
+                                            </a>
+                                            <a href="{% url 'submissions:grade' pk=pair.submission_b.pk %}" class="absolute top-2 right-2 text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Chấm lại">
+                                                <span class="material-symbols-outlined text-[18px]">edit_document</span>
+                                            </a>
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-right font-black {% if pair.is_suspicious %}text-red-500{% else %}text-primary{% endif %}">{{ pair.similarity_score|floatformat:3 }}</td>
@@ -109,17 +119,24 @@
                                 <td class="px-4 py-3 text-right">{{ pair.token_score|floatformat:3 }}</td>
                                 <td class="px-4 py-3 text-right">{{ pair.structural_score|floatformat:3 }}</td>
                                 <td class="px-4 py-3">
-                                    {% if pair.is_suspicious %}
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold">
-                                        <span class="material-symbols-outlined text-sm">priority_high</span>
-                                        Đáng chú ý
-                                    </span>
-                                    {% else %}
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">
-                                        <span class="material-symbols-outlined text-sm">check</span>
-                                        Bình thường
-                                    </span>
-                                    {% endif %}
+                                    <div class="flex items-center justify-between gap-2">
+                                        {% if pair.is_suspicious %}
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold">
+                                            <span class="material-symbols-outlined text-sm">priority_high</span>
+                                            Đáng chú ý
+                                        </span>
+                                        {% else %}
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">
+                                            <span class="material-symbols-outlined text-sm">check</span>
+                                            Bình thường
+                                        </span>
+                                        {% endif %}
+                                        
+                                        <a href="{% url 'assignments:compare_submissions' pk=assignment.pk sub_a_pk=pair.submission_a.pk sub_b_pk=pair.submission_b.pk %}" class="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">compare</span>
+                                            So sánh
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}

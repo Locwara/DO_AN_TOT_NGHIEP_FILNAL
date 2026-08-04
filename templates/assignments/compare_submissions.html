@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}So sánh Đạo văn - {{ assignment.title }}{% endblock %}
+
+{% block extra_head %}
+<!-- Monaco Editor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-[1600px] mx-auto px-6 py-8">
+    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-6">
+        <a href="{% url 'classrooms:classroom_list' %}" class="hover:text-primary transition-colors">Lớp học</a>
+        <span>/</span>
+        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="hover:text-primary transition-colors">{{ classroom.name }}</a>
+        <span>/</span>
+        <a href="{% url 'assignments:detail' pk=assignment.pk %}" class="hover:text-primary transition-colors">{{ assignment.title }}</a>
+        <span>/</span>
+        <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="hover:text-primary transition-colors">Đạo văn</a>
+        <span>/</span>
+        <span class="text-slate-400">So sánh Code</span>
+    </nav>
+
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary text-3xl">compare</span>
+                So sánh bài làm
+            </h1>
+            <p class="text-sm font-medium text-slate-500 mt-2">Dùng thuật toán bôi sáng các dòng có điểm tương đồng.</p>
+        </div>
+        <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors">
+            Quay lại
+        </a>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="grid grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-start gap-4">
+                <div class="size-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xl shrink-0">
+                    {{ sub_a.student.get_full_name|default:sub_a.student.username|make_list|first|upper }}
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-slate-900">{{ sub_a.student.get_full_name|default:sub_a.student.username }}</h2>
+                    <p class="text-sm text-slate-500 font-mono mt-1">Submission #{{ sub_a.pk }}</p>
+                    <p class="text-xs font-bold text-slate-400 mt-2 uppercase tracking-widest">{{ sub_a.submitted_at|date:"d/m/Y H:i:s" }}</p>
+                </div>
+            </div>
+            <div class="mt-4 flex gap-2 items-center">
+                <a href="{% url 'submissions:detail' pk=sub_a.pk %}" target="_blank" class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                    Mở chi tiết <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
+                <span class="text-slate-300">•</span>
+                <a href="{% url 'submissions:grade' pk=sub_a.pk %}" target="_blank" class="text-xs font-bold text-amber-500 hover:underline flex items-center gap-1">
+                    Chấm lại <span class="material-symbols-outlined text-[14px]">edit_document</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-start gap-4">
+                <div class="size-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xl shrink-0">
+                    {{ sub_b.student.get_full_name|default:sub_b.student.username|make_list|first|upper }}
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-slate-900">{{ sub_b.student.get_full_name|default:sub_b.student.username }}</h2>
+                    <p class="text-sm text-slate-500 font-mono mt-1">Submission #{{ sub_b.pk }}</p>
+                    <p class="text-xs font-bold text-slate-400 mt-2 uppercase tracking-widest">{{ sub_b.submitted_at|date:"d/m/Y H:i:s" }}</p>
+                </div>
+            </div>
+            <div class="mt-4 flex gap-2 items-center">
+                <a href="{% url 'submissions:detail' pk=sub_b.pk %}" target="_blank" class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                    Mở chi tiết <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
+                <span class="text-slate-300">•</span>
+                <a href="{% url 'submissions:grade' pk=sub_b.pk %}" target="_blank" class="text-xs font-bold text-amber-500 hover:underline flex items-center gap-1">
+                    Chấm lại <span class="material-symbols-outlined text-[14px]">edit_document</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editor Container -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style="height: 600px;">
+        <div class="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
+            <span class="text-xs font-black text-slate-500 uppercase tracking-widest">Diff Editor (Bản gốc bên trái - Bản sao bên phải)</span>
+        </div>
+        <div id="diff-editor" class="flex-1 w-full"></div>
+    </div>
+</div>
+
+<script>
+    const codeA = `{{ sub_a.code_content|escapejs }}`;
+    const codeB = `{{ sub_b.code_content|escapejs }}`;
+    const language = `{{ sub_a.language }}`;
+
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+    require(['vs/editor/editor.main'], function() {
+        const diffEditor = monaco.editor.createDiffEditor(document.getElementById('diff-editor'), {
+            theme: 'vs', // or vs-dark
+            renderSideBySide: true,
+            readOnly: true,
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: "'Fira Code', 'Consolas', monospace",
+            wordWrap: "on"
+        });
+
+        const originalModel = monaco.editor.createModel(codeA, language);
+        const modifiedModel = monaco.editor.createModel(codeB, language);
+
+        diffEditor.setModel({
+            original: originalModel,
+            modified: modifiedModel
+        });
+    });
+</script>
+{% endblock %}

@@ -126,6 +126,7 @@
             </div>
 
             <div class="flex flex-wrap gap-2">
+                {% if assignment.submission_mode == 'code' %}
                 <a href="{% url 'assignments:plagiarism' pk=assignment.pk %}" class="btn btn-outline">
                     <span class="material-symbols-outlined text-base">policy</span>
                     Đạo văn
@@ -133,6 +134,7 @@
                     <span class="ml-1 rounded-full bg-danger-600 text-white text-[10px] px-1.5 py-0.5">{{ latest_plagiarism_report.suspicious_count }}</span>
                     {% endif %}
                 </a>
+                {% endif %}
                 {% include 'includes/csv_dropdown.html' with csv_items=csv_items csv_query_string=csv_query_string csv_dropdown_has_filters=has_active_filters csv_button_class='btn btn-ghost' only %}
                 <a href="{% url 'assignments:late_report_print' pk=assignment.pk %}" target="_blank" class="btn btn-ghost">
                     <span class="material-symbols-outlined text-base">print</span>
@@ -528,7 +530,7 @@
                             </span>
                             {% if sub.is_late %}<span class="caption ml-1 text-danger-600">Muộn</span>{% endif %}
                         </td>
-                        <td class="text-right font-bold text-primary-900">{{ sub.final_score|floatformat:0 }}/{{ sub.max_score|floatformat:0 }}</td>
+                        <td class="text-right font-bold text-primary-900">{{ sub.total_score|floatformat:0 }}/{{ sub.max_score|floatformat:0 }}</td>
                         <td class="text-right text-neutral-500">
                             {% if assignment.submission_mode == 'code' %}
                             {{ sub.passed_testcases }}/{{ sub.total_testcases }}

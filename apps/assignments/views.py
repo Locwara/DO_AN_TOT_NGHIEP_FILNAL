@@ -607,6 +607,10 @@ def assignment_list_view(request, classroom_pk):
         ).select_related('subject', 'semester').first()
         assignments = assignments.filter(classroom_subject_id=int(cs_filter))
 
+    materials = []
+    if selected_subject_link:
+        materials = selected_subject_link.materials.all()
+
     # Filter theo semester (nhóm nhiều link cùng kỳ)
     sem_filter = request.GET.get('semester', '').strip()
     if sem_filter.isdigit():
@@ -638,6 +642,7 @@ def assignment_list_view(request, classroom_pk):
         'query': query,
         'classroom_subjects': classroom_subjects,
         'selected_subject_link': selected_subject_link,
+        'materials': materials,
         'cs_filter': cs_filter,
         'sem_filter': sem_filter,
         'breadcrumbs': [
@@ -1897,6 +1902,13 @@ def edit_assignment_view(request, pk):
     for cs in form.fields['classroom_subject'].queryset:
         subject_lang_map[cs.pk] = list(cs.subject.languages.values_list('name', flat=True))
 
+    from apps.submissions.models import Submissions, ExamSessions, QuizAttempts
+    has_submissions = (
+        Submissions.objects.filter(assignment=assignment).exists() or
+        ExamSessions.objects.filter(assignment=assignment).exists() or
+        QuizAttempts.objects.filter(assignment=assignment).exists()
+    )
+
     context = {
         'form': form,
         'assignment': assignment,
@@ -1905,6 +1917,7 @@ def edit_assignment_view(request, pk):
         'selected_languages': assignment.allowed_languages or [],
         'existing_testcases_json': json.dumps(existing_tcs_list),
         'subject_lang_json': json.dumps(subject_lang_map),
+        'has_submissions': has_submissions,
     }
     return render(request, 'assignments/edit.html', context)
 
@@ -2526,6 +2539,24 @@ def run_plagiarism_view(request, pk):
     else:
         messages.success(request, f'Đã kiểm tra {report.pairs_count} cặp bài, phát hiện {report.suspicious_count} cặp đáng chú ý.')
     return redirect('assignments:plagiarism', pk=pk)
+
+def compare_submissions_view(request, pk, sub_a_pk, sub_b_pk):
+    assignment = get_object_or_404(Assignments, pk=pk)
+    classroom = assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        messages.error(request, 'Bạn không có quyền xem chi tiết đạo văn.')
+        return redirect('classrooms:classroom_list')
+
+    from apps.submissions.models import Submissions
+    sub_a = get_object_or_404(Submissions, pk=sub_a_pk, assignment=assignment)
+    sub_b = get_object_or_404(Submissions, pk=sub_b_pk, assignment=assignment)
+
+    return render(request, 'assignments/compare_submissions.html', {
+        'assignment': assignment,
+        'classroom': classroom,
+        'sub_a': sub_a,
+        'sub_b': sub_b,
+    })
 
 
 # ===================================================================

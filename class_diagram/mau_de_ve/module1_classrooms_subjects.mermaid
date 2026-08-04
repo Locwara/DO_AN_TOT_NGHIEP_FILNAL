@@ -1,0 +1,119 @@
+classDiagram
+    direction LR
+
+    class auth_user {
+        +id : integer «PK»
+        username : varchar «unique»
+        password : varchar
+        email : varchar
+        first_name : varchar
+        last_name : varchar
+        is_active : boolean
+        is_staff : boolean
+        is_superuser : boolean
+        last_login : timestamp
+        date_joined : timestamp
+    }
+
+    class profiles {
+        +id : integer «PK, FK -> auth_user.id»
+        role : user_role
+        avatar_url : text
+        bio : text
+        phone : text
+        status : approval_status
+        last_login : timestamp
+        created_at : timestamp
+        updated_at : timestamp
+    }
+
+    class classrooms {
+        +id : integer «PK»
+        name : text
+        description : text
+        invite_code : varchar «unique»
+        teacher_id : integer «FK -> auth_user.id»
+        max_students : integer
+        is_active : boolean
+        settings : jsonb
+        status : varchar
+        school_year : varchar
+        semester_term : varchar
+        approved_by_id : integer «FK -> auth_user.id»
+        created_at : timestamp
+        updated_at : timestamp
+    }
+
+    class classroom_members {
+        +id : integer «PK»
+        classroom_id : integer «FK -> classrooms.id»
+        student_id : integer «FK -> auth_user.id»
+        status : approval_status
+        joined_at : timestamp
+    }
+
+    class subjects {
+        +id : bigint «PK»
+        code : varchar «unique»
+        name : text
+        description : text
+        status : varchar
+        is_active : boolean
+        created_by_id : integer «FK -> auth_user.id»
+        approved_by_id : integer «FK -> auth_user.id»
+        created_at : timestamp
+        updated_at : timestamp
+    }
+
+    class semesters {
+        +id : bigint «PK»
+        code : varchar «unique»
+        name : varchar
+        start_date : date
+        end_date : date
+        is_current : boolean
+        is_active : boolean
+        created_at : timestamp
+    }
+
+    class classroom_subjects {
+        +id : bigint «PK»
+        classroom_id : bigint «FK -> classrooms.id»
+        subject_id : bigint «FK -> subjects.id»
+        semester_id : bigint «FK -> semesters.id»
+        assigned_by_id : integer «FK -> auth_user.id»
+        is_active : boolean
+    }
+
+    %% ===== QUAN HỆ =====
+
+    %% 1-1: auth_user <-> profiles (profiles.id vừa là PK vừa là FK)
+    auth_user "1" -- "1" profiles : mở rộng hồ sơ
+
+    %% 1-N: một giáo viên (auth_user) tạo nhiều lớp học
+    auth_user "1" --o "0..*" classrooms : làm giáo viên (teacher_id)
+
+    %% 1-N: một auth_user (admin) duyệt nhiều lớp học
+    auth_user "1" --o "0..*" classrooms : duyệt lớp (approved_by_id)
+
+    %% 1-N: một lớp học có nhiều bản ghi thành viên
+    classrooms "1" --o "0..*" classroom_members : có thành viên
+
+    %% 1-N: một sinh viên (auth_user) tham gia nhiều lớp (qua bảng trung gian)
+    auth_user "1" --o "0..*" classroom_members : tham gia (student_id)
+
+    %% 1-N: một auth_user tạo nhiều môn học
+    auth_user "1" --o "0..*" subjects : tạo (created_by_id)
+
+    %% 1-N: một auth_user duyệt nhiều môn học
+    auth_user "1" --o "0..*" subjects : duyệt (approved_by_id)
+
+    %% N-N: classrooms <-> subjects thông qua classroom_subjects
+    classrooms "1" --o "0..*" classroom_subjects : giảng dạy
+    subjects "1" --o "0..*" classroom_subjects : được dạy
+
+    %% 1-N: một học kỳ áp dụng cho nhiều bản ghi classroom_subjects
+    semesters "1" --o "0..*" classroom_subjects : thuộc học kỳ
+
+    %% 1-N: một auth_user phân công nhiều classroom_subjects
+    auth_user "1" --o "0..*" classroom_subjects : phân công (assigned_by_id)

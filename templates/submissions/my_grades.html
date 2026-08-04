@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Thống kê điểm số cá nhân{% endblock %}
+
+{% block content %}
+<div class="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 lg:pb-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-black tracking-tight text-slate-950">Điểm số của tôi</h1>
+        <p class="text-slate-600 mt-2">Theo dõi kết quả học tập, bài tập, và bài thi của bạn theo từng môn học và lớp học.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8 items-start">
+        <main class="space-y-8 max-h-[800px] overflow-y-auto custom-scrollbar pr-2">
+            {% if classes_data %}
+                <!-- Filter Bar -->
+                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row gap-4 items-center">
+                    <div class="relative flex-1 w-full">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        <input type="text" id="grades-search" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="Tìm kiếm bài tập, môn học...">
+                    </div>
+                    <div class="w-full sm:w-auto min-w-[200px]">
+                        <select id="grades-status-filter" class="w-full border border-slate-200 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none">
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="Chưa làm">Chưa làm</option>
+                            <option value="Đã nộp">Đã nộp</option>
+                            <option value="Đã chấm">Đã chấm</option>
+                            <option value="Đang chờ">Đang chờ</option>
+                            <option value="Đang chạy">Đang chạy</option>
+                            <option value="Đang làm">Đang làm</option>
+                        </select>
+                    </div>
+                </div>
+
+                {% if classes_data|length > 1 %}
+                <!-- Class Tabs -->
+                <div class="flex border-b border-slate-200 mb-6 overflow-x-auto custom-scrollbar">
+                    {% for cls_data in classes_data %}
+                    <button class="px-5 py-3 font-semibold text-sm border-b-2 whitespace-nowrap transition-colors tab-button focus:outline-none {% if forloop.first %}border-primary text-primary{% else %}border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300{% endif %}" data-target="class-{{ cls_data.classroom.pk }}">
+                        {{ cls_data.classroom.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% for cls_data in classes_data %}
+                <section id="class-{{ cls_data.classroom.pk }}" class="class-content bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm {% if not forloop.first %}hidden{% endif %}" data-class-block="true">
+                    <div class="bg-primary/5 border-b border-slate-200 p-5 flex items-center justify-between">
+                        <h2 class="text-xl font-bold text-slate-900">{{ cls_data.classroom.name }}</h2>
+                        <a href="{% url 'classrooms:classroom_detail' pk=cls_data.classroom.pk %}" class="text-sm font-semibold text-primary hover:underline flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">open_in_new</span> Vào lớp
+                        </a>
+                    </div>
+                    <div class="p-5 space-y-8">
+                        {% for subj_data in cls_data.subjects %}
+                        <div data-subject-block="true" data-subject-name="{{ subj_data.subject.name|lower }}">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">menu_book</span>
+                                {{ subj_data.subject.name }} ({{ subj_data.subject.code }})
+                            </h3>
+                            <div class="overflow-x-auto overflow-y-auto max-h-[400px] custom-scrollbar rounded-lg border border-slate-200">
+                                <table class="w-full text-left text-sm whitespace-nowrap">
+                                    <thead class="bg-slate-50 text-slate-500 border-b border-slate-200 font-bold sticky top-0 z-10 shadow-sm">
+                                        <tr>
+                                            <th class="px-4 py-3">Bài tập / Bài thi</th>
+                                            <th class="px-4 py-3">Trạng thái</th>
+                                            <th class="px-4 py-3 text-right">Điểm số</th>
+                                            <th class="px-4 py-3 text-center">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200 bg-white">
+                                        {% for item in subj_data.assignments %}
+                                        <tr class="hover:bg-slate-50 transition-colors" data-assignment-item="true" data-assignment-title="{{ item.assignment.title|lower }}" data-assignment-status="{% if item.status %}{{ item.status }}{% else %}Chưa làm{% endif %}">
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-2">
+                                                    {% if item.is_exam %}
+                                                    <span class="material-symbols-outlined text-red-500 text-sm" title="Bài thi">timer</span>
+                                                    {% else %}
+                                                    <span class="material-symbols-outlined text-primary text-sm">assignment</span>
+                                                    {% endif %}
+                                                    <a href="{% url 'assignments:detail' pk=item.assignment.pk %}" class="font-bold text-primary-900 hover:text-primary-600 transition-colors">{{ item.assignment.title }}</a>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                {% if item.status %}
+                                                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 border border-slate-200">
+                                                    {{ item.status }}
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-400">Chưa làm</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="px-4 py-3 text-right">
+                                                {% if item.score != None %}
+                                                <span class="font-black {% if item.score >= item.assignment.passing_score|default:5 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                                                    {{ item.score|floatformat:1 }} <span class="text-xs font-normal text-slate-500">/ {{ item.assignment.max_score|floatformat:1 }}</span>
+                                                </span>
+                                                {% else %}
+                                                <span class="text-slate-400 font-medium">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                {% if item.submission %}
+                                                <a href="{% if item.assignment.submission_mode == 'quiz' %}{% url 'submissions:quiz_result' attempt_pk=item.submission.pk %}{% else %}{% url 'submissions:detail' pk=item.submission.pk %}{% endif %}" class="inline-flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-800 transition-colors bg-sky-50 px-2 py-1 rounded">
+                                                    <span class="material-symbols-outlined text-xs">visibility</span> Xem
+                                                </a>
+                                                {% else %}
+                                                <a href="{% url 'assignments:detail' pk=item.assignment.pk %}" class="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-primary transition-colors bg-slate-100 px-2 py-1 rounded">
+                                                    <span class="material-symbols-outlined text-xs">edit</span> Làm bài
+                                                </a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+            {% else %}
+                <div class="bg-white border border-slate-200 rounded-xl p-8 text-center">
+                    <div class="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <span class="material-symbols-outlined text-4xl text-slate-300">school</span>
+                    </div>
+                    <h3 class="font-bold text-slate-800 mb-2">Chưa có dữ liệu</h3>
+                    <p class="text-sm text-slate-500">Bạn chưa tham gia lớp học nào hoặc lớp học chưa có bài tập.</p>
+                </div>
+            {% endif %}
+        </main>
+
+        <aside class="space-y-6 max-h-[800px] overflow-y-auto custom-scrollbar pr-2">
+            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-4">
+                    <h2 class="font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">pie_chart</span>
+                        Thống kê bài làm
+                    </h2>
+                </div>
+                <div class="p-5 flex justify-center">
+                    <div class="w-48 h-48">
+                        <canvas id="statsChart"></canvas>
+                    </div>
+                </div>
+                <div class="px-5 pb-5 grid grid-cols-3 gap-2 text-center text-xs">
+                    <div>
+                        <div class="font-black text-emerald-600 text-lg">{{ stats.completed }}</div>
+                        <div class="text-slate-500">Đã nộp</div>
+                    </div>
+                    <div>
+                        <div class="font-black text-amber-500 text-lg">{{ stats.pending }}</div>
+                        <div class="text-slate-500">Đang chờ</div>
+                    </div>
+                    <div>
+                        <div class="font-black text-slate-400 text-lg">{{ stats.missing }}</div>
+                        <div class="text-slate-500">Chưa làm</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-4">
+                    <h2 class="font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">trending_up</span>
+                        Xu hướng điểm số
+                    </h2>
+                </div>
+                <div class="p-5">
+                    <div class="w-full h-40">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-4">
+                    <h2 class="font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">history</span>
+                        Lịch sử làm bài gần đây
+                    </h2>
+                </div>
+                <div class="p-5">
+                    {% if recent_activity %}
+                    <div class="space-y-4">
+                        {% for activity in recent_activity %}
+                        <div class="flex items-start gap-3 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                            <div class="mt-1 flex-shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                {% if activity.assignment.is_exam %}
+                                <span class="material-symbols-outlined text-red-500 text-[18px]">timer</span>
+                                {% else %}
+                                <span class="material-symbols-outlined text-primary text-[18px]">task_alt</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <a href="{% if activity.assignment.submission_mode == 'quiz' %}{% url 'submissions:quiz_result' attempt_pk=activity.pk %}{% else %}{% url 'submissions:detail' pk=activity.pk %}{% endif %}" class="block text-sm font-bold text-primary-900 hover:text-primary-600 truncate transition-colors">
+                                    {{ activity.assignment.title }}
+                                </a>
+                                <div class="text-xs text-slate-500 mt-1 flex flex-col gap-0.5">
+                                    <span class="truncate">Lớp: <span class="font-medium">{{ activity.assignment.classroom.name }}</span></span>
+                                    {% if activity.assignment.classroom_subject %}
+                                    <span class="truncate text-primary">Môn: <span class="font-medium">{{ activity.assignment.classroom_subject.subject.name }}</span></span>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-2 flex items-center justify-between text-xs">
+                                    <span class="text-slate-400">{{ activity.submitted_at|date:"d/m/Y H:i" }}</span>
+                                    {% if activity.display_score != None %}
+                                    <span class="font-black {% if activity.display_score >= activity.assignment.passing_score|default:5 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                                        {{ activity.display_score|floatformat:1 }} đ
+                                    </span>
+                                    {% else %}
+                                    <span class="text-slate-400 italic">Chờ chấm</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-slate-500 text-center py-4">Chưa có lịch sử làm bài.</p>
+                    {% endif %}
+                </div>
+            </section>
+        </aside>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Tabs Logic ---
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const classContents = document.querySelectorAll('.class-content');
+        
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active classes
+                tabButtons.forEach(b => {
+                    b.classList.remove('border-primary', 'text-primary');
+                    b.classList.add('border-transparent', 'text-slate-500');
+                });
+                classContents.forEach(c => c.classList.add('hidden'));
+                
+                // Add active classes
+                btn.classList.add('border-primary', 'text-primary');
+                btn.classList.remove('border-transparent', 'text-slate-500');
+                
+                const target = document.getElementById(btn.getAttribute('data-target'));
+                if(target) target.classList.remove('hidden');
+            });
+        });
+
+        // --- Filtering Logic ---
+        const searchInput = document.getElementById('grades-search');
+        const filterSelect = document.getElementById('grades-status-filter');
+        
+        if (searchInput && filterSelect) {
+            function filterGrades() {
+                const query = searchInput.value.toLowerCase().trim();
+                const statusFilter = filterSelect.value;
+
+                const classBlocks = document.querySelectorAll('[data-class-block="true"]');
+                
+                classBlocks.forEach(classBlock => {
+                    let hasVisibleClass = false;
+                    const subjectBlocks = classBlock.querySelectorAll('[data-subject-block="true"]');
+                    
+                    subjectBlocks.forEach(subjectBlock => {
+                        let hasVisibleSubject = false;
+                        const assignmentItems = subjectBlock.querySelectorAll('[data-assignment-item="true"]');
+                        const subjectName = subjectBlock.getAttribute('data-subject-name') || "";
+                        
+                        assignmentItems.forEach(item => {
+                            const title = item.getAttribute('data-assignment-title') || "";
+                            const status = item.getAttribute('data-assignment-status') || "";
+                            
+                            const matchesSearch = query === "" || title.includes(query) || subjectName.includes(query);
+                            const matchesStatus = statusFilter === "all" || status === statusFilter;
+                            
+                            if (matchesSearch && matchesStatus) {
+                                item.style.display = "";
+                                hasVisibleSubject = true;
+                            } else {
+                                item.style.display = "none";
+                            }
+                        });
+                        
+                        if (hasVisibleSubject) {
+                            subjectBlock.style.display = "";
+                            hasVisibleClass = true;
+                        } else {
+                            subjectBlock.style.display = "none";
+                        }
+                    });
+                    
+                    if (hasVisibleClass) {
+                        classBlock.style.display = "";
+                    } else {
+                        classBlock.style.display = "none";
+                    }
+                });
+            }
+
+            searchInput.addEventListener('input', filterGrades);
+            filterSelect.addEventListener('change', filterGrades);
+        }
+
+        // --- Chart.js Rendering ---
+        const ctx = document.getElementById('statsChart');
+        if (ctx) {
+            const completed = {{ stats.completed|default:0 }};
+            const pending = {{ stats.pending|default:0 }};
+            const missing = {{ stats.missing|default:0 }};
+            
+            // Only render if there's data
+            if (completed + pending + missing > 0) {
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Đã nộp', 'Đang chờ', 'Chưa làm'],
+                        datasets: [{
+                            data: [completed, pending, missing],
+                            backgroundColor: [
+                                '#059669', // emerald-600
+                                '#f59e0b', // amber-500
+                                '#cbd5e1'  // slate-300
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: {
+                            legend: {
+                                display: false // Hidden because we built custom HTML legend
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += context.parsed;
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // If no data, render a gray circle
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Chưa có dữ liệu'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#f1f5f9'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                    }
+                });
+            }
+        }
+
+        // --- Trend Chart Rendering ---
+        const trendCtx = document.getElementById('trendChart');
+        if (trendCtx) {
+            const trendDataRaw = {{ trend_data_json|safe }};
+            if (trendDataRaw.labels && trendDataRaw.labels.length > 0) {
+                new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: trendDataRaw.labels,
+                        datasets: [{
+                            label: 'Điểm số',
+                            data: trendDataRaw.scores,
+                            borderColor: '#0284c7', // sky-600
+                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointBackgroundColor: '#0284c7',
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100, // Adjust this if scores are out of 10 or 100
+                                ticks: { font: { size: 10 } }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+            } else {
+                new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Chưa có dữ liệu'],
+                        datasets: [{
+                            data: [0],
+                            borderColor: '#cbd5e1',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                        scales: { y: { display: false }, x: { display: false } }
+                    }
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}

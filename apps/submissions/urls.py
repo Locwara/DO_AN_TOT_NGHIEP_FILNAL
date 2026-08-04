@@ -4,6 +4,7 @@ from . import views
 app_name = 'submissions'
 
 urlpatterns = [
+    path('my-grades/', views.my_grades_view, name='my_grades'),
     path('solve/<int:assignment_pk>/', views.solve_problem_view, name='solve'),
     path('file/<int:assignment_pk>/', views.file_submission_view, name='file_submission'),
     path('file/<int:assignment_pk>/draft/clear/', views.clear_file_draft_view, name='clear_file_draft'),

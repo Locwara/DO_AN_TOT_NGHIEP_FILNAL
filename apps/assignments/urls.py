@@ -18,6 +18,7 @@ urlpatterns = [
     path('<int:pk>/statistics/', views.statistics_view, name='statistics'),
     path('<int:pk>/plagiarism/', views.plagiarism_view, name='plagiarism'),
     path('<int:pk>/plagiarism/run/', views.run_plagiarism_view, name='run_plagiarism'),
+    path('<int:pk>/plagiarism/compare/<int:sub_a_pk>/<int:sub_b_pk>/', views.compare_submissions_view, name='compare_submissions'),
     path('<int:pk>/rubrics/add/', views.add_rubric_view, name='add_rubric'),
     path('<int:pk>/rubrics/<int:rubric_pk>/delete/', views.delete_rubric_view, name='delete_rubric'),
     path('<int:pk>/quiz/', views.quiz_manage_view, name='quiz_manage'),

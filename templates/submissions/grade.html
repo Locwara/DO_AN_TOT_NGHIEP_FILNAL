@@ -269,7 +269,7 @@
                             <div class="h-full bg-primary" style="width: {% widthratio submission.total_score submission.max_score 100 %}%"></div>
                         </div>
                         {% if is_quiz_submission %}
-                        <p class="mt-2 text-xs text-slate-500">Câu tự luận ngắn cần giáo viên nhập điểm thủ công hoặc dùng rubric để override điểm cuối.</p>
+                        <p class="mt-2 text-xs text-slate-500">Câu tự luận ngắn cần giáo viên nhập điểm thủ công hoặc dùng tiêu chí chấm điểm để override điểm cuối.</p>
                         {% else %}
                         <p class="mt-2 text-xs text-slate-500">Tests: {{ submission.passed_testcases }}/{{ submission.total_testcases }} passed</p>
                         {% endif %}
@@ -295,13 +295,13 @@
                             {% if d.testcase.input_data %}
                             <div class="mt-2">
                                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Input</p>
-                                <pre class="p-1.5 bg-slate-900 text-slate-200 text-[10px] rounded overflow-x-auto font-mono max-h-24">{{ d.testcase.input_data }}</pre>
+                                <pre class="p-1.5 bg-slate-50 text-slate-800 text-[10px] rounded border border-slate-200 overflow-x-auto font-mono max-h-24">{{ d.testcase.input_data }}</pre>
                             </div>
                             {% endif %}
                             <div class="grid grid-cols-2 gap-2 mt-2">
                                 <div>
                                     <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Expected</p>
-                                    <pre class="p-1.5 bg-slate-900 text-slate-200 text-[10px] rounded overflow-x-auto font-mono max-h-24">{{ d.testcase.expected_output }}</pre>
+                                    <pre class="p-1.5 bg-slate-50 text-slate-800 text-[10px] rounded border border-slate-200 overflow-x-auto font-mono max-h-24">{{ d.testcase.expected_output }}</pre>
                                 </div>
                                 <div>
                                     <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Actual</p>
@@ -323,7 +323,7 @@
                             <span class="material-symbols-outlined text-primary">fact_check</span>
                             <span class="text-sm font-bold">Chấm thủ công bài nộp file</span>
                         </div>
-                        <p class="text-xs text-slate-600 mt-2">Dùng điểm thủ công, rubric, nhận xét mẫu và file phản hồi để trả kết quả cho học sinh.</p>
+                        <p class="text-xs text-slate-600 mt-2">Dùng điểm thủ công, tiêu chí chấm điểm, nhận xét mẫu và file phản hồi để trả kết quả cho học sinh.</p>
                     </div>
                     {% endif %}
 
@@ -335,7 +335,7 @@
                             <div class="flex items-center justify-between gap-3 mb-3">
                                 <label class="text-sm font-bold text-slate-900 flex items-center gap-2">
                                     <span class="material-symbols-outlined text-primary text-lg">rubric</span>
-                                    Rubric
+                                    Tiêu chí chấm điểm
                                 </label>
                                 <span class="text-xs text-slate-500">Tổng: {{ rubric_total|floatformat:1 }}</span>
                             </div>
@@ -357,8 +357,12 @@
                                 {% endfor %}
                             </div>
                             <label class="mt-3 flex items-center gap-2 text-xs font-bold text-slate-700">
-                                <input type="checkbox" name="use_rubric_score" value="1" class="rounded border-slate-300 text-primary focus:ring-primary">
-                                Dùng tổng điểm rubric làm điểm cuối cùng
+                                <input type="checkbox" name="use_rubric_score" value="1" class="rounded border-slate-300 text-primary focus:ring-primary" onchange="if(this.checked) document.querySelector('[name=add_rubric_to_total]').checked = false;">
+                                Dùng tổng điểm tiêu chí làm điểm cuối cùng (Ghi đè)
+                            </label>
+                            <label class="mt-2 flex items-center gap-2 text-xs font-bold text-slate-700">
+                                <input type="checkbox" name="add_rubric_to_total" value="1" class="rounded border-slate-300 text-primary focus:ring-primary" onchange="if(this.checked) document.querySelector('[name=use_rubric_score]').checked = false;">
+                                Cộng điểm tiêu chí vào điểm tự động (Testcase)
                             </label>
                         </div>
                         {% endif %}

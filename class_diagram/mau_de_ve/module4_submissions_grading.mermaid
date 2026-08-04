@@ -1,0 +1,116 @@
+classDiagram
+    direction LR
+
+    class assignments {
+        +id : integer «PK»
+        ... (chi tiết xem Module 2)
+    }
+
+    class auth_user {
+        +id : integer «PK»
+        ... (chi tiết xem Module 1)
+    }
+
+    class testcases {
+        +id : integer «PK»
+        ... (chi tiết xem Module 2)
+    }
+
+    class submissions {
+        +id : integer «PK»
+        assignment_id : integer «FK -> assignments.id»
+        student_id : integer «FK -> auth_user.id»
+        code_content : text
+        language : text
+        status : submission_status
+        total_score : float
+        passed_testcases : integer
+        total_testcases : integer
+        execution_time : float
+        memory_usage : float
+        is_late : boolean
+        manual_score : float
+        teacher_comment : text
+        submitted_at : timestamp
+    }
+
+    class submission_details {
+        +id : integer «PK»
+        submission_id : integer «FK -> submissions.id»
+        testcase_id : integer «FK -> testcases.id»
+        result_status : enum
+        actual_output : text
+        error_message : text
+        execution_time : float
+        memory_usage : float
+        score_earned : float
+    }
+
+    class submission_files {
+        +id : bigint «PK»
+        submission_id : bigint «FK -> submissions.id»
+        file_name : text
+        file_url : text
+        file_size : bigint
+        mime_type : text
+        scan_status : varchar
+        uploaded_at : timestamp
+    }
+
+    class code_comments {
+        +id : integer «PK»
+        submission_id : integer «FK -> submissions.id»
+        teacher_id : integer «FK -> auth_user.id»
+        line_number : integer
+        comment_text : text
+        is_resolved : boolean
+    }
+
+    class rubrics {
+        +id : bigint «PK»
+        assignment_id : bigint «FK -> assignments.id»
+        name : varchar
+        description : text
+        max_points : float
+        order_index : integer
+    }
+
+    class rubric_scores {
+        +id : bigint «PK»
+        submission_id : bigint «FK -> submissions.id»
+        rubric_id : bigint «FK -> rubrics.id»
+        score : float
+        comment : text
+    }
+
+    %% ===== QUAN HỆ =====
+
+    %% 1-N: một bài tập có nhiều bài nộp
+    assignments "1" --o "0..*" submissions : nhận bài nộp
+
+    %% 1-N: một sinh viên có nhiều bài nộp (qua các attempt)
+    auth_user "1" --o "0..*" submissions : nộp bài (student_id)
+
+    %% 1-N: một bài nộp có nhiều kết quả chạy testcase (sandbox)
+    submissions "1" --o "0..*" submission_details : kết quả chạy
+
+    %% 1-N: một testcase được dùng để chấm nhiều bài nộp khác nhau
+    testcases "1" --o "0..*" submission_details : dùng để chấm
+
+    %% 1-N: một bài nộp có thể gồm nhiều file thực tế
+    submissions "1" --o "0..*" submission_files : gồm file
+
+    %% 1-N: một bài nộp có nhiều bình luận trên code
+    submissions "1" --o "0..*" code_comments : có bình luận
+
+    %% 1-N: một giảng viên (auth_user) viết nhiều bình luận code
+    auth_user "1" --o "0..*" code_comments : bình luận (teacher_id)
+
+    %% 1-N: một bài tập có nhiều tiêu chí chấm (rubric)
+    assignments "1" --o "0..*" rubrics : có tiêu chí
+
+    %% 1-N: một bài nộp có nhiều điểm rubric (ứng với từng tiêu chí)
+    submissions "1" --o "0..*" rubric_scores : được chấm điểm
+
+    %% 1-N: một tiêu chí rubric được áp dụng cho nhiều bài nộp
+    rubrics "1" --o "0..*" rubric_scores : áp dụng cho

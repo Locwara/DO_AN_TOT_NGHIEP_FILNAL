@@ -113,11 +113,13 @@
             <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Sẵn sàng</span>
         </div>
         <div class="flex items-center gap-2">
+            {% if not assignment.is_exam %}
             <input type="file" id="upload-code" accept=".py,.cpp,.c,.java,.js,.cs" hidden>
-            <button onclick="document.getElementById('upload-code').click()" class="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all" title="Tải file code lên">
+            <button type="button" onclick="document.getElementById('upload-code').click()" class="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all" title="Tải file code lên">
                 <span class="material-symbols-outlined text-sm">upload_file</span>
-                Chạy file
+                Tải code lên
             </button>
+            {% endif %}
             <button id="btn-run" onclick="runCode()" class="flex items-center gap-1.5 px-4 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all">
                 <span class="material-symbols-outlined text-sm">play_arrow</span>
                 Chạy thử
@@ -223,6 +225,10 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
+                <button type="button" onclick="formatCode()" class="flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary-600 transition-colors bg-primary/10 px-2 py-1 rounded" title="Xóa khoảng trắng thừa ở đầu dòng">
+                    <span class="material-symbols-outlined text-[14px]">format_align_left</span>
+                    Format
+                </button>
                 <div class="flex items-center gap-2 text-xs font-bold text-slate-400">
                     <span class="material-symbols-outlined text-sm">language</span>
                     <select id="language-select" class="bg-transparent border-none p-0 text-xs font-black text-slate-600 focus:ring-0 cursor-pointer hover:text-primary transition-colors">
@@ -417,12 +423,36 @@ document.addEventListener('DOMContentLoaded', function() {
         matchBrackets: true,
         autoCloseBrackets: true,
         extraKeys: {
+            'Insert': false, // Vô hiệu hóa phím Insert để tránh dính mode gõ đè
             'Ctrl-Enter': runCode,
             'Ctrl-S': function(cm) { saveDraft(); },
             'Cmd-S': function(cm) { saveDraft(); },
             'Ctrl-Shift-Enter': submitCode,
         },
     });
+    // Ép IDE luôn ở chế độ gõ chèn (không bao giờ được gõ đè)
+    if (editor.toggleOverwrite) {
+        editor.toggleOverwrite(false);
+    }
+    
+    if (IS_EXAM) {
+        editor.on('paste', function(cm, e) {
+            e.preventDefault();
+            alert('Gian lận là không tốt! Vui lòng tự gõ code vào bài thi.');
+            logExamEvent('paste_prevented');
+        });
+        editor.on('copy', function(cm, e) {
+            e.preventDefault();
+            alert('Không được sao chép (copy) code trong phòng thi!');
+            logExamEvent('copy_prevented');
+        });
+        editor.on('cut', function(cm, e) {
+            e.preventDefault();
+            alert('Không được cắt (cut) code trong phòng thi!');
+            logExamEvent('cut_prevented');
+        });
+    }
+    
     window.editor = editor;
 
     if (!editor.getValue().trim()) {
@@ -447,6 +477,24 @@ document.addEventListener('DOMContentLoaded', function() {
         editor.setOption('mode', newMode);
         loadDraft(this.value);
     });
+
+    const uploadInput = document.getElementById('upload-code');
+    if (uploadInput) {
+        uploadInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                if (editor) {
+                    editor.setValue(evt.target.result);
+                    setStatus('Đã tải code từ file', 'green');
+                }
+            };
+            reader.readAsText(file);
+            // Reset value so the same file can be selected again
+            this.value = '';
+        });
+    }
 });
 
 async function parseJsonResponse(response) {
@@ -617,8 +665,12 @@ function runCode() {
             data.results.forEach(r => {
                 const icon = r.passed ? '<span class="text-green-600 font-black">[PASS]</span>' : '<span class="text-red-600 font-black">[FAIL]</span>';
                 html += `<div class="flex items-start gap-3 mb-3 p-3 bg-white border border-slate-200 rounded-lg shadow-sm">${icon} <div><p class="text-slate-900 font-bold">${r.name}</p>`;
+                if (!r.passed) {
+                    const statusText = (r.status || 'FAILED').toUpperCase().replace(/_/g, ' ');
+                    html += `<p class="text-[10px] font-black text-red-600 my-1">${statusText}</p>`;
+                }
                 if (!r.passed && r.error_message) {
-                    html += `<p class="text-red-500 text-xs mt-1 font-mono">${escapeHtml(r.error_message)}</p>`;
+                    html += `<p class="text-red-500 text-xs mt-1 font-mono bg-red-50 p-1 rounded">${escapeHtml(r.error_message)}</p>`;
                 } else if (!r.passed) {
                     html += `<p class="text-slate-500 text-xs mt-1 font-mono">Mong đợi: "${escapeHtml(r.expected_output)}" <br> Thực tế: "${escapeHtml(r.actual_output)}"</p>`;
                 }
@@ -693,28 +745,9 @@ function submitCode() {
     .then(parseJsonResponse)
     .then(data => {
         if (data.status === 'ok') {
-            let html = '<div class="space-y-4">';
-            if (data.async) {
-                html += `<div class="text-blue-600 font-black text-lg">⏳ Nộp bài thành công!</div>`;
-                html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
-                html += `<span>Bài nộp của bạn đang được chấm điểm... Vui lòng xem chi tiết để biết kết quả sau ít phút.</span>`;
-                html += `</div>`;
-            } else if (data.total_score !== undefined) {
-                html += `<div class="text-green-600 font-black text-lg">✅ Nộp bài thành công!</div>`;
-                html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
-                html += `<div class="flex justify-between"><span>Điểm số:</span><span class="text-primary font-black">${data.total_score}/${data.max_score}</span></div>`;
-                html += `<div class="flex justify-between"><span>Testcases đạt:</span><span class="font-bold">${data.passed}/${data.total}</span></div>`;
-                if (data.is_late) html += `<div class="text-amber-600 font-bold">⚠️ Nộp muộn (Bị trừ ${data.penalty_applied}%)</div>`;
-                html += `</div>`;
-            } else {
-                html += `<div class="text-green-600 font-black text-lg">✅ Nộp bài thành công!</div>`;
-                html += `<div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2">`;
-                html += `<span>${data.message || 'Bài nộp không có testcase nào để chấm.'}</span>`;
-                html += `</div>`;
-            }
-            html += `<a href="/submissions/detail/${data.submission_id}/" class="inline-flex items-center gap-2 px-6 h-10 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-all">Xem chi tiết bài làm <span class="material-symbols-outlined text-sm">arrow_forward</span></a>`;
-            html += '</div>';
-            document.getElementById('ocontent-output').innerHTML = html;
+            document.getElementById('ocontent-output').innerHTML = '<span class="text-green-600 font-bold">⏳ Nộp bài thành công! Đang chuyển hướng đến trang kết quả...</span>';
+            // Chuyển hướng thẳng qua trang chi tiết và ngăn user bấm nút Back để nộp lại
+            window.location.replace(`/submissions/detail/${data.submission_id}/`);
         } else {
             document.getElementById('ocontent-output').innerHTML = `<div class="p-4 bg-red-50 border border-red-100 text-red-600 font-bold rounded-lg">❌ ${data.message}</div>`;
         }
@@ -732,6 +765,45 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function formatCode() {
+    if (!editor) return;
+    const val = editor.getValue();
+    if (val.trim() !== '') {
+        const lines = val.split('\n');
+        const nonEmptyLines = lines.filter(l => l.trim().length > 0);
+        if (nonEmptyLines.length > 0) {
+            const minIndent = nonEmptyLines.map(l => l.match(/^\s*/)[0].length).reduce((a, b) => Math.min(a, b), Infinity);
+            
+            if (minIndent === 0) {
+                // Heuristic for copy-paste error: first line has 0 indent, rest have > 0
+                let firstIdx = -1;
+                for (let i=0; i<lines.length; i++) { if (lines[i].trim().length > 0) { firstIdx = i; break; } }
+                if (firstIdx !== -1 && !lines[firstIdx].trim().endsWith(':')) {
+                    let restMin = Infinity;
+                    for (let i=firstIdx+1; i<lines.length; i++) {
+                        if (lines[i].trim().length > 0) restMin = Math.min(restMin, lines[i].match(/^\s*/)[0].length);
+                    }
+                    if (restMin > 0 && restMin !== Infinity) {
+                        const fixed = lines.map((l, i) => {
+                            if (i <= firstIdx) return l;
+                            if (l.trim().length === 0) return '';
+                            return l.substring(restMin);
+                        }).join('\n');
+                        editor.setValue(fixed);
+                        return;
+                    }
+                }
+            } else if (minIndent > 0 && minIndent !== Infinity) {
+                const fixed = lines.map(l => {
+                    if (l.trim().length === 0) return '';
+                    return l.substring(minIndent);
+                }).join('\n');
+                editor.setValue(fixed);
+            }
+        }
+    }
 }
 </script>
 {% include 'includes/loading.html' %}

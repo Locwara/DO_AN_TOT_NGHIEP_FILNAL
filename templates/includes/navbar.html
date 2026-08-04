@@ -19,6 +19,9 @@
             {% if user.profiles.role == 'teacher' %}
             <a class="nav-link" href="{% url 'classrooms:create' %}">Tạo lớp</a>
             {% endif %}
+            {% if user.profiles.role == 'student' %}
+            <a class="nav-link" href="{% url 'submissions:my_grades' %}">Điểm số</a>
+            {% endif %}
             {% if user.profiles.role == 'admin' or user.is_superuser %}
             <a class="nav-link" href="{% url 'administation:dashboard' %}">Quản trị</a>
             {% endif %}
@@ -189,6 +192,10 @@
           <a href="{% url 'accounts:student_dashboard' %}" class="drawer-link">
             <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
             Dashboard Học sinh
+          </a>
+          <a href="{% url 'submissions:my_grades' %}" class="drawer-link">
+            <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
+            Điểm số
           </a>
         {% endif %}
 

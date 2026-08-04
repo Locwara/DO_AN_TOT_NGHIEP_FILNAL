@@ -72,24 +72,60 @@ def _normalize_whitespace(code):
 
 
 def _normalize_python_identifiers(code):
-    """Attempt to rename local variable names to generic placeholders."""
+    """Rename local variables, functions, and arguments to generic placeholders."""
     try:
         tree = ast.parse(code)
-    except SyntaxError:
+    except Exception:
         return code
 
-    names = {}
-    counter = 0
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            if node.id not in names:
-                names[node.id] = f'_v{counter}'
-                counter += 1
+    class RenameTransformer(ast.NodeTransformer):
+        def __init__(self):
+            self.names = {}
+            self.counter = 0
+            self.builtins = {
+                'print', 'int', 'float', 'str', 'bool', 'list', 'dict', 'set', 'tuple',
+                'len', 'range', 'input', 'open', 'sum', 'min', 'max', 'abs', 'round',
+                'ValueError', 'TypeError', 'IndexError', 'KeyError', 'Exception',
+                'True', 'False', 'None'
+            }
 
-    result = code
-    for original, replacement in sorted(names.items(), key=lambda x: -len(x[0])):
-        result = re.sub(r'\b' + re.escape(original) + r'\b', replacement, result)
-    return result
+        def get_name(self, original_id):
+            if original_id in self.builtins:
+                return original_id
+            if original_id not in self.names:
+                self.names[original_id] = f'_v{self.counter}'
+                self.counter += 1
+            return self.names[original_id]
+
+        def visit_Name(self, node):
+            node.id = self.get_name(node.id)
+            return node
+
+        def visit_FunctionDef(self, node):
+            node.name = self.get_name(node.name)
+            self.generic_visit(node)
+            return node
+            
+        def visit_ClassDef(self, node):
+            node.name = self.get_name(node.name)
+            self.generic_visit(node)
+            return node
+
+        def visit_arg(self, node):
+            node.arg = self.get_name(node.arg)
+            return node
+
+    try:
+        transformer = RenameTransformer()
+        transformer.visit(tree)
+        ast.fix_missing_locations(tree)
+        if hasattr(ast, 'unparse'):
+            return ast.unparse(tree)
+        else:
+            return code # Fallback for python < 3.9
+    except Exception:
+        return code
+
 
 
 def _tokenize_generic(code):
@@ -99,10 +135,16 @@ def _tokenize_generic(code):
 
 def normalize_code(code, language):
     """Produce a normalised form of the code for comparison."""
+    if language.lower() in ('python', 'python3'):
+        normalized_ast = _normalize_python_identifiers(code)
+        if normalized_ast != code:
+            # If AST parsing and unparsing succeeded, it's already stripped of comments
+            # and perfectly formatted. We can just return it.
+            return normalized_ast
+
+    # Fallback for non-python or if python code has syntax errors
     code = _strip_comments(code, language)
     code = _normalize_whitespace(code)
-    if language.lower() in ('python', 'python3'):
-        code = _normalize_python_identifiers(code)
     return code
 
 
@@ -141,6 +183,8 @@ def structural_similarity(code_a, code_b):
 
 def winnowing_similarity(code_a, code_b, language):
     """Advanced fingerprint similarity using Winnowing algorithm (copydetect)."""
+    import tempfile
+    import os
     try:
         from copydetect import CodeFingerprint, compare_files
         lang_map = {
@@ -150,9 +194,23 @@ def winnowing_similarity(code_a, code_b, language):
         }
         target_lang = lang_map.get(language.lower(), 'python')
         
-        fp_a = CodeFingerprint(code=code_a, k=25, win_size=15, language=target_lang)
-        fp_b = CodeFingerprint(code=code_b, k=25, win_size=15, language=target_lang)
-        return compare_files(fp_a, fp_b)[0]
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f_a:
+            f_a.write(code_a)
+            file_a = f_a.name
+            
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f_b:
+            f_b.write(code_b)
+            file_b = f_b.name
+            
+        fp_a = CodeFingerprint(file_a, k=25, win_size=15, language=target_lang)
+        fp_b = CodeFingerprint(file_b, k=25, win_size=15, language=target_lang)
+        
+        sim = compare_files(fp_a, fp_b)[1][0]
+        
+        os.remove(file_a)
+        os.remove(file_b)
+        
+        return float(sim)
     except Exception as e:
         logger.warning(f"Winnowing similarity failed: {str(e)}")
         return 0.0
@@ -183,7 +241,10 @@ def check_similarity(code_a, code_b, language='python'):
     w_score = winnowing_similarity(code_a, code_b, language)
 
     # Weighted: Winnowing is strongest (40%), followed by Tokens (30%)
-    weighted = 0.1 * t_score + 0.3 * tk_score + 0.2 * s_score + 0.4 * w_score
+    if w_score == 0.0:
+        weighted = 0.2 * t_score + 0.5 * tk_score + 0.3 * s_score
+    else:
+        weighted = 0.1 * t_score + 0.3 * tk_score + 0.2 * s_score + 0.4 * w_score
 
     return {
         'similarity_score': round(weighted, 4),

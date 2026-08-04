@@ -105,6 +105,95 @@
         </div>
     </div>
 
+    <div class="mb-10">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold">Tài liệu lý thuyết</h2>
+            {% if is_teacher %}
+            <button onclick="document.getElementById('upload-modal').classList.remove('hidden')" class="inline-flex items-center gap-1 h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">upload_file</span> Tải lên
+            </button>
+            {% endif %}
+        </div>
+        
+        {% if materials %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+            {% for material in materials %}
+            <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow relative group">
+                <div class="flex items-start gap-3">
+                    <div class="size-10 rounded bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-slate-800 truncate" title="{{ material.title }}">{{ material.title }}</h3>
+                        <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ material.description|default:"Không có mô tả" }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {% if material.is_browser_viewable %}
+                        <a href="{{ material.file.url }}" target="_blank" class="text-xs font-bold text-sky-600 hover:underline flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">visibility</span> Xem
+                        </a>
+                        {% endif %}
+                        <a href="{{ material.file.url }}" download class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">download</span> Tải xuống
+                        </a>
+                    </div>
+                    {% if is_teacher %}
+                    <form method="post" action="{% url 'classrooms:delete_material' pk=classroom.pk link_pk=link.pk material_id=material.pk %}" onsubmit="return confirm('Bạn có chắc muốn xóa tài liệu này?')">
+                        {% csrf_token %}
+                        <button class="text-xs text-red-500 hover:text-red-700 font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">delete</span> Xóa
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center">
+            <span class="material-symbols-outlined text-4xl text-slate-400 mb-2">folder_open</span>
+            <p class="text-slate-500 font-medium">Chưa có tài liệu lý thuyết nào cho môn học này.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Modal Upload (ẩn mặc định) -->
+    {% if is_teacher %}
+    <div id="upload-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl relative">
+            <button type="button" onclick="document.getElementById('upload-modal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <h3 class="text-xl font-bold mb-4">Tải lên tài liệu</h3>
+            <form method="post" action="{% url 'classrooms:upload_material' pk=classroom.pk link_pk=link.pk %}" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Tiêu đề</label>
+                    {{ material_form.title }}
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Mô tả (tùy chọn)</label>
+                    {{ material_form.description }}
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">File đính kèm</label>
+                    {{ material_form.file }}
+                </div>
+                <div class="pt-4 flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('upload-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200">Hủy</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary/90">Tải lên</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="flex items-center justify-between mb-4 mt-8">
+        <h2 class="text-xl font-bold">Bài tập & Bài thi</h2>
+    </div>
+
     <form method="get" class="mb-6">
         <div class="flex flex-wrap gap-3 items-stretch">
             <div class="flex items-stretch rounded-xl h-12 shadow-sm flex-1 min-w-[260px]">

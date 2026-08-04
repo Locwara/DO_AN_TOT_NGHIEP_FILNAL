@@ -35,7 +35,7 @@
             </div>
 
             {% if classrooms %}
-            <div class="classroom-card-grid">
+            <div class="classroom-card-grid max-h-[750px] overflow-y-auto custom-scrollbar pr-2">
                 {% for classroom in classrooms %}
                 <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="classroom-course-card {% if classroom.status == 'pending' %}pending-classroom{% endif %}">
                     <span class="course-accent"></span>
@@ -60,14 +60,23 @@
                                 {{ classroom.member_count }} sinh viên
                             </span>
                             <span>
-                                <span class="material-symbols-outlined">menu_book</span>
-                                {{ classroom.subject_count|default:0 }} môn
-                            </span>
-                            <span class="course-enter">
-                                Vào lớp
-                                <span class="material-symbols-outlined">chevron_right</span>
+                                <span class="material-symbols-outlined">calendar_today</span>
+                                {{ classroom.get_semester_term_display|default:"Học kỳ chung" }}
                             </span>
                         </span>
+                        {% if role == 'teacher' %}
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <object><a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">settings</span> Quản lý
+                            </a></object>
+                            <object><a href="{% url 'assignments:create' classroom_pk=classroom.pk %}" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">add_task</span> Giao bài
+                            </a></object>
+                            <object><a href="{% url 'classrooms:gradebook' pk=classroom.pk %}" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">grid_on</span> Sổ điểm
+                            </a></object>
+                        </div>
+                        {% endif %}
                     </span>
                 </a>
                 {% endfor %}
@@ -92,7 +101,7 @@
             </div>
 
             {% if discover_classrooms %}
-            <div class="classroom-card-grid">
+            <div class="classroom-card-grid max-h-[750px] overflow-y-auto custom-scrollbar pr-2">
                 {% for classroom in discover_classrooms %}
                 <article class="classroom-course-card discover-card">
                     <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="course-card-body">
@@ -124,9 +133,12 @@
                             Đang chờ duyệt
                         </button>
                         {% else %}
-                        <form method="post" action="{% url 'classrooms:quick_join' pk=classroom.pk %}">
+                        <form method="post" action="{% url 'classrooms:quick_join' pk=classroom.pk %}" class="w-full flex flex-col gap-2">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-primary">
+                            {% if classroom.password %}
+                            <input type="password" name="password" placeholder="Mật khẩu bảo vệ" required class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary outline-none text-sm text-center">
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary w-full justify-center">
                                 <span class="material-symbols-outlined text-sm">add</span>
                                 Tham gia lớp
                             </button>

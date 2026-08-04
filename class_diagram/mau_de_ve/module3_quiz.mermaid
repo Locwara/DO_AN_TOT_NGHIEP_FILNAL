@@ -1,0 +1,89 @@
+classDiagram
+    direction LR
+
+    class assignments {
+        +id : integer «PK»
+        ... (chi tiết xem Module 2)
+    }
+
+    class auth_user {
+        +id : integer «PK»
+        ... (chi tiết xem Module 1)
+    }
+
+    class quiz_settings {
+        +id : bigint «PK»
+        assignment_id : bigint «FK -> assignments.id, unique»
+        question_order_mode : varchar
+        choice_order_mode : varchar
+        show_score_after_submit : boolean
+        show_correct_answers : boolean
+        time_limit_minutes : integer
+        passing_score : float
+    }
+
+    class quiz_questions {
+        +id : bigint «PK»
+        assignment_id : bigint «FK -> assignments.id»
+        question_text : text
+        question_type : varchar
+        points : float
+        order_index : integer
+        difficulty : text
+        media_url : text
+    }
+
+    class quiz_choices {
+        +id : bigint «PK»
+        question_id : bigint «FK -> quiz_questions.id»
+        choice_text : text
+        is_correct : boolean
+        order_index : integer
+        explanation : text
+    }
+
+    class quiz_attempts {
+        +id : bigint «PK»
+        assignment_id : bigint «FK -> assignments.id»
+        student_id : integer «FK -> auth_user.id»
+        attempt_no : integer
+        status : varchar
+        started_at : timestamp
+        submitted_at : timestamp
+        score : float
+        duration_seconds : integer
+    }
+
+    class quiz_answers {
+        +id : bigint «PK»
+        attempt_id : bigint «FK -> quiz_attempts.id»
+        question_id : bigint «FK -> quiz_questions.id»
+        selected_choice_ids : jsonb
+        text_answer : text
+        is_correct : boolean
+        score_awarded : float
+        ai_suggested_score : float
+    }
+
+    %% ===== QUAN HỆ =====
+
+    %% 1-1: một bài tập (dạng quiz) có tối đa một cấu hình trắc nghiệm (unique FK)
+    assignments "1" -- "0..1" quiz_settings : cấu hình trắc nghiệm
+
+    %% 1-N: một bài tập có nhiều câu hỏi trắc nghiệm
+    assignments "1" --o "0..*" quiz_questions : chứa câu hỏi
+
+    %% 1-N: một câu hỏi có nhiều đáp án lựa chọn
+    quiz_questions "1" --o "0..*" quiz_choices : có đáp án
+
+    %% 1-N: một bài tập có nhiều lượt làm bài
+    assignments "1" --o "0..*" quiz_attempts : có lượt làm bài
+
+    %% 1-N: một sinh viên (auth_user) có nhiều lượt làm bài
+    auth_user "1" --o "0..*" quiz_attempts : làm bài (student_id)
+
+    %% 1-N: một lượt làm bài có nhiều câu trả lời chi tiết
+    quiz_attempts "1" --o "0..*" quiz_answers : trả lời
+
+    %% 1-N: một câu hỏi được trả lời trong nhiều lượt làm bài khác nhau
+    quiz_questions "1" --o "0..*" quiz_answers : được trả lời

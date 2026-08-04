@@ -11,6 +11,7 @@ class Classrooms(models.Model):
     name = models.TextField()
     description = models.TextField(blank=True, null=True)
     invite_code = models.CharField(unique=True, max_length=10)
+    password = models.CharField(max_length=50, blank=True, null=True, help_text="Mật khẩu bảo vệ tham gia lớp học (tùy chọn)")
     teacher = models.ForeignKey(User, models.CASCADE, blank=True, null=True)
     school_year = models.CharField(max_length=32, blank=True, null=True, help_text="VD: 2025-2026")
     semester_term = models.CharField(max_length=32, blank=True, null=True, help_text="VD: Học kỳ 1")
@@ -117,6 +118,29 @@ class ClassroomSubjects(models.Model):
     def __str__(self):
         sem = f' ({self.semester})' if self.semester_id else ''
         return f'{self.classroom} - {self.subject}{sem}'
+
+class SubjectMaterials(models.Model):
+    classroom_subject = models.ForeignKey(ClassroomSubjects, models.CASCADE, related_name='materials')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    file = models.FileField(upload_to='materials/')
+    uploaded_by = models.ForeignKey(User, models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'subject_materials'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_browser_viewable(self):
+        if not self.file:
+            return False
+        viewable_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt', '.mp4', '.webm']
+        return any(self.file.name.lower().endswith(ext) for ext in viewable_exts)
 
 class ClassroomMembers(models.Model):
     classroom = models.ForeignKey(Classrooms, models.CASCADE, blank=True, null=True)

@@ -433,6 +433,13 @@ class AssignmentForm(forms.ModelForm):
                 self.add_error('exam_start_time', 'Giờ bắt đầu thi không được sau hạn nộp.')
             if exam_start and exam_end and exam_end < exam_start:
                 self.add_error('exam_end_time', 'Giờ đóng phòng thi phải sau giờ bắt đầu.')
+            
+            # Check if this is an edit and is_exam is being turned on
+            if self.instance and self.instance.pk and not getattr(self.instance, 'is_exam', False):
+                from apps.submissions.models import Submissions
+                if Submissions.objects.filter(assignment=self.instance).exists():
+                    self.add_error('is_exam', 'Không thể chuyển thành bài thi vì đã có lượt nộp bài.')
+
             if not max_attempts:
                 cleaned['max_attempts'] = 1
             if submission_mode in (Assignments.SUBMISSION_FILE, Assignments.SUBMISSION_QUIZ):

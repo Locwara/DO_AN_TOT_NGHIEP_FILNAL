@@ -563,12 +563,12 @@ def classroom_detail_view(request, pk):
 
     # Classroom Progress (Phase 2 Task 2.3)
     classroom_progress = None
+    completion_rate = 0
     if is_teacher and members.exists():
         published_assignments = Assignments.objects.filter(classroom=classroom, is_published=True)
         pub_count = published_assignments.count()
         if pub_count > 0:
             from apps.submissions.models import Submissions
-            from django.db.models import Max
             
             # Count how many students have completed each assignment
             # Completion = having at least one submission with status 'finished'
@@ -589,6 +589,22 @@ def classroom_detail_view(request, pk):
                 'total_expected': student_count * pub_count,
                 'total_finished': total_completions,
             }
+    elif not is_teacher:
+        published_assignments = Assignments.objects.filter(classroom=classroom, is_published=True)
+        pub_count = published_assignments.count()
+        if pub_count > 0:
+            from apps.submissions.models import Submissions
+            finished_subs = Submissions.objects.filter(
+                assignment__in=published_assignments,
+                student=request.user,
+                status='finished'
+            ).values('assignment_id').distinct().count()
+            completion_rate = round((finished_subs / pub_count) * 100, 1)
+
+    from .models import SubjectMaterials
+    latest_materials = SubjectMaterials.objects.filter(
+        classroom_subject__classroom=classroom
+    ).select_related('classroom_subject', 'classroom_subject__subject').order_by('-created_at')[:5]
 
     context = {
         'classroom': classroom,
@@ -600,8 +616,10 @@ def classroom_detail_view(request, pk):
         'announcements': announcements,
         'subjects': subjects_qs,
         'assignments': assignments,
-        'member_count': members.count(),
+        'student_count': members.count(),
         'classroom_progress': classroom_progress,
+        'completion_rate': completion_rate,
+        'latest_materials': latest_materials,
         'assign_form': ClassroomSubjectForm(user=request.user) if is_teacher else None,
         'available_subjects_to_assign': Subjects.objects.filter(
             Q(status=SubjectApprovalStatus.APPROVED) | Q(created_by=request.user),
@@ -1156,12 +1174,15 @@ def join_classroom_view(request):
         form = JoinClassroomForm(request.POST)
         if form.is_valid():
             code = form.cleaned_data['invite_code'].strip().upper()
+            password = form.cleaned_data.get('password', '').strip()
             classroom = Classrooms.objects.filter(invite_code=code, is_active=True).first()
             if not classroom:
                 messages.error(request, 'Mã mời không hợp lệ hoặc lớp không tồn tại.')
             elif classroom.teacher == request.user:
                 messages.info(request, 'Bạn là giáo viên của lớp này.')
                 return redirect('classrooms:classroom_detail', pk=classroom.pk)
+            elif classroom.password and classroom.password != password:
+                messages.error(request, 'Mật khẩu bảo vệ không chính xác.')
             else:
                 target_status = 'pending' if _classroom_join_requires_approval(classroom) else 'approved'
                 member, created = ClassroomMembers.objects.get_or_create(
@@ -1207,6 +1228,11 @@ def quick_join_classroom_view(request, pk):
     if classroom.teacher == request.user:
         messages.info(request, 'Bạn là giáo viên của lớp này.')
         return redirect('classrooms:classroom_detail', pk=pk)
+
+    password = request.POST.get('password', '').strip()
+    if classroom.password and classroom.password != password:
+        messages.error(request, 'Mật khẩu bảo vệ không chính xác.')
+        return redirect('classrooms:classroom_list')
 
     target_status = 'pending' if _classroom_join_requires_approval(classroom) else 'approved'
     member, created = ClassroomMembers.objects.get_or_create(
@@ -1504,6 +1530,11 @@ def classroom_subject_detail_view(request, pk, link_pk):
     approved_members_count = ClassroomMembers.objects.filter(classroom=classroom, status='approved').count()
     completion_rate = round(completed_count / len(assignments) * 100, 1) if assignments and not is_teacher else None
 
+    # Lấy tài liệu
+    from .models import SubjectMaterials
+    materials = link.materials.all()
+
+    from .forms import SubjectMaterialForm
     return render(request, 'classrooms/subject_detail.html', {
         'classroom': classroom,
         'link': link,
@@ -1526,7 +1557,47 @@ def classroom_subject_detail_view(request, pk, link_pk):
         'completed_count': completed_count,
         'completion_rate': completion_rate,
         'approved_members_count': approved_members_count,
+        'materials': materials,
+        'material_form': SubjectMaterialForm() if is_teacher else None,
     })
+
+
+@teacher_required
+@require_POST
+def upload_material_view(request, pk, link_pk):
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom):
+        raise Http404("Bạn không có quyền upload.")
+    
+    link = get_object_or_404(ClassroomSubjects, pk=link_pk, classroom=classroom)
+    
+    from .forms import SubjectMaterialForm
+    form = SubjectMaterialForm(request.POST, request.FILES)
+    if form.is_valid():
+        material = form.save(commit=False)
+        material.classroom_subject = link
+        material.uploaded_by = request.user
+        material.save()
+        messages.success(request, 'Đã tải lên tài liệu mới.')
+    else:
+        messages.error(request, 'Có lỗi xảy ra khi upload file.')
+    
+    return redirect('classrooms:subject_detail', pk=pk, link_pk=link_pk)
+
+
+@teacher_required
+@require_POST
+def delete_material_view(request, pk, link_pk, material_id):
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom):
+        raise Http404("Bạn không có quyền xóa.")
+    
+    from .models import SubjectMaterials
+    material = get_object_or_404(SubjectMaterials, pk=material_id, classroom_subject__id=link_pk, classroom_subject__classroom=classroom)
+    material.delete()
+    messages.success(request, 'Đã xóa tài liệu.')
+    
+    return redirect('classrooms:subject_detail', pk=pk, link_pk=link_pk)
 
 
 @teacher_required
