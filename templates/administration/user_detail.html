@@ -38,7 +38,27 @@
     </div>
 </div>
 
-<section class="bg-white border border-primary-200 rounded-lg p-6">
+{% if role == 'student' %}
+<section class="bg-white border border-primary-200 rounded-lg p-6 mb-4">
+    <h3 class="font-bold text-lg mb-4">Lớp đang theo học</h3>
+    {% if enrolled_classes %}
+    <div class="divide-y divide-primary-200">
+        {% for member in enrolled_classes %}
+        <div class="py-3 flex justify-between items-center">
+            <div>
+                <p class="font-medium text-sm">{{ member.classroom.name }}</p>
+                <p class="text-xs text-neutral-500">Tham gia: {{ member.joined_at|date:"d/m/Y" }}</p>
+            </div>
+            <span class="text-xs font-bold uppercase">{{ member.status }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-neutral-500">Chưa tham gia lớp nào.</p>
+    {% endif %}
+</section>
+
+<section class="bg-white border border-primary-200 rounded-lg p-6 mb-4">
     <h3 class="font-bold text-lg mb-4">Bài nộp gần đây</h3>
     {% if submissions %}
     <div class="divide-y divide-primary-200">
@@ -56,6 +76,26 @@
     <p class="text-sm text-neutral-500">Chưa có bài nộp.</p>
     {% endif %}
 </section>
+{% elif role == 'teacher' or role == 'admin' %}
+<section class="bg-white border border-primary-200 rounded-lg p-6 mb-4">
+    <h3 class="font-bold text-lg mb-4">Các lớp đang giảng dạy</h3>
+    {% if teaching_classes %}
+    <div class="divide-y divide-primary-200">
+        {% for classroom in teaching_classes %}
+        <div class="py-3 flex justify-between items-center">
+            <div>
+                <p class="font-medium text-sm">{{ classroom.name }}</p>
+                <p class="text-xs text-neutral-500">Sĩ số: {{ classroom.max_students }} | Tạo: {{ classroom.created_at|date:"d/m/Y" }}</p>
+            </div>
+            <span class="text-xs font-bold uppercase">{{ classroom.status }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-neutral-500">Chưa có lớp nào.</p>
+    {% endif %}
+</section>
+{% endif %}
 
 <section class="bg-white border border-primary-200 rounded-lg p-6">
     <h3 class="font-bold text-lg mb-4">Lịch sử hoạt động</h3>

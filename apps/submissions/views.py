@@ -827,6 +827,8 @@ def _build_ide_context(request, assignment, classroom, is_teacher=False, exam_se
         and selected_lang == exam_session.current_language
     ):
         initial_code = exam_session.latest_draft
+    elif assignment.starter_codes and selected_lang in assignment.starter_codes and assignment.starter_codes[selected_lang]:
+        initial_code = assignment.starter_codes[selected_lang]
     elif selected_language and selected_language.default_template:
         initial_code = selected_language.default_template
 
@@ -936,6 +938,8 @@ def solve_problem_view(request, assignment_pk):
     initial_code = ''
     if draft:
         initial_code = draft.code_content or ''
+    elif assignment.starter_codes and selected_lang in assignment.starter_codes and assignment.starter_codes[selected_lang]:
+        initial_code = assignment.starter_codes[selected_lang]
     elif default_lang and default_lang.default_template:
         initial_code = default_lang.default_template
 
@@ -3271,6 +3275,11 @@ from django.db.models import Max
 @login_required
 def my_grades_view(request):
     user = request.user
+    role = getattr(user, 'profiles', None).role if getattr(user, 'profiles', None) else 'student'
+    if role != 'student':
+        from django.contrib import messages
+        messages.warning(request, "Chức năng này chỉ dành cho tài khoản sinh viên.")
+        return redirect('classrooms:classroom_list')
     
     # 1. Get Classrooms
     classrooms = Classrooms.objects.filter(classroommembers__student=user, classroommembers__status='approved', status='approved').prefetch_related(
@@ -3298,6 +3307,8 @@ def my_grades_view(request):
             }
             
             for assignment in cs.assignments.all():
+                if not assignment.is_published:
+                    continue
                 # Get max score
                 score = None
                 status = None
@@ -3318,11 +3329,13 @@ def my_grades_view(request):
                         
                         status_map = {
                             'pending': 'Đang chờ',
-                            'running': 'Đang chạy',
+                            'running': 'Đang chấm',
                             'graded': 'Đã chấm',
-                            'error': 'Lỗi'
+                            'finished': 'Hoàn thành',
+                            'error': 'Lỗi hệ thống',
+                            'failed': 'Thất bại'
                         }
-                        status = status_map.get(best_sub.status, best_sub.status.capitalize())
+                        status = status_map.get(best_sub.status, best_sub.status.title())
                         submission = best_sub
                         
                 subj_info['assignments'].append({

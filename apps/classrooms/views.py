@@ -157,7 +157,7 @@ def _build_gradebook_data(classroom, request):
 
     cs_filter = request.GET.get('cs', '').strip()
     sem_filter = request.GET.get('semester', '').strip()
-    published_filter = request.GET.get('published', 'all').strip()
+    type_filter = request.GET.get('assignment_type', 'all').strip()
     status_filter = request.GET.get('status', 'all').strip()
     asg_filter = request.GET.get('assignment', '').strip()
 
@@ -173,11 +173,12 @@ def _build_gradebook_data(classroom, request):
     
     assignments = all_assignments_qs.select_related(
         'classroom_subject', 'classroom_subject__subject', 'classroom_subject__semester'
-    )
-    if published_filter == 'published':
-        assignments = assignments.filter(is_published=True)
-    elif published_filter == 'draft':
-        assignments = assignments.filter(is_published=False)
+    ).filter(is_published=True)
+        
+    if type_filter == 'exam':
+        assignments = assignments.filter(is_exam=True)
+    elif type_filter == 'assignment':
+        assignments = assignments.filter(is_exam=False)
 
     if cs_filter == 'none':
         assignments = assignments.filter(classroom_subject__isnull=True)
@@ -376,9 +377,9 @@ def _build_gradebook_data(classroom, request):
         'cs_filter': cs_filter,
         'sem_filter': sem_filter,
         'asg_filter': asg_filter,
-        'published_filter': published_filter,
+        'type_filter': type_filter,
         'status_filter': status_filter,
-        'all_assignments_filter_qs': all_assignments_qs,
+        'all_assignments_filter_qs': all_assignments_qs.filter(is_published=True),
         'members_count': len(rows),
         'assignments_count': len(assignments),
         'submitted_cells': submitted_cells,
@@ -883,9 +884,11 @@ def _read_member_import_rows(uploaded_file):
     rows = []
     for index, raw_row in enumerate(reader, start=2):
         username_key = normalized_fields.get('username')
+        password_key = normalized_fields.get('password') or normalized_fields.get('mat_khau')
         email_key = normalized_fields.get('email')
         full_name_key = normalized_fields.get('full_name') or normalized_fields.get('name') or normalized_fields.get('ho_ten')
         username = (raw_row.get(username_key) or '').strip() if username_key else ''
+        password = (raw_row.get(password_key) or '').strip() if password_key else ''
         email = (raw_row.get(email_key) or '').strip().lower() if email_key else ''
         full_name = (raw_row.get(full_name_key) or '').strip() if full_name_key else ''
         if not username and not email and not full_name:
@@ -893,6 +896,7 @@ def _read_member_import_rows(uploaded_file):
         rows.append({
             'line': index,
             'username': username,
+            'password': password,
             'email': email,
             'full_name': full_name,
         })
@@ -950,7 +954,14 @@ def _build_member_import_results(classroom, rows):
 
         user = username_user or email_user
         if not user:
-            results.append({**row, 'status': 'missing', 'message': 'Không tìm thấy user có sẵn.'})
+            if not row['username'] or not row['password']:
+                results.append({**row, 'status': 'invalid', 'message': 'User chưa tồn tại cần có username và password để tạo mới.'})
+                continue
+            if row['username'].lower() in seen_users:
+                results.append({**row, 'status': 'duplicate', 'message': 'Trùng username trong file CSV.'})
+                continue
+            results.append({**row, 'status': 'create', 'message': 'Sẽ tạo tài khoản và thêm vào lớp.'})
+            seen_users.add(row['username'].lower())
             continue
         if user.pk == classroom.teacher_id:
             results.append({**row, 'status': 'invalid', 'message': 'User này là giáo viên của lớp.'})
@@ -972,7 +983,7 @@ def _build_member_import_results(classroom, rows):
                 message = f'Sẽ chuyển trạng thái từ {member.status or "trống"} sang approved.'
             results.append({**row, 'user': user, 'member': member, 'status': status, 'message': message})
         else:
-            results.append({**row, 'user': user, 'status': 'add', 'message': 'Sẽ thêm vào lớp.'})
+            results.append({**row, 'user': user, 'status': 'add', 'message': 'Đã có tài khoản, sẽ chỉ thêm vào lớp.'})
         seen_users.add(user.pk)
 
     return results
@@ -989,7 +1000,7 @@ def _summarize_member_import(results):
     }
     for result in results:
         status = result.get('status')
-        if status in ('add', 'reactivate', 'added'):
+        if status in ('add', 'reactivate', 'added', 'create', 'created'):
             summary['added'] += 1
         elif status in summary:
             summary[status] += 1
@@ -1002,7 +1013,27 @@ def _apply_member_import(classroom, results):
     added_user_ids = []
     with transaction.atomic():
         for result in results:
-            if result['status'] == 'add':
+            if result['status'] == 'create':
+                from apps.accounts.models import Profiles
+                user = User.objects.create_user(
+                    username=result['username'],
+                    email=result['email'],
+                    password=result['password'],
+                    first_name=result['full_name']
+                )
+                Profiles.objects.create(id=user, role='student')
+                
+                member = ClassroomMembers.objects.create(
+                    classroom=classroom,
+                    student=user,
+                    status='approved',
+                )
+                result['user'] = user
+                result['member'] = member
+                result['status'] = 'created'
+                result['message'] = 'Đã tạo tài khoản và thêm vào lớp.'
+                added_user_ids.append(user.pk)
+            elif result['status'] == 'add':
                 member = ClassroomMembers.objects.create(
                     classroom=classroom,
                     student=result['user'],
@@ -1010,7 +1041,7 @@ def _apply_member_import(classroom, results):
                 )
                 result['member'] = member
                 result['status'] = 'added'
-                result['message'] = 'Đã thêm vào lớp.'
+                result['message'] = 'Đã có tài khoản, chỉ thêm vào lớp.'
                 added_user_ids.append(result['user'].pk)
             elif result['status'] == 'reactivate':
                 member = result['member']
@@ -1048,9 +1079,9 @@ def import_members_view(request, pk):
         response['Content-Disposition'] = 'attachment; filename="class_members_template.csv"'
         response.write('\ufeff')
         writer = csv.writer(response)
-        writer.writerow(['username', 'email', 'full_name'])
-        writer.writerow(['student01', 'student01@example.com', 'Nguyen Van A'])
-        writer.writerow(['student02', 'student02@example.com', 'Tran Thi B'])
+        writer.writerow(['username', 'password', 'email', 'full_name'])
+        writer.writerow(['student01', '123456', 'student01@example.com', 'Nguyen Van A'])
+        writer.writerow(['student02', '123456', 'student02@example.com', 'Tran Thi B'])
         return response
 
     results = []
@@ -1195,6 +1226,9 @@ def join_classroom_view(request):
                         messages.info(request, 'Bạn đã là thành viên của lớp này.')
                     elif member.status == 'pending':
                         messages.info(request, 'Đơn tham gia của bạn đang chờ phê duyệt.')
+                    elif member.status == 'blocked':
+                        messages.error(request, 'Bạn đã bị cấm tham gia lớp học này.')
+                        return redirect('classrooms:classroom_list')
                     else:
                         member.status = target_status
                         member.save(update_fields=['status'])
@@ -1256,6 +1290,9 @@ def quick_join_classroom_view(request, pk):
             messages.info(request, 'Bạn đã là thành viên của lớp này.')
         elif member.status == 'pending':
             messages.info(request, 'Đơn tham gia đang chờ phê duyệt.')
+        elif member.status == 'blocked':
+            messages.error(request, 'Bạn đã bị cấm tham gia lớp học này.')
+            return redirect('classrooms:classroom_list')
         else:
             member.status = target_status
             member.save(update_fields=['status'])
@@ -1269,7 +1306,7 @@ def leave_classroom_view(request, pk):
     classroom = get_object_or_404(Classrooms, pk=pk)
     deleted, _ = ClassroomMembers.objects.filter(
         classroom=classroom, student=request.user
-    ).delete()
+    ).exclude(status='blocked').delete()
     if deleted:
         messages.success(request, f'Bạn đã rời khỏi lớp "{classroom.name}".')
     else:
@@ -1311,8 +1348,9 @@ def remove_member_view(request, pk, member_id):
 
     member = get_object_or_404(ClassroomMembers, pk=member_id, classroom=classroom)
     name = member.student.get_full_name() or member.student.username
-    member.delete()
-    messages.success(request, f'Đã xóa {name} khỏi lớp.')
+    member.status = 'blocked'
+    member.save(update_fields=['status'])
+    messages.success(request, f'Đã chặn {name} khỏi lớp. Học sinh này sẽ không thể tham gia lại.')
     return redirect('classrooms:classroom_detail', pk=pk)
 
 

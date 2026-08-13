@@ -1612,6 +1612,23 @@ def create_assignment_view(request, classroom_pk):
                 selected_langs if assignment.submission_mode == Assignments.SUBMISSION_CODE and selected_langs else None
             )
 
+            # Build starter_codes and solution_codes dictionaries
+            if assignment.submission_mode == Assignments.SUBMISSION_CODE and assignment.allowed_languages:
+                starter_codes = {}
+                solution_codes = {}
+                for lang in assignment.allowed_languages:
+                    starter_codes[lang] = request.POST.get(f'starter_code_{lang}', '')
+                    solution_codes[lang] = request.POST.get(f'solution_code_{lang}', '')
+                assignment.starter_codes = starter_codes
+                assignment.solution_codes = solution_codes
+                # For backwards compatibility, save the first lang as the main code
+                first_lang = assignment.allowed_languages[0]
+                assignment.starter_code = starter_codes.get(first_lang, '')
+                assignment.solution_code = solution_codes.get(first_lang, '')
+            else:
+                assignment.starter_codes = {}
+                assignment.solution_codes = {}
+
             # Validate: nếu có chọn classroom_subject thì phải thuộc lớp này
             cs = form.cleaned_data.get('classroom_subject')
             if cs and cs.classroom_id != classroom.pk:
@@ -1763,6 +1780,8 @@ def create_assignment_view(request, classroom_pk):
         'languages': languages,
         'selected_languages': request.POST.getlist('allowed_languages') if request.method == 'POST' else [],
         'subject_lang_json': json.dumps(subject_lang_map),
+        'starter_codes_json': '{}',
+        'solution_codes_json': '{}',
     }
     return render(request, 'assignments/create.html', context)
 
@@ -1785,6 +1804,22 @@ def edit_assignment_view(request, pk):
             assignment.allowed_languages = (
                 selected_langs if assignment.submission_mode == Assignments.SUBMISSION_CODE and selected_langs else None
             )
+
+            if assignment.submission_mode == Assignments.SUBMISSION_CODE and assignment.allowed_languages:
+                starter_codes = {}
+                solution_codes = {}
+                for lang in assignment.allowed_languages:
+                    starter_codes[lang] = request.POST.get(f'starter_code_{lang}', '')
+                    solution_codes[lang] = request.POST.get(f'solution_code_{lang}', '')
+                assignment.starter_codes = starter_codes
+                assignment.solution_codes = solution_codes
+                # For backwards compatibility, save the first lang as the main code
+                first_lang = assignment.allowed_languages[0]
+                assignment.starter_code = starter_codes.get(first_lang, '')
+                assignment.solution_code = solution_codes.get(first_lang, '')
+            else:
+                assignment.starter_codes = {}
+                assignment.solution_codes = {}
 
             cs = form.cleaned_data.get('classroom_subject')
             if cs and cs.classroom_id != classroom.pk:
@@ -1918,6 +1953,8 @@ def edit_assignment_view(request, pk):
         'existing_testcases_json': json.dumps(existing_tcs_list),
         'subject_lang_json': json.dumps(subject_lang_map),
         'has_submissions': has_submissions,
+        'starter_codes_json': json.dumps(assignment.starter_codes or {}),
+        'solution_codes_json': json.dumps(assignment.solution_codes or {}),
     }
     return render(request, 'assignments/edit.html', context)
 
@@ -2310,6 +2347,8 @@ def statistics_view(request, pk):
         'avg_score': round(sum(all_scores) / len(all_scores), 1) if all_scores else 0,
         'pass_rate': pass_rate,
         'avg_attempts': round(submissions_qs.count() / len(student_final_list), 1) if student_final_list else 0,
+        'max_score': max(all_scores) if all_scores else 0,
+        'min_score': min(all_scores) if all_scores else 0,
     }
 
     # 4. Buckets
@@ -2323,6 +2362,10 @@ def statistics_view(request, pk):
     top_students = ranked[:5]
     weak_students = [ranked[i] for i in range(len(ranked)-1, max(-1, len(ranked)-6), -1)]
 
+    avg_exec = submissions_qs.filter(execution_time__isnull=False).aggregate(avg=Avg('execution_time'))['avg']
+    avg_exec_time = round(avg_exec, 1) if avg_exec else 0
+    late_count = submissions_qs.filter(is_late=True).values('student').distinct().count()
+
     context = {
         'assignment': assignment, 'classroom': classroom, 'statistics': statistics,
         'testcases': testcases, 'top_students': top_students, 'weak_students': weak_students,
@@ -2331,6 +2374,8 @@ def statistics_view(request, pk):
         'score_distribution_json': json.dumps({'labels': ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%'], 'data': buckets}),
         'error_distribution_json': json.dumps({'labels': [], 'data': []}),
         'submissions': submissions_qs.select_related('student').order_by('-submitted_at')[:50],
+        'avg_exec_time': avg_exec_time,
+        'late_count': late_count,
     }
     
     if assignment.submission_mode == Assignments.SUBMISSION_CODE:
@@ -3094,9 +3139,9 @@ def export_assignment_submissions_view(request, pk):
             timezone.localtime(deadline).strftime('%d/%m/%Y %H:%M:%S') if deadline else '',
             'Có' if is_late else 'Không',
             late_minutes,
-            f'{submission.penalty_applied:.1f}',
-            f'{submission_final_score(submission):.2f}',
-            f'{submission.max_score:.2f}',
+            f'{submission.penalty_applied:.1f}' if submission.penalty_applied is not None else '',
+            f'{submission_final_score(submission):.2f}' if submission_final_score(submission) is not None else '',
+            f'{submission.max_score:.2f}' if submission.max_score is not None else '',
             submission.passed_testcases,
             submission.total_testcases,
             submission.execution_time or '',

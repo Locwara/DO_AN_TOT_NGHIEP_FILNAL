@@ -1,0 +1,22 @@
+﻿Thông số,Giá trị
+Ngôn ngữ,python
+Số lượng worker,10
+Tổng số bài nộp,10
+Tổng thời gian xử lý (giây),2.93
+Số bài nộp thành công,10
+Tỷ lệ thành công (%),100.0%
+Thời gian phản hồi TB (giây),2.82
+Thời gian phản hồi lớn nhất (giây),2.92
+Thời gian phản hồi nhỏ nhất (giây),2.70
+
+Worker ID,Trạng thái,Thời gian phản hồi (s),Thời gian Sandbox (s),Bộ nhớ (MB)
+7,Success,2.70,1.14,7.18
+1,Success,2.70,1.27,7.42
+0,Success,2.76,1.25,7.15
+6,Success,2.77,1.35,6.76
+8,Success,2.80,1.38,6.81
+4,Success,2.87,1.41,7.18
+3,Success,2.87,1.45,6.86
+5,Success,2.88,1.48,6.89
+9,Success,2.91,1.49,6.64
+2,Success,2.92,1.41,6.97

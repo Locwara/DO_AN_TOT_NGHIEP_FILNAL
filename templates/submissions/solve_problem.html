@@ -455,12 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     window.editor = editor;
 
-    if (!editor.getValue().trim()) {
-        const starterCode = `{{ assignment.starter_code|safe|default:'' }}`;
-        if (starterCode.trim()) {
-            editor.setValue(starterCode);
-        }
-    }
+    // initial_code is already loaded from the backend into the textarea
 
     editor.on('cursorActivity', function() {
         const pos = editor.getCursor();

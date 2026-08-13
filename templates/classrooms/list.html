@@ -2,7 +2,7 @@
 {% block title %}Lớp học - DevLearn{% endblock %}
 
 {% block content %}
-{% if role == 'teacher' %}
+{% if role == 'teacher' or role == 'admin' %}
     {% url 'classrooms:create' as classroom_action_url %}
     {% include "includes/page_header.html" with eyebrow="Classrooms" title="Lớp học của tôi" subtitle="Quản lý các lớp học bạn đang giảng dạy" breadcrumbs=breadcrumbs action_url=classroom_action_url action_label="Tạo lớp mới" action_icon="add_circle" %}
 {% else %}
@@ -28,8 +28,8 @@
         <section class="classroom-index-section">
             <div class="classroom-index-head">
                 <div>
-                    <p class="section-eyebrow">{% if role == 'teacher' %}Teaching{% else %}Enrolled{% endif %}</p>
-                    <h2>{% if role == 'teacher' %}Lớp tôi đang giảng dạy{% else %}Lớp đang tham gia{% endif %}</h2>
+                    <p class="section-eyebrow">{% if role == 'teacher' or role == 'admin' %}Teaching{% else %}Enrolled{% endif %}</p>
+                    <h2>{% if role == 'teacher' or role == 'admin' %}Lớp tôi đang giảng dạy{% else %}Lớp đang tham gia{% endif %}</h2>
                 </div>
                 <span class="count-pill">{{ classrooms|length }} lớp</span>
             </div>
@@ -41,7 +41,7 @@
                     <span class="course-accent"></span>
                     <span class="course-card-body">
                         <span class="course-card-topline">
-                            {% if role == 'teacher' %}
+                            {% if role == 'teacher' or role == 'admin' %}
                                 {% if classroom.status == 'pending' %}
                                 <span class="status-chip warning">Chờ duyệt</span>
                                 {% else %}
@@ -64,7 +64,7 @@
                                 {{ classroom.get_semester_term_display|default:"Học kỳ chung" }}
                             </span>
                         </span>
-                        {% if role == 'teacher' %}
+                        {% if role == 'teacher' or role == 'admin' %}
                         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                             <object><a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-primary transition-colors">
                                 <span class="material-symbols-outlined text-[16px]">settings</span> Quản lý
@@ -84,13 +84,13 @@
             {% else %}
             <div class="classroom-empty wide">
                 <span class="material-symbols-outlined">school</span>
-                <h3>{% if role == 'teacher' %}Bạn chưa tạo lớp nào{% else %}Bạn chưa tham gia lớp nào{% endif %}</h3>
-                <p>{% if role == 'teacher' %}Tạo lớp đầu tiên để bắt đầu giảng dạy.{% else %}Khám phá lớp học bên dưới hoặc nhập mã mời để bắt đầu.{% endif %}</p>
+                <h3>{% if role == 'teacher' or role == 'admin' %}Bạn chưa tạo lớp nào{% else %}Bạn chưa tham gia lớp nào{% endif %}</h3>
+                <p>{% if role == 'teacher' or role == 'admin' %}Tạo lớp đầu tiên để bắt đầu giảng dạy.{% else %}Khám phá lớp học bên dưới hoặc nhập mã mời để bắt đầu.{% endif %}</p>
             </div>
             {% endif %}
         </section>
 
-        {% if role != 'teacher' %}
+        {% if role == 'student' %}
         <section class="classroom-index-section">
             <div class="classroom-index-head">
                 <div>

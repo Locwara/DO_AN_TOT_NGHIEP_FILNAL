@@ -1,0 +1,77 @@
+Từ khóa: 'hoàn toàn'
+Câu văn: "Tôi hoàn toàn dựa trên những kiến thức đã được học, những tài liệu mà giảng viên cung cấp và bên cạnh đó là những kiến thức mà tôi đã tích góp được trong suốt những năm đại học, những kinh nghiệm mà bản thân tôi đã tích lũy và xây dựng trong suốt một quá trình dài."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Tôi hoàn toàn không sao chép của bất kỳ một cá nhân nào.Các số liệu, kết quả và nội dung trình bày trong đồ án là trung thực, được thu thập và phân tích từ các nguồn đáng tin cậy, đều được trích dẫn rõ ràng."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Những phần có sử dụng tài liệu tham khảo trong đồ án đều được liệt kê rõ ở phần tài liệu tham khảo.Tôi xin chịu hoàn toàn trách nhiệm trước pháp luật và quy định của trường về tính trung thực của đồ án này.Cần Thơ, ngày...tháng..."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "năm 2026hoàn chỉnh, hoạt động ổn định và hoàn toàn có khả năng triển khai ứng dụng vào các trường học hoặc trung tâm đào tạo thực tế.NHẬN XÉT CỦA GIẢNG VIÊN HƯỚNG DẪNNHẬN XÉT CỦA GIẢNG VIÊN PHẢN BIỆNNHẬN XÉT CỦA HỘI ĐỒNG ĐÁNH GIÁ ĐỒ ÁN TỐT NGHIỆP ĐẠI HỌCLỜI CAM ĐOANLỜI CẢM ƠNTÓM TẮTMỤC LỤCDANH MỤC HÌNH ẢNHDANH MỤC BẢNGLỜI MỞ ĐẦUCHƯƠNG 1: TỔNG QUAN LÝ THUYẾT CƠ SỞ NGHIÊN CỨU1.7.2 Nền tảng ảo hóa Docker1.7.4 Thuật toán nhận diện vân tay mã nguồn Winnowing1.7.5 Ngôn ngữ lập trình Python1.7.6 Các công nghệ Front-end (HTML, CSS, JavaScript, Bootstrap)1.7.7 Nền tảng Cơ sở dữ liệu đám mây Supabase1.7.8 Dịch vụ lưu trữ và quản lý tài nguyên Cloudinary1.7.9 Kỹ thuật xử lý bất đồng bộ AJAX (Asynchronous JavaScript and XML)CHƯƠNG 2: PHƯƠNG PHÁP NGHIÊN CỨU2.1."
+
+Từ khóa: 'cực kỳ'
+Câu văn: "Theo triết lý thiết kế tập trung vào tính dễ đọc, Python hỗ trợ linh hoạt cho cả lập trình hướng đối tượng, lập trình hàm và xử lý dữ liệu [5].Lý do lựa chọn: Python sở hữu hệ sinh thái cực kỳ mạnh mẽ để tương tác trực tiếp với hệ điều hành thông qua các thư viện subprocess để gọi lệnh Docker từ Backend và thao tác chuỗi hiệu năng cao để băm dữ liệu cho thuật toán Winnowing."
+
+Từ khóa: 'tuyệt đối'
+Câu văn: "Cụ thể, dù máy chủ nội bộ xử lý tính toán có gặp sự cố vật lý, toàn bộ dữ liệu về điểm thi và thông tin của sinh viên vẫn được bảo toàn an toàn tuyệt đối trên Cloud.Cloudinary là một dịch vụ quản lý tài nguyên số đa phương tiện trên nền tảng đám mây."
+
+Từ khóa: 'hoàn hảo'
+Câu văn: "AJAX thông qua Fetch API mang lại sự cân bằng hoàn hảo giữa hiệu năng và tính đơn giản [17].Ứng dụng: AJAX được áp dụng mạnh mẽ vào tính năng cốt lõi nhất của đồ án: Nộp và chấm điểm mã nguồn."
+
+Từ khóa: 'cực kỳ'
+Câu văn: "Điều này mang lại trải nghiệm thao tác cực kỳ mượt mà cho người sử dụng.: Quản lý toàn bộ thông tin tài khoản, xét duyệt quyền Giảng viên, theo dõi lịch sử hoạt động hệ thống và cấu hình giới hạn biên dịch : Cung cấp công cụ tổ chức lớp học, import danh sách sinh viên hàng loạt từ file Excel/CSV, quản lý các học kỳ, gán môn học vào lớp, quản lý thông báo, và thống kê sổ điểm.: Hỗ trợ đa dạng thể loại ra đề Lập trình, Trắc nghiệm, Nộp file."
+
+Từ khóa: 'tốt nhất'
+Câu văn: "Riêng giao diện làm bài được thiết kế ưu tiên hiển thị trên màn hình máy tính để đảm bảo không gian thao tác viết code tốt nhất.: Giao diện trực quan, tối giản."
+
+Từ khóa: 'tốt nhất'
+Câu văn: "Nhằm đáp ứng đa dạng các phương pháp kiểm tra đánh giá, hệ thống hiện tại hỗ trợ ba hình thức làm bài chính: thực hành viết mã nguồn, làm bài trắc nghiệm và nộp tệp tin.Tương ứng với mỗi hình thức, hệ thống cung cấp một không gian làm bài chuyên biệt, được thiết kế tối ưu với các công cụ tự động hóa để mang lại trải nghiệm tốt nhất."
+
+Từ khóa: 'tuyệt đối'
+Câu văn: "Ngay sau khi nộp, hệ thống sẽ tự động đối chiếu với bộ đáp án gốc của giảng viên và tính toán điểm số một cách tức thì và chính xác tuyệt đối.Ngay sau khi nộp bài trắc nghiệm thành công, hệ thống sẽ tự động xử lý và chuyển hướng sinh viên đến trang Kết quả chi tiết (Hình 3.9Bằng cách ứng dụng mã màu trực quan tô xanh đáp án đúng, bôi đỏ đáp án sai, sinh viên có thể nhanh chóng nhận biết các lỗi sai của mình."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Tuy nhiên, trong các kỳ thi kiểm tra nghiêm ngặt, giảng viên hoàn toàn có quyền vô hiệu hóa tính năng xem lại đáp án để ngăn ngừa rò rỉ đề thi và chống gian lận."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Cơ chế phản hồi linh hoạt này không chỉ đảm bảo tính bảo mật học thuật mà còn nâng cao hiệu quả tự học của sinh viên.- Đối với các dạng bài tập yêu cầu sinh viên phải nộp báo cáo, bản thiết kế hoặc mã nguồn nén, hệ thống cung cấp một giao diện nộp tệp tin chuyên nghiệp và tối ưu hóa trải nghiệm (Hình 3.10- Bên cạnh đó, thông qua thanh điều hướng linh hoạt, sinh viên hoàn toàn có thể truy cập vào mục Lịch sử nộp bài để quản lý, đối chiếu lại các tệp tin đã từng nộp trong quá khứ hoặc tải bản gốc về thiết bị nếu cần thiết."
+
+Từ khóa: 'không thể'
+Câu văn: "Việc cách ly tối đa các yếu tố can thiệp từ bên ngoài không chỉ nhằm triệt tiêu các hành vi gian lận, bảo vệ tính công bằng, minh bạch của kết quả thi mà còn bắt buộc sinh viên phải phát huy tối đa năng lực tư duy độc lập trong điều kiện áp lực thời gian.- Đối với các bài kiểm tra được giảng viên kích hoạt chế độ thi, sinh viên không thể truy cập trực tiếp vào không gian làm bài mà bắt buộc phải đi qua một phòng chờ bảo mật (Exam Lobby - Hình 3.11- Điểm khác biệt cốt lõi của chế độ thi so với bài tập thông thường nằm ở các ràng buộc kỹ thuật khắt khe nhằm đảm bảo sự công bằng tối đa."
+
+Từ khóa: 'duy nhất'
+Câu văn: "Thứ nhất, đối với mọi hình thức thi, mỗi sinh viên chỉ được cấp duy nhất một (1) lượt làm bài; ngay sau khi xác nhận nộp, hệ thống sẽ lập tức khóa vĩnh viễn quyền chỉnh sửa."
+
+Từ khóa: 'không thể'
+Câu văn: "Hơn thế nữa, trình soạn thảo Web IDE - Đánh giá và theo dõi kết quả học tập là một mắt xích không thể thiếu trong quá trình đào tạo."
+
+Từ khóa: 'duy nhất'
+Câu văn: "Hệ thống sẽ tự động lọc và chỉ hiển thị duy nhất các lớp học do chính giảng viên đó khởi tạo hoặc đang trực tiếp phụ trách giảng dạy."
+
+Từ khóa: 'không thể'
+Câu văn: "Với những Test Case bị ẩn, học sinh sẽ chỉ biết được chương trình của mình báo lỗi chứ không thể xem được dữ liệu đầu vào cụ thể."
+
+Từ khóa: 'tuyệt đối'
+Câu văn: "Cơ chế này ép buộc sinh viên phải viết mã nguồn linh hoạt, xử lý triệt để thuật toán thay vì chỉ giải quyết các bài toán bề nổi.- Trong quá trình vận hành thực tế, để đảm bảo tính nhất quán về mặt dữ liệu và duy trì sự công bằng tuyệt đối cho người học, hệ thống đã thiết lập một cơ chế khóa ràng 9- Nhằm hỗ trợ giảng viên theo dõi sát sao, đánh giá khách quan và đưa ra các quyết định điều chỉnh phương pháp giảng dạy kịp thời, hệ thống cung cấp một phân hệ Sổ điểm toàn diện.- Phân hệ này không chỉ đóng vai trò lưu trữ kết quả học tập mà còn hoạt động như một bảng điều khiển phân tích dữ liệu chuyên sâu."
+
+Từ khóa: 'tuyệt đối'
+Câu văn: "Thay vì sử dụng các dịch vụ cho thuê máy chủ ảo với cấu hình phần cứng bị giới hạn và chia sẻ, hệ thống trong đồ án này được triển khai theo mô hình On-Premise Deployment Tự lưu trữ - Self-Hosted ngay trên máy chủ cục bộ.Mô hình này giúp ứng dụng tận dụng tối đa sức mạnh phần cứng chuyên dụng, đảm bảo tính bảo mật dữ liệu tuyệt đối và làm chủ hoàn toàn môi trường ảo hóa Docker mà không phụ thuộc vào nền tảng của bên thứ ba như Railway hay Heroku."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "POST Nộp Code (Sandbox)10000.000%3.69 giây~63.3 Req/sTỔNG CỘNG30000.000%3.85 giây~189.1 Req/sNhận xét và Phân tích:Trước tiên, xét trên tổng thể, kết quả 0.000% lỗi trên cả 3000 requests cho thấy tầng Web Server và hạ tầng mạng của hệ thống hoàn toàn đủ khả năng tiếp nhận và xử lý đồng thời lượng truy cập lớn 1000 người dùng mà không xảy ra hiện tượng nghẽn cổ chai hay từ chối kết nối."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "POST Nộp Code" cho thấy những điểm đáng chú ý sau:Không có lỗi hay sự cố nào ở tầng Sandbox:Thời gian phản hồi ổn định, không tăng đột biến:Thông lượng xử lý bài nộp thực tế đạt ~63.3 Req/s:Tóm lại, kết quả thực nghiệm không chỉ khẳng định sự ổn định chung của toàn hệ thống mà quan trọng hơn, đã chứng minh được năng lực chịu tải thực sự của phân hệ Sandbox — thành phần cốt lõi và cũng là điểm nghẽn tiềm ẩn lớn nhất — hoàn toàn đủ khả năng đáp ứng khối lượng bài nộp lớn trong điều kiện tải cao đồng thời.3.2.2.2."
+
+Từ khóa: 'cực kỳ'
+Câu văn: "Kiểm thử sức chịu đựng giới hạn của lõi Sandbox Bên cạnh việc kiểm thử toàn trình bằng JMeter, nghiên cứu tiến hành một kịch bản kiểm thử khắc nghiệt hơn: Tấn công trực tiếp vào lõi Sandbox .Phương pháp đo lườngSử dụng một kịch bản Python nội bộ file Kết quả ở ngưỡng tải an toànKhi thiết lập 100 luồng gọi thẳng vào Docker cùng lúc, hệ thống Sandbox xử lý cực kỳ mượt mà."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Kết quả Stress Test trực tiếp lõi Sandbox với 100 Worker đồng thờiThông sốGiá trịNgôn ngữpythonSố lượng worker100Tổng số bài nộp100Tổng thời gian xử lý (giây)10.93Số bài nộp thành công100Tỷ lệ thành công (%)100.0%Thời gian phản hồi TB (giây)8.68Thời gian phản hồi lớn nhất (giây)10.18Thời gian phản hồi nhỏ nhất (giây)3.69Kết quả này khẳng định kiến trúc Sandbox dựa trên Native Docker Kernel có tốc độ khởi động container cực nhanh, hoàn toàn không gặp khó khăn ở mức tải hàng trăm request: toàn bộ 100/100 bài nộp được xử lý thành công 100.0% trong tổng thời gian 10.93 giây, với thời gian phản hồi trung bình chỉ 8.68 giây/bài — dao động trong khoảng hẹp từ 3.69 giây đến 10.18 giây, cho thấy hệ thống xử lý ổn định, không có bài nộp nào bị trễ bất thường.3."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Thay vì dùng vòng lặp chia thử, sinh viên này áp dụng một thuật toán hoàn toàn khác là "Sàng Eratosthenes"kết hợp danh sách mảng.4Sinh viên 5 cũng tự làm bài độc lập nhưng thể hiện kỹ năng lập trình Python nâng cao."
+
+Từ khóa: 'hoàn toàn'
+Câu văn: "Người này tách logic kiểm tra số nguyên tố ra một hàm con riêng Thông sốGiá trịTrue Positive (Đúng - Có đạo văn)3False Positive (Sai - Báo nhầm)0False Negative (Sai - Bỏ sót)0True Negative (Đúng - Không đạo văn)7Precision (Độ chính xác)100.0%Recall (Độ bao phủ)100.0%F1-Score100.0%SVASVBĐộ tương đồng (%)Máy báo đạo vănThực tếSV1 (Bài gốc)SV3 (Đạo văn - Đổi for thành while)100.0%CóCóSV1 (Bài gốc)SV2 (Đạo văn - Đổi tên biến)96.1%CóCóSV2 (Đạo văn - Đổi tên biến)SV3 (Đạo văn - Đổi for thành while)92.5%CóCóSV1 (Bài gốc)SV4 (Tự làm - Thuật toán Sàng nguyên tố)56.7%KhôngKhôngSV3 (Đạo văn - Đổi for thành SV4 (Tự làm - Thuật toán Sàng 56.7%KhôngKhôngSV2 (Đạo văn - Đổi tên biến)SV4 (Tự làm - Thuật toán Sàng nguyên tố)55.5%KhôngKhôngSV1 (Bài gốc)SV5 (Tự làm - Dùng filter)46.9%KhôngKhôngSV3 (Đạo văn - Đổi for thành while)SV5 (Tự làm - Dùng filter)46.9%KhôngKhôngSV2 (Đạo văn - Đổi tên biến)SV5 (Tự làm - Dùng filter)45.9%KhôngKhôngSV4 (Tự làm - Thuật toán Sàng nguyên tố)SV5 (Tự làm - Dùng filter)39.6%KhôngKhôngDựa vào các số liệu thực nghiệm, thuật toán phát hiện đạo văn của hệ thống thể hiện sự ưu việt nhờ các đặc điểm sau:+ Khả năng chống nhiễu: Hành vi xáo trộn mã nguồn của Sinh viên 2 thông qua việc cố tình đổi tên biến và chèn thêm bình luận đã bị vô hiệu hóa hoàn toàn ở bước tiền xử lý."

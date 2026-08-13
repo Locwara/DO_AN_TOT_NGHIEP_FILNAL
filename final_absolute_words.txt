@@ -1,0 +1,5 @@
+- Từ khóa: 'hoàn hảo'
+  Câu văn: "AJAX thông qua Fetch API mang lại sự cân bằng hoàn hảo giữa hiệu năng và tính đơn giản [17].Ứng dụng: AJAX được áp dụng mạnh mẽ vào tính năng cốt lõi nhất của đồ án: Nộp và chấm điểm mã nguồn."
+
+- Từ khóa: 'vô tận'
+  Câu văn: "Thông qua việc phân + 235Khi sinh viên viết mã nguồn chứa vòng lặp vô tận, hệ thống Sandbox sẽ thiết lập một bộ đếm thời gian ở mức 5 giây."

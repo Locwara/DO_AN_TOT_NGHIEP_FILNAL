@@ -149,6 +149,11 @@
                         {% if not assignment.is_published %}
                         <span class="text-xs font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded">Nháp</span>
                         {% endif %}
+                        {% if assignment.is_exam %}
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 text-red-600 bg-red-50 uppercase tracking-wider">Bài thi</span>
+                        {% else %}
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 text-blue-600 bg-blue-50 uppercase tracking-wider">Bài tập</span>
+                        {% endif %}
                         {% if assignment.classroom_subject %}
                         <span class="text-[10px] font-bold px-2 py-0.5 bg-primary/10 text-primary rounded flex items-center gap-1">
                             <span class="material-symbols-outlined text-[12px]">menu_book</span>

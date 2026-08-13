@@ -1,0 +1,20 @@
+﻿,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,Thông số,Giá trị
+SVA,SVB,Độ tương đồng (%),Máy báo đạo văn,Thực tế,,,,True Positive (Đúng - Có đạo văn),3
+SV1 (Bài gốc),SV3 (Đạo văn - Đổi for thành while),100.0%,Có,Có,,,,False Positive (Sai - Báo nhầm),0
+SV1 (Bài gốc),SV2 (Đạo văn - Đổi tên biến),96.1%,Có,Có,,,,False Negative (Sai - Bỏ sót),0
+SV2 (Đạo văn - Đổi tên biến),SV3 (Đạo văn - Đổi for thành while),92.5%,Có,Có,,,,True Negative (Đúng - Không đạo văn),7
+SV1 (Bài gốc),SV4 (Tự làm - Thuật toán Sàng nguyên tố),56.7%,Không,Không,,,,Precision (Độ chính xác),100.0%
+SV3 (Đạo văn - Đổi for thành while),SV4 (Tự làm - Thuật toán Sàng nguyên tố),56.7%,Không,Không,,,,Recall (Độ bao phủ),100.0%
+SV2 (Đạo văn - Đổi tên biến),SV4 (Tự làm - Thuật toán Sàng nguyên tố),55.5%,Không,Không,,,,F1-Score,100.0%
+SV1 (Bài gốc),SV5 (Tự làm - Dùng filter),46.9%,Không,Không,,,,,
+SV3 (Đạo văn - Đổi for thành while),SV5 (Tự làm - Dùng filter),46.9%,Không,Không,,,,,
+SV2 (Đạo văn - Đổi tên biến),SV5 (Tự làm - Dùng filter),45.9%,Không,Không,,,,,
+SV4 (Tự làm - Thuật toán Sàng nguyên tố),SV5 (Tự làm - Dùng filter),39.6%,Không,Không,,,,,

@@ -1,0 +1,10 @@
+Pseudo-terminal will not be allocated because stdin is not a terminal.
+Warning: Permanently added '[a.pinggy.io]:443' (RSA) to the list of known hosts.
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+Allocated port 5 for remote forward to localhost:8000
+You are not authenticated.
+Your tunnel will expire in 60 minutes. Upgrade to Pinggy Pro to get unrestricted tunnels. https://dashboard.pinggy.io
+https://msyrt-2405-4803-f729-4560-6374-b73c-b977-a254.free.pinggy.net
+https://ruzgg-2405-4803-f729-4560-6374-b73c-b977-a254.run.pinggy-free.link

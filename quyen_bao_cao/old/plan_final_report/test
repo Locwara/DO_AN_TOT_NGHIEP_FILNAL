@@ -1,0 +1,2 @@
+# JMeter generated Header file
+X-CSRFToken	${csrf_token}

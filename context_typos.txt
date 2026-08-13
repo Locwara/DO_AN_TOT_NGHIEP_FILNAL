@@ -1,0 +1,6 @@
+- Lặp từ "thành": "... hợp lệ.Hậu điều kiệnStudent trở thành thành viên (Member) của lớp.Luồng sự ..."
+- Lặp từ "học": "... tham gia vào một lớp học, học sinh cần phải nhập mật ..."
+- Lặp từ "thành": "... website.- Sau khi đã trở thành thành viên chính thức của lớp ..."
+- Lặp từ "học": "... viên chính thức của lớp học, học sinh sẽ có quyền truy ..."
+- Lặp từ "mật": "... bị bỏ qua để bảo mật mật khẩu cũ).email: Địa chỉ thư ..."
+- Lặp từ "bộ": "... giá mã nguồn qua toàn bộ bộ testcase. Tại trang kết quả, ..."

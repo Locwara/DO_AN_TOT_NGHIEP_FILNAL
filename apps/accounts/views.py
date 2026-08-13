@@ -339,6 +339,27 @@ def edit_profile_view(request):
 
 
 @login_required
+def set_initial_credentials_view(request):
+    if request.user.has_usable_password():
+        messages.info(request, 'Tài khoản của bạn đã được thiết lập mật khẩu.')
+        return redirect('accounts:profile')
+
+    from .forms import InitialCredentialsForm
+    if request.method == 'POST':
+        form = InitialCredentialsForm(request.POST, instance=request.user)
+        if form.is_valid():
+            user = form.save()
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, user)  # Keep user logged in
+            messages.success(request, 'Đã thiết lập Username và Mật khẩu thành công!')
+            return redirect('accounts:profile')
+    else:
+        form = InitialCredentialsForm(instance=request.user)
+
+    return render(request, 'accounts/set_initial_credentials.html', {'form': form})
+
+
+@login_required
 def student_dashboard_view(request):
     """Dashboard cá nhân cho sinh viên - tiến độ học tập."""
     from django.utils import timezone
@@ -349,6 +370,12 @@ def student_dashboard_view(request):
     from apps.submissions.models import Submissions
 
     user = request.user
+    role = getattr(user, 'profiles', None).role if getattr(user, 'profiles', None) else 'student'
+    if role != 'student':
+        from django.contrib import messages
+        messages.warning(request, "Chức năng này chỉ dành cho tài khoản sinh viên.")
+        return redirect('classrooms:classroom_list')
+    
     now = timezone.now()
 
     # Danh sách lớp đang học

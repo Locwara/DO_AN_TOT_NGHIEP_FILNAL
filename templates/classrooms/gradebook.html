@@ -101,11 +101,11 @@
     <form method="get" class="bg-white border border-slate-200 rounded-xl p-4 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
             <label class="block">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Công bố</span>
-                <select name="published" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
-                    <option value="all" {% if published_filter == 'all' %}selected{% endif %}>Tất cả</option>
-                    <option value="published" {% if published_filter == 'published' %}selected{% endif %}>Đã công bố</option>
-                    <option value="draft" {% if published_filter == 'draft' %}selected{% endif %}>Bản nháp</option>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Loại</span>
+                <select name="assignment_type" class="mt-1 w-full h-10 rounded-lg border-slate-200 text-sm focus:border-primary focus:ring-primary">
+                    <option value="all" {% if type_filter == 'all' %}selected{% endif %}>Tất cả loại</option>
+                    <option value="assignment" {% if type_filter == 'assignment' %}selected{% endif %}>Bài tập</option>
+                    <option value="exam" {% if type_filter == 'exam' %}selected{% endif %}>Bài thi</option>
                 </select>
             </label>
             <label class="block">

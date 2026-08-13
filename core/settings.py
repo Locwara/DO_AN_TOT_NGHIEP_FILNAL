@@ -37,7 +37,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-only-chang
 if not DEBUG and SECRET_KEY == 'django-insecure-dev-only-change-me':
     raise RuntimeError('DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=False.')
 
-ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',

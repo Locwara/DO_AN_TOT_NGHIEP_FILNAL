@@ -121,6 +121,18 @@
                         {% endif %}
                     </div>
 
+                    <div id="language-panel" data-code-only>
+                        <label class="block text-sm font-semibold text-slate-700 mb-3">Ngôn ngữ cho phép (Bỏ trống = Tất cả)</label>
+                        <div class="flex flex-wrap gap-2">
+                            {% for lang in languages %}
+                            <label class="flex items-center gap-2 text-xs p-2 border rounded-lg hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" name="allowed_languages" value="{{ lang.name }}" {% if lang.name in selected_languages %}checked{% endif %}>
+                                {{ lang.display_name }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
                     <div id="grading-mode-wrapper">
                         <label for="assignment-grading-mode" class="block text-sm font-semibold text-slate-700 mb-2">Cách chấm điểm</label>
                         <select id="assignment-grading-mode" name="grading_mode" class="w-full bg-slate-50 border border-slate-200 rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm">
@@ -246,41 +258,50 @@
                         </div>
                     </div>
 
-                        <div data-code-only class="hidden space-y-6">
-                        <label for="assignment-starter-code" class="block text-sm font-semibold text-slate-700 mb-2">Mã nguồn khởi tạo (Starter Code)</label>
+                                                <div data-code-only class="hidden space-y-6">
+                        <div id="code-editor-language-selector" class="flex gap-2 mb-4">
+                            <!-- Language tabs injected via JS -->
+                        </div>
+                        <div id="hidden-code-inputs-container"></div>
+                        
+                        <label for="assignment-starter-code" class="block text-sm font-semibold text-slate-700 mb-2">Mã nguồn khởi tạo (<span id="current-starter-lang" class="text-primary"></span>)</label>
                         <div class="relative border border-slate-200 rounded-lg overflow-hidden group mb-6">
                             <div class="absolute top-2 right-2 z-10 flex gap-2">
                                 <button type="button" id="btn-format-starter" class="bg-white/80 backdrop-blur-sm border border-slate-200 text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-all flex items-center gap-1">
                                     <span class="material-symbols-outlined text-[14px]">format_align_left</span>
-                                    Format Code
+                                    Format
                                 </button>
                             </div>
                             <div id="monaco-starter-editor" style="height: 250px; width: 100%;"></div>
-                            <textarea id="assignment-starter-code" name="starter_code" class="hidden">{{ form.starter_code.value|default:'' }}</textarea>
                         </div>
-                        <p class="text-xs text-slate-500 mt-2 mb-6">Đoạn mã này sẽ hiện sẵn trong IDE khi học sinh mới mở bài tập này lần đầu.</p>
 
-                        <label for="assignment-solution-code" class="block text-sm font-semibold text-slate-700 mb-2">Mã nguồn mẫu (Solution Code) *</label>
+                        <label for="assignment-solution-code" class="block text-sm font-semibold text-slate-700 mb-2">Mã nguồn mẫu (<span id="current-solution-lang" class="text-primary"></span>) *</label>
                         <div class="relative border border-slate-200 rounded-lg overflow-hidden group">
                             <div class="absolute top-2 right-2 z-10 flex gap-2">
                                 <button type="button" id="btn-format-solution" class="bg-white/80 backdrop-blur-sm border border-slate-200 text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-all flex items-center gap-1">
                                     <span class="material-symbols-outlined text-[14px]">format_align_left</span>
-                                    Format Code
+                                    Format
                                 </button>
                             </div>
                             <div id="monaco-solution-editor" style="height: 350px; width: 100%;"></div>
-                            <textarea id="assignment-solution-code" name="solution_code" class="hidden">{{ form.solution_code.value|default:'' }}</textarea>
                         </div>
-                        <p class="text-xs text-slate-500 mt-2 mb-8">Mã nguồn này dùng để hệ thống tự động chạy và kiểm tra tính đúng đắn của các Testcase bên dưới.</p>
-
+                        <!-- END -->
                         <!-- Integrated Testcase Manager -->
                         <div class="border-t border-slate-200 pt-8 mt-8">
-                            <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center justify-between mb-2">
                                 <h3 class="text-lg font-bold text-slate-900">Danh sách Testcase</h3>
                                 <button type="button" id="add-testcase-row" class="btn btn-sm btn-outline">
                                     <span class="material-symbols-outlined text-sm">add</span>
                                     Thêm testcase
                                 </button>
+                            </div>
+                            <div class="mb-4 text-sm text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                                <p class="mb-1"><span class="font-semibold">💡 Hướng dẫn nhập Testcase:</span></p>
+                                <ul class="list-disc list-inside space-y-1 ml-1">
+                                    <li><strong>Input:</strong> Dữ liệu đầu vào của bài toán. Nếu có nhiều biến, nhập cách nhau bởi dấu cách (VD: <code>1 2</code>) hoặc xuống dòng tùy theo yêu cầu đề bài.</li>
+                                    <li><strong>Output:</strong> Kết quả chính xác hệ thống dùng để so khớp. Đảm bảo không dư dấu cách hoặc dấu xuống dòng ở cuối nếu không cần thiết.</li>
+                                    <li><strong>Test mẫu:</strong> Chọn <span class="material-symbols-outlined text-[14px] align-middle">visibility</span> để hiển thị công khai testcase này cho sinh viên xem khi làm bài.</li>
+                                </ul>
                             </div>
                             <div id="testcase-rows-container" class="space-y-4">
                                 <!-- Dynamic rows will be injected here -->
@@ -378,17 +399,6 @@
                         </div>
                     </div>
 
-                    <div id="language-panel" data-code-only class="border-t pt-6">
-                        <label class="block text-sm font-semibold text-slate-700 mb-3">Ngôn ngữ cho phép (Bỏ trống = Tất cả)</label>
-                        <div class="flex flex-wrap gap-2">
-                            {% for lang in languages %}
-                            <label class="flex items-center gap-2 text-xs p-2 border rounded-lg hover:bg-slate-50 cursor-pointer">
-                                <input type="checkbox" name="allowed_languages" value="{{ lang.name }}" {% if lang.name in selected_languages %}checked{% endif %}>
-                                {{ lang.display_name }}
-                            </label>
-                            {% endfor %}
-                        </div>
-                    </div>
                 </div>
             </section>
         </div>
@@ -515,6 +525,42 @@
                     maxAttemptsInput.removeAttribute('readonly');
                     maxAttemptsInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
                 }
+            }
+
+            // Sync quiz time and exam time
+            const quizTimeInput = document.querySelector('input[name="quiz_time_limit_minutes"]');
+            const examTimeInput = document.querySelector('input[name="exam_duration_minutes"]');
+            if (quizTimeInput && examTimeInput) {
+                if (mode === 'quiz') {
+                    examTimeInput.setAttribute('readonly', 'readonly');
+                    examTimeInput.classList.add('bg-slate-100', 'cursor-not-allowed');
+                    examTimeInput.value = quizTimeInput.value;
+                } else {
+                    examTimeInput.removeAttribute('readonly');
+                    examTimeInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+                }
+            }
+
+            // Sync exam mode with quiz checkboxes
+            const examToggleChecked = examToggle && examToggle.checked;
+            const quizShowScore = document.querySelector('input[name="quiz_show_score_after_submit"]');
+            const quizShowCorrect = document.querySelector('input[name="quiz_show_correct_answers"]');
+            const quizAllowReview = document.querySelector('input[name="quiz_allow_review"]');
+            const quizShowExplanation = document.querySelector('input[name="quiz_show_explanation"]');
+            
+            if (mode === 'quiz') {
+                [quizShowScore, quizShowCorrect, quizAllowReview, quizShowExplanation].forEach(cb => {
+                    if (cb) {
+                        if (examToggleChecked) {
+                            cb.checked = false;
+                            cb.disabled = true;
+                            cb.closest('label').classList.add('opacity-50', 'cursor-not-allowed');
+                        } else {
+                            cb.disabled = false;
+                            cb.closest('label').classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                    }
+                });
             }
         }
 
@@ -659,6 +705,11 @@ updateUI();
                 }
             });
         }
+
+        const quizTimeInput = document.querySelector('input[name="quiz_time_limit_minutes"]');
+        if (quizTimeInput) {
+            quizTimeInput.addEventListener('input', updateUI);
+        }
         
         updateUI();
     })();
@@ -709,34 +760,135 @@ updateUI();
             }
         }
 
-        // Solution Code
-        const solutionTextarea = document.getElementById('assignment-solution-code');
-        const solutionEditor = monaco.editor.create(document.getElementById('monaco-solution-editor'), {
-            value: solutionTextarea.value,
-            language: 'python',
-            theme: 'vs-dark',
-            minimap: { enabled: false },
-            fontSize: 14,
-            fontFamily: "'Fira Code', 'Consolas', monospace"
-        });
-        solutionEditor.onDidChangeModelContent(() => {
-            solutionTextarea.value = solutionEditor.getValue();
-        });
-        document.getElementById('btn-format-solution').addEventListener('click', () => formatPythonCode(solutionEditor));
+                // Multi-language Editor State
+        const hiddenInputsContainer = document.getElementById('hidden-code-inputs-container');
+        const langSelector = document.getElementById('code-editor-language-selector');
+        const currentStarterLang = document.getElementById('current-starter-lang');
+        const currentSolutionLang = document.getElementById('current-solution-lang');
+        
+        let starterCodesData = {};
+        let solutionCodesData = {};
+        let currentLangEditor = null;
+        
+        {% if starter_codes_json and starter_codes_json != '{}' %}
+            starterCodesData = {{ starter_codes_json|safe }};
+            solutionCodesData = {{ solution_codes_json|safe }};
+        {% elif form.instance.pk and form.instance.starter_codes %}
+            starterCodesData = {{ form.instance.starter_codes|safe }};
+            solutionCodesData = {{ form.instance.solution_codes|safe }};
+        {% endif %}
 
-        // Starter Code
-        const starterTextarea = document.getElementById('assignment-starter-code');
         const starterEditor = monaco.editor.create(document.getElementById('monaco-starter-editor'), {
-            value: starterTextarea.value,
+            value: '',
             language: 'python',
             theme: 'vs',
             minimap: { enabled: false },
             fontSize: 14,
             fontFamily: "'Fira Code', 'Consolas', monospace"
         });
-        starterEditor.onDidChangeModelContent(() => {
-            starterTextarea.value = starterEditor.getValue();
+        const solutionEditor = monaco.editor.create(document.getElementById('monaco-solution-editor'), {
+            value: '',
+            language: 'python',
+            theme: 'vs-dark',
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: "'Fira Code', 'Consolas', monospace"
         });
+
         document.getElementById('btn-format-starter').addEventListener('click', () => formatPythonCode(starterEditor));
+        document.getElementById('btn-format-solution').addEventListener('click', () => formatPythonCode(solutionEditor));
+
+        starterEditor.onDidChangeModelContent(() => {
+            if(currentLangEditor) {
+                starterCodesData[currentLangEditor] = starterEditor.getValue();
+                updateHiddenCodeInputs();
+            }
+        });
+        solutionEditor.onDidChangeModelContent(() => {
+            if(currentLangEditor) {
+                solutionCodesData[currentLangEditor] = solutionEditor.getValue();
+                updateHiddenCodeInputs();
+            }
+        });
+
+        function updateHiddenCodeInputs() {
+            hiddenInputsContainer.innerHTML = '';
+            for(let lang in starterCodesData) {
+                const inputStarter = document.createElement('input');
+                inputStarter.type = 'hidden';
+                inputStarter.name = 'starter_code_' + lang;
+                inputStarter.value = starterCodesData[lang];
+                hiddenInputsContainer.appendChild(inputStarter);
+            }
+            for(let lang in solutionCodesData) {
+                const inputSolution = document.createElement('input');
+                inputSolution.type = 'hidden';
+                inputSolution.name = 'solution_code_' + lang;
+                inputSolution.value = solutionCodesData[lang];
+                hiddenInputsContainer.appendChild(inputSolution);
+            }
+        }
+
+        function switchEditorLanguage(lang) {
+            currentLangEditor = lang;
+            currentStarterLang.textContent = lang;
+            currentSolutionLang.textContent = lang;
+            
+            // Set monaco language model
+            let monacoLang = lang.includes('c') ? 'cpp' : lang.includes('java') ? 'java' : 'python';
+            monaco.editor.setModelLanguage(starterEditor.getModel(), monacoLang);
+            monaco.editor.setModelLanguage(solutionEditor.getModel(), monacoLang);
+            
+            starterEditor.setValue(starterCodesData[lang] || '');
+            solutionEditor.setValue(solutionCodesData[lang] || '');
+            
+            document.querySelectorAll('.lang-editor-tab').forEach(btn => {
+                if(btn.dataset.lang === lang) {
+                    btn.classList.add('bg-primary', 'text-white');
+                    btn.classList.remove('bg-slate-100', 'text-slate-600');
+                } else {
+                    btn.classList.remove('bg-primary', 'text-white');
+                    btn.classList.add('bg-slate-100', 'text-slate-600');
+                }
+            });
+        }
+
+        function refreshEditorTabs() {
+            langSelector.innerHTML = '';
+            const checkedLangs = Array.from(document.querySelectorAll('input[name="allowed_languages"]:checked')).map(cb => cb.value);
+            
+            if(checkedLangs.length === 0) {
+                langSelector.innerHTML = '<span class="text-xs text-red-500 italic">Vui lòng chọn ít nhất 1 ngôn ngữ ở mục trên!</span>';
+                currentLangEditor = null;
+                starterEditor.setValue('');
+                solutionEditor.setValue('');
+                return;
+            }
+
+            checkedLangs.forEach(lang => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'lang-editor-tab px-3 py-1 rounded text-xs font-bold transition-all';
+                btn.textContent = 'Chỉnh sửa: ' + lang;
+                btn.dataset.lang = lang;
+                btn.addEventListener('click', () => switchEditorLanguage(lang));
+                langSelector.appendChild(btn);
+            });
+            
+            if(!checkedLangs.includes(currentLangEditor)) {
+                switchEditorLanguage(checkedLangs[0]);
+            } else {
+                switchEditorLanguage(currentLangEditor);
+            }
+        }
+        
+        // Listen to checkbox changes
+        document.querySelectorAll('input[name="allowed_languages"]').forEach(cb => {
+            cb.addEventListener('change', refreshEditorTabs);
+        });
+
+        // initial render
+        setTimeout(refreshEditorTabs, 500);
+
     });
 </script>

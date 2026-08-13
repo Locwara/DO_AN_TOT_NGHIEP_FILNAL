@@ -2955,15 +2955,31 @@ def user_detail_view(request, pk):
         Q(user=target_user) | Q(resource_type='accounts', resource_id=target_user.pk)
     ).select_related('user').order_by('-created_at')[:50]
     from apps.submissions.models import Submissions
-    submissions = Submissions.objects.filter(student=target_user).select_related(
-        'assignment', 'assignment__classroom'
-    ).order_by('-submitted_at')[:20]
+    from apps.classrooms.models import Classrooms, ClassroomMembers
+    
+    role = getattr(target_user, 'profiles', None).role if getattr(target_user, 'profiles', None) else 'student'
+    
+    submissions = []
+    enrolled_classes = []
+    teaching_classes = []
+    
+    if role == 'student':
+        submissions = Submissions.objects.filter(student=target_user).select_related(
+            'assignment', 'assignment__classroom'
+        ).order_by('-submitted_at')[:20]
+        enrolled_classes = ClassroomMembers.objects.filter(student=target_user).select_related('classroom')
+    elif role == 'teacher' or role == 'admin':
+        teaching_classes = Classrooms.objects.filter(teacher=target_user)
+
     context = {
         **_admin_base_context(),
         'target_user': target_user,
         'profile': getattr(target_user, 'profiles', None),
         'logs': logs,
         'submissions': submissions,
+        'enrolled_classes': enrolled_classes,
+        'teaching_classes': teaching_classes,
+        'role': role,
         'current_page': 'user_management',
     }
     return render(request, 'administration/user_detail.html', context)

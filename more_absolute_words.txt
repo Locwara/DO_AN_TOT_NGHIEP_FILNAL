@@ -1,0 +1,113 @@
+- Từ khóa: 'triệt để'
+  Câu văn: "Hệ thống giải quyết triệt để vấn đề này bằng cách tự động thực thi mã nguồn qua môi trường ảo hóa cách ly, đối chiếu với bộ dữ liệu kiểm thử và trả về điểm số tức thì.[19], khoảng 25% - 30% sinh viên mới bắt đầu gặp khó khăn và nản chí ngay trong giai đoạn cài đặt môi trường, cấu hình trình biên dịch và IDE trên máy cá nhân."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Mục tiêu của đồ án là tích hợp thuật toán nhận diện vân tay mã nguồn để quét chéo tự động toàn bộ bài nộp, hỗ trợ giảng viên phát hiện chính xác các hành vi sao chép tinh vi.Để hoàn thành các mục tiêu trên, đối tượng nghiên cứu của đề tài tập trung vào các phạm trù sau:Đề tài giới hạn phạm vi nghiên cứu và triển khai trong các giới hạn cụ thể nhằm đảm bảo tính khả thi và hiệu năng của hệ thống:5.1 Ý nghĩa lý luậnĐề tài góp phần hệ thống hóa các tài liệu và cơ sở lý luận về việc xây dựng Hệ thống Đánh giá Lập trình Tự động.5.2 Ý nghĩa thực tiễnĐối với Giảng viên: Cung cấp một bộ công cụ đắc lực giúp cắt giảm tới 90% thời lượng chấm bài thủ công."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "LMS giúp tự động hóa việc lưu trữ dữ liệu giáo dục, từ đó nâng cao chất lượng đào tạo và mang lại nhiều lợi ích cho công tác quản lý nhà trường.Hình 1.2 Quy trình chấm điểm mã nguồn tự độngCông việc chấm điểm mã nguồn tự động đóng vai trò thiết yếu trong các hệ thống học lập trình, giúp thẩm định liệu giải thuật của người học có đáp ứng được các yêu cầu kỹ thuật, giới hạn thời gian và giới hạn bộ nhớ hay không.1.7.1 Framework DjangoD[1][10]Ứng dụng: Trong đồ án này, Django đóng vai trò là "bộ não" của hệ thống, xử lý toàn bộ các luồng nghiệp vụ từ cơ sở dữ liệu, quản lý phiên đăng nhập, cấp quyền giáo viên/sinh viên, cho đến việc phân phối các giao diện Web tương tác.Docker là một nền tảng ảo hóa cấp hệ điều hành cho phép triển khai phần mềm bên trong các gói chuẩn hóa gọi là container."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Việc dùng chung Python cho cả Backend là framework Django lẫn thuật toán chấm điểm giúp kiến trúc hệ thống đồng nhấỨng dụng: Trong đồ án này, Python là ngôn ngữ nền tảng xuyên suốt để xây dựng toàn bộ Logic ở phía máy chủ."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Đặc biệt, ngôn ngữ JavaScript đóng vai trò then chốt trong việc tạo ra các tương tác thời gian thực tại màn hình thi, xử lý đồng hồ đếm ngược, vô hiệu hóa các thao tác gian lận và nhận diện các sự kiện gõ phím từ người học.[7].[15]Ứng dụng: Thay vì lưu trữ dữ liệu cục bộ trên cùng một máy chủ (Localhost) với Web Server, đồ án áp dụng mô hình Kiến trúc Đám mây bằng cách sử dụng Supabase để đưa toàn bộ cơ sở dữ liệu lên đám mây."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Cụ thể, dù máy chủ nội bộ xử lý tính toán có gặp sự cố vật lý, toàn bộ dữ liệu về điểm thi và thông tin của sinh viên vẫn được bảo toàn an toàn tuyệt đối trên Cloud.Cloudinary là một dịch vụ quản lý tài nguyên số đa phương tiện trên nền tảng đám mây."
+
+- Từ khóa: 'toàn diện'
+  Câu văn: "Hệ thống cung cấp giải pháp toàn diện cho việc lưu trữ, tự động hóa xử lý và phân phối tài nguyên tĩnh [8]Lý do lựa chọn: Nếu lưu trữ ảnh ngay trên máy chủ (Local Storage), thư mục dự án sẽ ngày càng phình to và gây quá tải băng thông khi có nhiều sinh viên truy cập."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Nó chịu trách nhiệm lưu trữ ảnh đại diện của người dùng, hình ảnh mô tả bài tập, hay các tệp tài liệu do giảng viên tải lên, đảm bảo các tài nguyên này luôn được hiển thị với tốc độ nhanh nhất.AJAX là cơ chế giao tiếp bất đồng bộ giữa máy khách và máy chủ, cho phép truy xuất và cập nhật dữ liệu nền [9]Lý do lựa chọn: So với phương thức Form Submit truyền thống gây tải lại toàn bộ trang, AJAX giữ nguyên trạng thái màn hình."
+
+- Từ khóa: 'hoàn hảo'
+  Câu văn: "AJAX thông qua Fetch API mang lại sự cân bằng hoàn hảo giữa hiệu năng và tính đơn giản [17].Ứng dụng: AJAX được áp dụng mạnh mẽ vào tính năng cốt lõi nhất của đồ án: Nộp và chấm điểm mã nguồn."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Điều này mang lại trải nghiệm thao tác cực kỳ mượt mà cho người sử dụng.: Quản lý toàn bộ thông tin tài khoản, xét duyệt quyền Giảng viên, theo dõi lịch sử hoạt động hệ thống và cấu hình giới hạn biên dịch : Cung cấp công cụ tổ chức lớp học, import danh sách sinh viên hàng loạt từ file Excel/CSV, quản lý các học kỳ, gán môn học vào lớp, quản lý thông báo, và thống kê sổ điểm.: Hỗ trợ đa dạng thể loại ra đề Lập trình, Trắc nghiệm, Nộp file."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Sandbox sẽ tự động tiếp nhận, biên dịch và chạy thử code của sinh viên đối chiếu với Testcase, sau đó trả về kết quả theo thời gian thực.: Tích hợp diễn đàn hỏi đáp cho từng bài tập, tính năng bình luận trực tiếp dưới bài nộp và hệ thống thông báo đẩy giúp kết nối chặt chẽ giữa học viên và giảng viên.Hệ thống hướng đến 4 nhóm người dùng chính:: Nắm quyền hạn cao nhất, quản lý tài nguyên, thiết lập tham số hệ thống, giám sát cấu hình Sandbox và toàn bộ dữ liệu.: Trực tiếp điều hành lớp học, ra đề, cấu hình Testcase, chấm điểm bằng Rubric và giám sát tiến độ trong phòng thi.: Trực tiếp tham gia học tập, viết code trên giao diện IDE, làm bài trắc nghiệm và theo dõi bảng xếp hạng của lớp.Khách (Guest): Người dùng chưa đăng nhập, sử dụng các tính năng cơ bản như xem giới thiệu, đăng ký và khôi phục mật khẩu.2.2.2.1 Luồng nộp bài và chấm điểm tự động (Sandbox)Hình 2.1 Sơ đồ tuần tự luồng nộp bài và chấm điểm tự động Tách biệt tác vụ nặng khỏi luồng xử lý chính, tránh làm nghẽn server khi có nhiều sinh viên nộp bài đồng thời.2.2.2.2 Hình 2.2 + Tiền xử lý: loại bỏ các yếu tố không mang ý nghĩa cấu trúc logic như comment, khoảng trắng, xuống dòng nhằm chuẩn hóa mã nguồn, tránh sai lệch do khác biệt định dạng."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Ưu điểm của phương pháp Winnowing so với so sánh trực tiếp toàn văn bản:+ Có khả năng phát hiện đạo văn cục bộ là chỉ copy một phần đoạn code, không chỉ đạo văn toàn bộ."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Sơ đồ UsecaseAdmin: Có quyền hạn cao nhất, quản lý toàn bộ hệ thống, phê duyệt các yêu cầu tạo tài khoản Giảng viên, Lớp học, Môn học, cấu hình máy chủ chấm code và theo dõi lịch sử thao tác hệ thống.Teacher: Quản lý các lớp học do mình phụ trách, tạo bài tập/bài thi, import testcase, thiết lập tiêu chí chấm điểm, giám sát phòng thi và kiểm tra đạo văn.Student: Người dùng đã đăng ký thành công."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Định mức điểm tối đa."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Lưu lại.Luồng rẽ nhánh- Chưa chọn đáp án đúng nào → Không cho lưu.MụcNội dungTên Use CaseKiểm tra Đạo văn (Plagiarism)Tác nhânTeacherMô tảTự động quét và đối chiếu toàn bộ các bài nộp code.Tiền điều kiệnCó từ 2 sinh viên nộp bài trở lên.Hậu điều kiệnHiển thị bảng tỷ lệ % gian lận và Highlight code.Luồng sự kiện chính1."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Nhấn Hoàn tất chấm.Luồng rẽ nhánh- N/AMụcNội dungTên Use CaseXem Lịch sử bài nộpTác nhânStudent, TeacherMô tảXem lại toàn bộ các lần đã Submit.Tiền điều kiệnCó ít nhất 1 lần Submit.Hậu điều kiệnHiển thị bảng chi tiết các lần nộp.Luồng sự kiện chính1."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Lưu trữ mã mời cột invite_code, giáo viên phụ trách, số lượng sinh viên tối đa và năm học."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Liên kết 1-N với assignments, cho phép phân bổ trọng số và tài nguyên cho từng testcase.Lớp `assignment_files`: Quản lý các file tài liệu đính kèm của đề bài mà giáo viên tải lên.Lớp `assignment_file_requirements`: Lớp định nghĩa cấu hình ràng buộc khi sinh viên nộp bài dạng file, bao gồm kích thước file tối đa, định dạng cho phép và số lượng file.Lớp `plagiarism_reports`: Ghi nhận kết quả quét đạo văn của hệ thống."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Tại đây, học sinh có thể theo dõi trực quan toàn bộ các thông tin quan trọng nhất để chuẩn bị cho việc làm bài như tên bài tập, hình thức đánh giá, tên môn học tương ứng, thời gian nộp bài, số điểm tối đa đạt được cùng mức độ khó của bài."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Tại đây, học sinh có thể theo dõi tổng quan số điểm đạt được trên thang điểm tối đa, kèm theo trạng thái đánh giá cuối cùng của hệ thống."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Giao diện hỗ trợ lưu trữ và hiển thị nguyên vẹn toàn bộ mã nguồn mà học sinh đã nộp, giúp các em có thể dễ dàng xem lại, sao chép hoặc dùng - Đối với các bài tập mang hình thức trắc nghiệm, hệ thống cung cấp một giao diện làm bài chuyên biệt (Hình 3.8- Đặc biệt, đối với các bài kiểm tra có giới hạn thời gian, hệ thống sẽ ghim một đồng hồ đếm ngược chạy theo thời gian thực ở góc màn hình."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Trong trường hợp hoàn thành sớm, sinh viên có thể chủ động rà soát lại toàn bộ đáp án của mình trước khi nhấn nút "Nộp bài"."
+
+- Từ khóa: 'chính xác tuyệt đối'
+  Câu văn: "Ngay sau khi nộp, hệ thống sẽ tự động đối chiếu với bộ đáp án gốc của giảng viên và tính toán điểm số một cách tức thì và chính xác tuyệt đối.Ngay sau khi nộp bài trắc nghiệm thành công, hệ thống sẽ tự động xử lý và chuyển hướng sinh viên đến trang Kết quả chi tiết (Hình 3.9Bằng cách ứng dụng mã màu trực quan tô xanh đáp án đúng, bôi đỏ đáp án sai, sinh viên có thể nhanh chóng nhận biết các lỗi sai của mình."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Việc cách ly tối đa các yếu tố can thiệp từ bên ngoài không chỉ nhằm triệt tiêu các hành vi gian lận, bảo vệ tính công bằng, minh bạch của kết quả thi mà còn bắt buộc sinh viên phải phát huy tối đa năng lực tư duy độc lập trong điều kiện áp lực thời gian.- Đối với các bài kiểm tra được giảng viên kích hoạt chế độ thi, sinh viên không thể truy cập trực tiếp vào không gian làm bài mà bắt buộc phải đi qua một phòng chờ bảo mật (Exam Lobby - Hình 3.11- Điểm khác biệt cốt lõi của chế độ thi so với bài tập thông thường nằm ở các ràng buộc kỹ thuật khắt khe nhằm đảm bảo sự công bằng tối đa."
+
+- Từ khóa: 'triệt để'
+  Câu văn: "Thứ hai, đối với riêng bài thi lập trình, nhằm loại bỏ triệt để hành vi sử dụng code làm sẵn hoặc chép bài từ bên ngoài, hệ thống sẽ tự động ẩn đi tính năng "Tải lên tệp mã nguồn"."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Phân hệ "Điểm số học sinh" được thiết kế như một trung tâm dữ liệu cá nhân thông minh, nơi minh bạch hóa toàn bộ thành quả học tập của người học trên nền tảng."
+
+- Từ khóa: 'không bao giờ'
+  Câu văn: "Bằng cách kết hợp giữa giao diện lịch trực quan, hệ thống thông báo nội bộ và cơ chế gửi email cảnh báo tự động, nền tảng đảm bảo luồng thông tin luôn được truyền tải thông suốt, giúp sinh viên không bao giờ bị trễ bất kỳ cột mốc deadline quan trọng nào.3- Trung tâm thông báo (Hình 3.14- Đóng vai trò như một lớp bảo vệ thứ hai bổ trợ cho hệ thống thông báo trên website, nền tảng còn được tích hợp cơ chế cảnh báo tự động qua thư điện tử (Hình 3.15- - 6) của giảng viên được áp dụng cơ chế phân quyền dữ liệu nghiêm ngặt."
+
+- Từ khóa: 'triệt để'
+  Câu văn: "Cơ chế này ép buộc sinh viên phải viết mã nguồn linh hoạt, xử lý triệt để thuật toán thay vì chỉ giải quyết các bài toán bề nổi.- Trong quá trình vận hành thực tế, để đảm bảo tính nhất quán về mặt dữ liệu và duy trì sự công bằng tuyệt đối cho người học, hệ thống đã thiết lập một cơ chế khóa ràng 9- Nhằm hỗ trợ giảng viên theo dõi sát sao, đánh giá khách quan và đưa ra các quyết định điều chỉnh phương pháp giảng dạy kịp thời, hệ thống cung cấp một phân hệ Sổ điểm toàn diện.- Phân hệ này không chỉ đóng vai trò lưu trữ kết quả học tập mà còn hoạt động như một bảng điều khiển phân tích dữ liệu chuyên sâu."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Điểm đột phá của công cụ này nằm ở việc không chỉ so sánh đối sánh - Hệ thống có khả năng bóc tách, chuẩn hóa toàn bộ khoảng trắng, chú thích, đồng thời ép đổi tên toàn bộ các biến, tham số và hàm tự định nghĩa của sinh viên về một chuẩn chung."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Thay vì sử dụng các dịch vụ cho thuê máy chủ ảo với cấu hình phần cứng bị giới hạn và chia sẻ, hệ thống trong đồ án này được triển khai theo mô hình On-Premise Deployment Tự lưu trữ - Self-Hosted ngay trên máy chủ cục bộ.Mô hình này giúp ứng dụng tận dụng tối đa sức mạnh phần cứng chuyên dụng, đảm bảo tính bảo mật dữ liệu tuyệt đối và làm chủ hoàn toàn môi trường ảo hóa Docker mà không phụ thuộc vào nền tảng của bên thứ ba như Railway hay Heroku."
+
+- Từ khóa: 'toàn diện'
+  Câu văn: "Để đánh giá một cách khách quan và toàn diện nhất năng lực của hệ thống Sandbox trong kịch bản này, nghiên cứu tiến hành phân chia quá trình kiểm thử thành hai luồng thực nghiệm riêng biệt:3.2.2.1."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Cấu hình Thread Group – 1000 Threads, Ramp-up 5s, Loop Count = 1b) Cấu hình HTTP Request Defaults: khai báo sẵn địa chỉ máy chủ và cổng dịch vụ dùng chung cho toàn bộ các Request bên dưới, tránh phải lặp lại cấu hình ở từng request.Hình 3.x."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Kết quả Stress Test trực tiếp lõi Sandbox với 100 Worker đồng thờiThông sốGiá trịNgôn ngữpythonSố lượng worker100Tổng số bài nộp100Tổng thời gian xử lý (giây)10.93Số bài nộp thành công100Tỷ lệ thành công (%)100.0%Thời gian phản hồi TB (giây)8.68Thời gian phản hồi lớn nhất (giây)10.18Thời gian phản hồi nhỏ nhất (giây)3.69Kết quả này khẳng định kiến trúc Sandbox dựa trên Native Docker Kernel có tốc độ khởi động container cực nhanh, hoàn toàn không gặp khó khăn ở mức tải hàng trăm request: toàn bộ 100/100 bài nộp được xử lý thành công 100.0% trong tổng thời gian 10.93 giây, với thời gian phản hồi trung bình chỉ 8.68 giây/bài — dao động trong khoảng hẹp từ 3.69 giây đến 10.18 giây, cho thấy hệ thống xử lý ổn định, không có bài nộp nào bị trễ bất thường.3."
+
+- Từ khóa: 'triệt để'
+  Câu văn: "Kết quả thực nghiệm ghi nhận: Kịch bản kiểm thử bị hệ điều hành Linux tiêu diệt đột ngột do lỗi tràn bộ nhớ.Hiện tượng OOM nêu trên thoạt nhìn là một điểm yếu của phần cứng, nhưng thực chất lại làm nổi bật lên tính ưu việt trong Kiến trúc thiết kế luồng của toàn bộ đồ án khi so sánh với kết quả test JMeter ở mục 3.2.2.1:Bản chất của lỗi OOM ở Sandbox:Cơ chế "Tấm khiên bảo vệ" của Web Server:Kết luận:Điều này chứng minh đồ án không chỉ tập trung vào việc chấm điểm đúng, mà còn giải quyết triệt để bài toán ổn định hệ thống trong môi trường thực tế.2Mục đích và kịch bản kiểm thử Mục tiêu của phần này là đánh giá độ nhạy bén và tính chính xác của lõi thuật toán phát hiện đạo văn mã nguồn."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Giải thuật sử dụng 2 vòng lặp 1Sinh viên 2 sao chép y hệt logic của Sinh viên 1 nhưng cố tình che giấu bằng cách thay đổi toàn bộ tên hàm calculate_prime_sum 2Sinh viên 3 thực hiện hành vi đạo văn tinh vi hơn Sinh viên 2."
+
+- Từ khóa: 'toàn bộ'
+  Câu văn: "Ngay khi tiến trình thực thi vượt qua ngưỡng thời gian này, Docker Daemon lập tức gửi tín hiệu ngắt để đóng container, trả về thông báo lỗi 36Khi thực hiện nộp bài chính thức với mã nguồn bị lỗi vòng lặp vô hạn, hệ thống phân luồng vẫn đánh giá mã nguồn qua toàn bộ bộ testcase."
+
+- Từ khóa: 'triệt để'
+  Câu văn: "Thông qua việc phân tích và đánh giá kết quả đạt được, đồ án đã giải quyết triệt để các bài toán cốt lõi trong việc quản lý, thực hành và đánh giá kỹ năng lập trình của sinh viên.- Về khả năng phát hiện gian lận: Đây là một trong những điểm sáng và mang tính học thuật cao nhất của hệ thống."
+
+- Từ khóa: 'tối đa'
+  Câu văn: "Kết quả đối chiếu chéo được xuất ra dưới dạng biểu đồ tỷ lệ phần trăm kèm giao diện bôi màu so sánh trực tiếp hai đoạn mã, giúp giảng viên có bằng chứng rõ ràng và tiết kiệm tối đa thời gian rà soát thủ công.- Về tính năng tương tác và hỗ trợ học tập: Hệ thống không chỉ là một công cụ chấm bài mà còn là một không gian học thuật thông qua phân hệ thảo luận."

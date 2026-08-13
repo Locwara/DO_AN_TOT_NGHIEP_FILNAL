@@ -183,6 +183,11 @@
                             </div>
                             <div class="classwork-copy">
                                 <strong>{{ a.title }}</strong>
+                                {% if a.is_exam %}
+                                    <span class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 text-red-600 bg-red-50 uppercase tracking-wider">Bài thi</span>
+                                {% else %}
+                                    <span class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 text-blue-600 bg-blue-50 uppercase tracking-wider">Bài tập</span>
+                                {% endif %}
                                 <div class="mt-1 flex flex-wrap items-center gap-2">
                                     <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary flex items-center gap-1">
                                         <span class="material-symbols-outlined text-[12px]">menu_book</span>
@@ -310,14 +315,29 @@
                     <div class="side-panel-head">
                         <span class="material-symbols-outlined">groups</span>
                         <h2>Thành viên</h2>
+                        {% if is_teacher %}
+                        <a href="{% url 'classrooms:import_members' pk=classroom.pk %}" class="ml-auto text-primary hover:text-primary-700 bg-primary-50 hover:bg-primary-100 p-1 rounded transition-colors" title="Import danh sách">
+                            <span class="material-symbols-outlined text-sm block">group_add</span>
+                        </a>
+                        {% endif %}
                     </div>
                     <div class="member-list max-h-60 overflow-y-auto custom-scrollbar">
                         {% for member in members %}
-                        <div class="member-row">
-                            <div class="member-avatar fallback">
-                                {{ member.student.username|first|upper }}
-                            </div>
-                            <span>{{ member.student.get_full_name|default:member.student.username }}</span>
+                        <div class="member-row flex items-center justify-between hover:bg-slate-50 transition-colors">
+                            <a href="{% url 'accounts:profile_detail' user_id=member.student.id %}" class="flex items-center flex-1 min-w-0 cursor-pointer">
+                                <div class="member-avatar fallback">
+                                    {{ member.student.username|first|upper }}
+                                </div>
+                                <span class="hover:text-primary truncate">{{ member.student.get_full_name|default:member.student.username }}</span>
+                            </a>
+                            {% if is_teacher %}
+                            <form method="post" action="{% url 'classrooms:remove_member' pk=classroom.pk member_id=member.pk %}" class="ml-2">
+                                {% csrf_token %}
+                                <button type="submit" class="w-7 h-7 rounded-lg bg-white text-slate-400 border border-slate-200 flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shadow-sm" title="Chặn học sinh" onclick="return confirm('Bạn có chắc muốn chặn học sinh này khỏi lớp? Dữ liệu bài làm vẫn được giữ lại nhưng học sinh sẽ không thể vào lớp nữa.')">
+                                    <span class="material-symbols-outlined text-xs">block</span>
+                                </button>
+                            </form>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>

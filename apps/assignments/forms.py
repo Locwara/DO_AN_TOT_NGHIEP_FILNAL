@@ -412,6 +412,7 @@ class AssignmentForm(forms.ModelForm):
                 cleaned['quiz_show_score_after_submit'] = False
                 cleaned['quiz_show_correct_answers'] = False
                 cleaned['quiz_allow_review'] = False
+                cleaned['quiz_show_explanation'] = False
             passing_score = cleaned.get('quiz_passing_score')
             if passing_score is not None and max_score is not None and passing_score > max_score:
                 self.add_error('quiz_passing_score', f'Điểm đạt không được vượt quá {max_score}.')

@@ -1,0 +1,62 @@
+﻿Thông số,Giá trị
+Ngôn ngữ,python
+Số lượng worker,50
+Tổng số bài nộp,50
+Tổng thời gian xử lý (giây),7.22
+Số bài nộp thành công,50
+Tỷ lệ thành công (%),100.0%
+Thời gian phản hồi TB (giây),6.78
+Thời gian phản hồi lớn nhất (giây),7.21
+Thời gian phản hồi nhỏ nhất (giây),5.63
+
+Worker ID,Trạng thái,Thời gian phản hồi (s),Thời gian Sandbox (s),Bộ nhớ (MB)
+2,Success,5.63,0.42,0.00
+29,Success,5.75,0.59,0.00
+3,Success,5.87,0.79,0.00
+10,Success,6.00,0.86,0.00
+9,Success,6.11,0.95,0.00
+24,Success,6.08,0.89,0.00
+1,Success,6.21,1.02,0.00
+4,Success,6.37,1.22,0.00
+49,Success,6.20,1.03,0.00
+11,Success,6.54,1.45,0.00
+16,Success,6.56,1.42,0.00
+12,Success,6.62,1.53,0.00
+17,Success,6.73,1.56,0.00
+6,Success,6.79,1.58,0.00
+34,Success,6.70,1.07,0.00
+21,Success,6.86,1.79,0.00
+35,Success,6.77,1.63,0.00
+18,Success,6.91,1.77,0.00
+27,Success,6.87,1.70,0.00
+47,Success,6.73,1.62,0.00
+7,Success,6.98,1.82,0.00
+26,Success,6.89,1.72,0.00
+25,Success,6.92,1.87,0.00
+43,Success,6.85,1.72,0.00
+30,Success,6.94,1.82,0.00
+39,Success,6.87,1.62,0.00
+28,Success,6.97,1.65,0.00
+15,Success,7.06,1.90,0.00
+22,Success,7.05,0.26,0.00
+32,Success,7.00,1.86,0.00
+23,Success,7.08,1.85,0.00
+37,Success,6.98,1.90,0.00
+42,Success,6.95,1.80,0.00
+5,Success,7.12,1.93,0.00
+13,Success,7.12,1.97,0.00
+45,Success,6.92,0.31,0.00
+31,Success,7.04,1.84,0.00
+14,Success,7.14,2.10,0.00
+44,Success,6.96,1.80,0.00
+41,Success,6.99,1.78,0.00
+36,Success,7.03,1.87,0.00
+38,Success,7.00,1.83,0.00
+20,Success,7.14,2.08,0.00
+40,Success,7.00,1.85,0.00
+46,Success,6.95,1.80,0.00
+33,Success,7.06,2.02,0.00
+0,Success,7.18,1.94,0.00
+19,Success,7.17,2.03,0.00
+48,Success,6.94,0.61,0.00
+8,Success,7.21,0.45,0.00

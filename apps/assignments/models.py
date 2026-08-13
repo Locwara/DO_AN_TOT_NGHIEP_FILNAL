@@ -46,6 +46,8 @@ class Assignments(models.Model):
     starter_code = models.TextField(blank=True, null=True, help_text="Mã nguồn hiện sẵn trong IDE khi học sinh mới mở bài.")
     solution_code = models.TextField(blank=True, null=True, help_text="Mã nguồn mẫu của giáo viên dùng để kiểm tra testcase.")
     solution_language = models.TextField(blank=True, null=True, help_text="Ngôn ngữ của mã nguồn mẫu.")
+    starter_codes = models.JSONField(blank=True, null=True, default=dict, help_text="Mã khởi tạo cho từng ngôn ngữ (Multiple languages)")
+    solution_codes = models.JSONField(blank=True, null=True, default=dict, help_text="Mã mẫu cho từng ngôn ngữ (Multiple languages)")
     type = models.TextField(default='auto_grade')
     submission_mode = models.CharField(
         max_length=16,

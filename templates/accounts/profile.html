@@ -41,10 +41,17 @@
                         <span class="material-symbols-outlined text-sm">edit</span>
                         Chỉnh sửa
                     </a>
+                    {% if not target_user.has_usable_password %}
+                    <a href="{% url 'accounts:set_initial_credentials' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+                        <span class="material-symbols-outlined text-sm">key</span>
+                        Tạo mật khẩu
+                    </a>
+                    {% else %}
                     <a href="{% url 'accounts:password_change' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
                         <span class="material-symbols-outlined text-sm">lock</span>
                         Đổi mật khẩu
                     </a>
+                    {% endif %}
                     {% if profile.role == 'student' %}
                     <a href="{% url 'accounts:teacher_register' %}" class="flex min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg h-11 px-6 bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
                         <span class="material-symbols-outlined text-sm">school</span>

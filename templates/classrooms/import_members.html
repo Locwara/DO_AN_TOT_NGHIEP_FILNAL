@@ -70,8 +70,8 @@
                     <p class="text-3xl font-black text-primary mt-1">{{ summary.already }}</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-xl p-5">
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Không thấy user</p>
-                    <p class="text-3xl font-black text-amber-500 mt-1">{{ summary.missing }}</p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tạo mới</p>
+                    <p class="text-3xl font-black text-amber-500 mt-1">{{ summary.created|default:0 }}</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-xl p-5">
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lỗi/bỏ qua</p>
@@ -126,6 +126,11 @@
                                         <span class="material-symbols-outlined text-sm">info</span>
                                         {{ row.message }}
                                     </span>
+                                    {% elif row.status == 'created' %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">
+                                        <span class="material-symbols-outlined text-sm">person_add</span>
+                                        {{ row.message }}
+                                    </span>
                                     {% elif row.status == 'missing' %}
                                     <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">
                                         <span class="material-symbols-outlined text-sm">person_off</span>
@@ -154,10 +159,10 @@
                     Quy tắc import
                 </h2>
                 <div class="space-y-3 text-sm text-slate-600">
-                    <p>File cần có header `username,email,full_name`.</p>
-                    <p>Hệ thống chỉ match tài khoản đã tồn tại theo username hoặc email.</p>
-                    <p>Không tự tạo user mới. Dòng không tìm thấy user sẽ được báo lỗi để bạn sửa file.</p>
-                    <p>User đã ở trong lớp sẽ không tạo duplicate.</p>
+                    <p>File cần có header `username,password,email,full_name`.</p>
+                    <p>Hệ thống sẽ quét theo username hoặc email:</p>
+                    <p>1. Nếu sinh viên <strong>đã có tài khoản</strong>: Sẽ giữ nguyên mật khẩu cũ và tự động thêm sinh viên vào lớp.</p>
+                    <p>2. Nếu sinh viên <strong>chưa có tài khoản</strong>: Sẽ tạo tài khoản mới với username và password bạn nhập.</p>
                 </div>
             </section>
 
@@ -166,9 +171,9 @@
                     <span class="material-symbols-outlined text-primary">table</span>
                     CSV mẫu
                 </h2>
-                <pre class="text-xs bg-primary-950 text-slate-200 rounded-lg p-4 overflow-x-auto">username,email,full_name
-student01,student01@example.com,Nguyen Van A
-student02,student02@example.com,Tran Thi B</pre>
+                <pre class="text-xs bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-4 overflow-x-auto">username,password,email,full_name
+student01,123456,student01@example.com,Nguyen Van A
+student02,123456,student02@example.com,Tran Thi B</pre>
             </section>
         </aside>
     </div>

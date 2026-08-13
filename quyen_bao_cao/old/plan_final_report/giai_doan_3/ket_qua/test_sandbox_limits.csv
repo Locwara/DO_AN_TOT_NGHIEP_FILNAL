@@ -1,0 +1,7 @@
+﻿Loại lỗi giả lập,Trạng thái trả về,Thời gian (ms),RAM tiêu thụ (MB),Thông báo lỗi (Error Log)
+Lỗi cú pháp (CE),RUNTIME_ERROR,268.28,7.98,"File ""/sandbox/solution.py"", line 2
+    def say_hello()
+                   ^
+SyntaxError: expected '..."
+Vòng lặp vô hạn (TLE),TIME_LIMIT_EXCEEDED,7010.57,0.0,Time Limit Exceeded (2s)
+Tràn bộ nhớ (MLE),MEMORY_LIMIT_EXCEEDED,280.76,67.27,Memory Limit Exceeded (Tiến trình bị hệ thống ngắt do tràn bộ nhớ RAM).
