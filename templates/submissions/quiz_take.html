@@ -2,6 +2,16 @@
 {% block title %}Đang làm quiz - {{ assignment.title }}{% endblock %}
 
 {% block content %}
+    {% if assignment.is_exam and assignment.exam_require_fullscreen and not is_teacher %}
+    <div id="fullscreen-overlay" class="fixed inset-0 bg-slate-900 z-[9999] flex flex-col items-center justify-center text-white hidden">
+        <span class="material-symbols-outlined text-6xl text-red-500 mb-4">fullscreen</span>
+        <h2 class="text-2xl font-bold mb-2">Yêu cầu toàn màn hình</h2>
+        <p class="text-slate-300 mb-6 max-w-md text-center">Bài thi này yêu cầu phải làm bài ở chế độ toàn màn hình để chống gian lận. Vui lòng bấm vào nút bên dưới để tiếp tục làm bài.</p>
+        <button id="btn-enter-fullscreen" class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-xl transition-colors">
+            Vào toàn màn hình
+        </button>
+    </div>
+    {% endif %}
 <div class="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 lg:pb-8">
     <div class="sticky top-16 z-30 rounded-xl border border-primary-100 bg-white/95 backdrop-blur px-4 py-3 shadow-sm flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
@@ -236,10 +246,13 @@
         });
     });
 
+    let isConfirmingOrSubmitted = false;
     form.addEventListener('submit', (event) => {
         if (submitted) return;
+        isConfirmingOrSubmitted = true;
         const ok = window.confirm('Bạn chắc chắn muốn nộp lượt quiz này?');
         if (!ok) {
+            isConfirmingOrSubmitted = false;
             event.preventDefault();
             return;
         }
@@ -277,18 +290,42 @@
     refreshProgress();
     if (isExamAttempt) {
         document.addEventListener('visibilitychange', () => {
+            if (isConfirmingOrSubmitted) return;
+            {% if assignment.exam_require_fullscreen %}
+            if (!document.fullscreenElement) return;
+            {% endif %}
             if (document.hidden) {
                 logExamEvent('tab_hidden', {attempt_id: {{ attempt.pk }}});
             }
         });
         window.addEventListener('blur', () => {
+            if (isConfirmingOrSubmitted) return;
+            {% if assignment.exam_require_fullscreen %}
+            if (!document.fullscreenElement) return;
+            {% endif %}
             logExamEvent('focus_lost', {attempt_id: {{ attempt.pk }}});
         });
         document.addEventListener('fullscreenchange', () => {
+            const overlay = document.getElementById('fullscreen-overlay');
             if (!document.fullscreenElement) {
                 logExamEvent('fullscreen_exit', {attempt_id: {{ attempt.pk }}});
+                if (overlay) overlay.classList.remove('hidden');
+            } else {
+                if (overlay) overlay.classList.add('hidden');
             }
         });
+        const overlay = document.getElementById('fullscreen-overlay');
+        const fsBtn = document.getElementById('btn-enter-fullscreen');
+        if (fsBtn) {
+            fsBtn.addEventListener('click', () => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                }
+            });
+        }
+        if (!document.fullscreenElement && overlay) {
+            overlay.classList.remove('hidden');
+        }
     }
 })();
 </script>

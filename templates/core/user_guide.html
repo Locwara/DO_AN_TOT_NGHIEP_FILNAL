@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Hướng dẫn sử dụng{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-6 mb-6">
+            <span class="material-symbols-outlined text-4xl text-primary">menu_book</span>
+            <div>
+                <h1 class="text-3xl font-black text-slate-900">Hướng dẫn sử dụng DevLearn</h1>
+                <p class="text-slate-500 mt-1">Cẩm nang chi tiết dành cho {% if request.user.is_authenticated and request.user.profiles.role == 'admin' %}Quản trị viên{% elif request.user.is_authenticated and request.user.profiles.role == 'teacher' %}Giảng viên{% else %}Sinh viên{% endif %}</p>
+            </div>
+        </div>
+        
+        <div class="space-y-4">
+            
+            {% if request.user.is_authenticated and request.user.profiles.role == 'admin' %}
+            <!-- ADMIN SECTION -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 border-l-4 border-primary pl-3">Dành cho Quản trị viên (Admin)</h2>
+                
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary">dashboard</span>
+                            1. Tổng quan & Analytics
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Bảng điều khiển (Dashboard):</strong> Nơi theo dõi các chỉ số tổng quan của hệ thống, bao gồm số lượng người dùng, biểu đồ tăng trưởng và các công việc cần duyệt khẩn cấp.</li>
+                            <li><strong>Analytics:</strong> Xem các biểu đồ phân tích chi tiết về hoạt động nộp bài, tỷ lệ ngôn ngữ lập trình được sử dụng, v.v.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-amber-500">group</span>
+                            2. Phê duyệt & Quản lý người dùng
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Phê duyệt Giáo viên:</strong> Khi có người đăng ký tài khoản Giáo viên, họ cần được Admin phê duyệt tại mục <em>Người dùng</em> -> <em>Giáo viên</em> trước khi có quyền tạo lớp.</li>
+                            <li><strong>Phê duyệt Môn học/Lớp học:</strong> Các môn học và lớp học do Giáo viên khởi tạo cũng cần sự kiểm duyệt của Admin để đảm bảo chất lượng hệ thống.</li>
+                            <li>Admin có quyền khóa, cấp lại mật khẩu hoặc thay đổi phân quyền cho bất kỳ người dùng nào.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-blue-500">dns</span>
+                            3. Vận hành máy chủ chấm mã (Sandbox)
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Cấu hình Sandbox:</strong> Thêm, bớt và quản lý các node máy chủ thực thi mã độc lập.</li>
+                            <li><strong>Giám sát hàng đợi (Sandbox Monitor):</strong> Theo dõi tiến trình chấm bài theo thời gian thực. Admin có quyền hủy (kill) các tiến trình bị treo (zombie tasks) để giải phóng tài nguyên.</li>
+                            <li><strong>Ngôn ngữ lập trình:</strong> Bật/tắt các ngôn ngữ được phép sử dụng, cấu hình version compiler.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-red-500">monitoring</span>
+                            4. Giám sát hệ thống & Logs
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Server Metrics:</strong> Biểu đồ theo dõi tải CPU, RAM và Disk I/O của toàn bộ hệ thống để có phương án xử lý kịp thời.</li>
+                            <li><strong>Nhật ký hoạt động (Logs):</strong> Ghi nhận mọi thao tác quan trọng của tất cả người dùng để dễ dàng truy vết (audit).</li>
+                            <li><strong>Phản hồi lỗi:</strong> Nhận và xử lý các báo cáo lỗi từ phía người dùng gửi về qua trang <em>Báo lỗi hệ thống</em>.</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+            
+            {% elif request.user.is_authenticated and request.user.profiles.role == 'teacher' %}
+            <!-- GIẢNG VIÊN SECTION -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 border-l-4 border-primary pl-3">Dành cho Giảng Viên</h2>
+                
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary">school</span>
+                            1. Tạo và quản lý Lớp học
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Tạo lớp mới:</strong> Vào mục <em>Lớp học</em> -> <em>Tạo lớp mới</em>. Điền Tên lớp, Môn học và Tùy chọn kiểm duyệt. Lớp học sau khi tạo có thể cần Admin phê duyệt.</li>
+                            <li><strong>Mã mời (Invite Code):</strong> Mỗi lớp sẽ có một Mã mời ngẫu nhiên. Giảng viên copy mã này gửi cho sinh viên để họ tự động tham gia.</li>
+                            <li><strong>Phê duyệt sinh viên:</strong> Nếu lớp bật chế độ "Cần phê duyệt", giảng viên vào mục <em>Danh sách thành viên</em> để duyệt từng yêu cầu tham gia.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-amber-500">assignment</span>
+                            2. Giao bài tập & Đề thi
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Tạo bài tập tự luận/code:</strong> Chọn Lớp -> Tạo Bài tập. Điền Mô tả (có hỗ trợ Markdown), Hướng dẫn và Tài liệu đính kèm.</li>
+                            <li><strong>Thiết lập Testcase:</strong> Đây là bước quan trọng nhất để hệ thống chấm điểm tự động. Nhập <em>Input</em> và <em>Expected Output</em> (Kết quả mong đợi). Có thể gán điểm số cụ thể cho từng Testcase.</li>
+                            <li><strong>Tạo bài thi Trắc nghiệm (Quiz):</strong> Ngoài code, giảng viên có thể tạo câu hỏi trắc nghiệm, thiết lập thời gian làm bài đếm ngược.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-blue-500">monitoring</span>
+                            3. Giám sát thi & Chống đạo văn
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Màn hình giám sát (Exam Monitor):</strong> Trong lúc thi, giảng viên có thể thấy số lần sinh viên <em>chuyển tab, thoát màn hình, hoặc copy/paste trái phép</em>.</li>
+                            <li><strong>Tính năng "Gia hạn":</strong> Nếu sinh viên gặp sự cố, giảng viên có thể bấm "Gia hạn" và nhập số phút để bù giờ riêng cho cá nhân đó.</li>
+                            <li><strong>Kiểm tra đạo văn (Winnowing):</strong> Vào mục <em>Chấm điểm</em> -> <em>Quét đạo văn</em>. Hệ thống sẽ so khớp chéo (AST + Winnowing) tất cả bài nộp trong lớp để tìm các đoạn code giống nhau và đánh dấu đỏ.</li>
+                        </ul>
+                    </div>
+                </details>
+                
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-green-500">grading</span>
+                            4. Sổ điểm và Nhận xét
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Chấm điểm thủ công:</strong> Dù hệ thống chấm tự động 100%, giảng viên vẫn có thể sửa lại điểm tổng thông qua thẻ <em>Rubric</em>.</li>
+                            <li><strong>Nhận xét trực tiếp trên từng dòng code:</strong> Tại màn hình chấm bài, giảng viên bôi đen hoặc click vào dòng code của sinh viên để để lại lời phê (hiển thị giống tính năng comment của Github). Có thể sửa/xóa nhận xét.</li>
+                            <li><strong>Xuất CSV:</strong> Click vào nút "Xuất CSV" trong Sổ điểm lớp học để tải bảng điểm Excel toàn lớp về máy tính.</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+            
+            {% else %}
+            <!-- SINH VIÊN & KHÁCH SECTION -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 border-l-4 border-primary pl-3">Dành cho Sinh Viên</h2>
+                
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary">group_add</span>
+                            1. Tham gia Lớp học
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Cách 1 (Mã mời):</strong> Tại màn hình chính (Dashboard), nhập mã gồm 6-8 ký tự do Giảng viên cung cấp vào ô <em>Nhập mã mời</em> và nhấn Tham gia.</li>
+                            <li><strong>Cách 2 (Link trực tiếp):</strong> Click thẳng vào đường link lớp học do Giáo viên chia sẻ.</li>
+                            <li>Lưu ý: Một số lớp có thể yêu cầu chờ Giáo viên phê duyệt mới được xem nội dung.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-indigo-500">terminal</span>
+                            2. Sử dụng Không gian lập trình (Web IDE)
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <p class="mb-2">Giao diện IDE được chia làm 3 phần chính:</p>
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><strong>Khung Đề bài (Trái):</strong> Hiển thị yêu cầu bài toán, các ví dụ mẫu (Testcase mẫu) và tài liệu đính kèm.</li>
+                            <li><strong>Khung Soạn thảo (Phải trên):</strong> Nơi bạn viết mã nguồn (code). Bạn có thể đổi ngôn ngữ lập trình (C++, Python, Java) thông qua menu ở góc.</li>
+                            <li><strong>Bảng Điều khiển (Phải dưới):</strong> Nơi hiển thị kết quả. Bấm <em>Chạy thử (Run)</em> để test code với dữ liệu tự do. Bấm <em>Nộp bài (Submit)</em> để hệ thống chấm điểm chính thức với mọi testcases ẩn.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-amber-500">speed</span>
+                            3. Chấm điểm & Đọc lỗi (Sandbox)
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li>Sau khi Nộp bài, code của bạn sẽ chạy trong một môi trường cách ly (Sandbox) rất an toàn và chấm tự động.</li>
+                            <li><strong>Passed:</strong> Xanh lá cây - Code của bạn chạy đúng kết quả mong đợi.</li>
+                            <li><strong>Failed / Error:</strong> Đỏ - Nếu code sai, hệ thống sẽ in ra lỗi biên dịch (Compilation Error), quá thời gian (Time Limit Exceeded), hoặc sai kết quả (Wrong Answer). Hãy đọc kỹ log lỗi để sửa lại.</li>
+                            <li>Bạn có thể xem lại lịch sử các lần nộp bài trước đó thông qua tab <em>Lịch sử nộp</em>.</li>
+                        </ul>
+                    </div>
+                </details>
+                
+                <details class="group bg-slate-50 rounded-xl border border-slate-200 [&_summary::-webkit-details-marker]:hidden mb-3">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 font-semibold hover:bg-slate-100 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-red-500">warning</span>
+                            4. Làm Bài Thi & Các vi phạm
+                        </div>
+                        <span class="transition duration-300 group-open:-rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 text-slate-600 border-t border-slate-200 bg-white rounded-b-xl">
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li>Đối với bài tập được đánh dấu là <strong>Đề thi</strong>, đồng hồ đếm ngược sẽ kích hoạt. Hết giờ, hệ thống <em>tự động thu bài</em> (nộp bản nháp hiện hành).</li>
+                            <li><strong>Nghiêm cấm:</strong> Trong lúc thi, không được chuyển sang Tab khác, không được chia nhỏ màn hình hoặc bấm tổ hợp phím Copy/Paste trái phép. Hệ thống sẽ ghi nhận và báo về cho Giáo viên với cờ <em>Cảnh báo vi phạm</em>.</li>
+                            <li>Code của bạn cũng sẽ bị đối chiếu với các bạn khác trong lớp bằng thuật toán Winnowing để phát hiện sao chép. Hãy tự lực làm bài!</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+            {% endif %}
+
+        </div>
+        
+        <div class="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+            <p class="text-slate-500 text-sm">Gặp khó khăn khác?</p>
+            <a href="{% url 'submit_feedback' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-colors">
+                <span class="material-symbols-outlined text-sm">bug_report</span>
+                Báo lỗi hệ thống
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

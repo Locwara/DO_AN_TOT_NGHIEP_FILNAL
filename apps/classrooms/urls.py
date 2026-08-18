@@ -28,6 +28,8 @@ urlpatterns = [
     path('<int:pk>/quick-join/', views.quick_join_classroom_view, name='quick_join'),
     path('<int:pk>/leaderboard/', views.leaderboard_view, name='leaderboard'),
     path('<int:pk>/members/import/', views.import_members_view, name='import_members'),
+    path('<int:pk>/members/search-htmx/', views.search_students_htmx_view, name='search_students_htmx'),
+    path('<int:pk>/members/manual-add/<int:user_id>/', views.manual_add_student_view, name='manual_add_student'),
     # Subject name-availability check (AJAX)
     path('subjects/check-name/', views.check_subject_name_view, name='subject_check_name'),
     path('<int:pk>/subjects/', views.classroom_subjects_view, name='subjects'),

@@ -89,3 +89,17 @@ class SystemSettings(models.Model):
             models.Index(fields=['updated_by', '-updated_at'], name='setting_updater_at_idx'),
             models.Index(fields=['-updated_at'], name='setting_updated_idx'),
         ]
+
+class SystemFeedback(models.Model):
+    user = models.ForeignKey(User, models.SET_NULL, blank=True, null=True)
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_resolved = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'system_feedbacks'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title

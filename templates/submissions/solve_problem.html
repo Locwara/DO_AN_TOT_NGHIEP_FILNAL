@@ -87,6 +87,16 @@
     </style>
 </head>
 <body class="bg-slate-100 font-display text-slate-900 antialiased overflow-hidden h-screen flex flex-col">
+    {% if assignment.is_exam and assignment.exam_require_fullscreen and not is_teacher %}
+    <div id="fullscreen-overlay" class="fixed inset-0 bg-slate-900 z-[9999] flex flex-col items-center justify-center text-white hidden">
+        <span class="material-symbols-outlined text-6xl text-red-500 mb-4">fullscreen</span>
+        <h2 class="text-2xl font-bold mb-2">Yêu cầu toàn màn hình</h2>
+        <p class="text-slate-300 mb-6 max-w-md text-center">Bài thi này yêu cầu phải làm bài ở chế độ toàn màn hình để chống gian lận. Vui lòng bấm vào nút bên dưới để tiếp tục làm bài.</p>
+        <button id="btn-enter-fullscreen" class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-xl transition-colors">
+            Vào toàn màn hình
+        </button>
+    </div>
+    {% endif %}
 
 <!-- Top Navigation Bar -->
 <header id="ide-topbar" class="flex items-center justify-between border-b border-slate-200 px-4 sm:px-6 py-3 bg-white shrink-0 shadow-sm z-30">
@@ -549,18 +559,46 @@ function sendExamPing() {
 
 function setupExamEventTracking() {
     document.addEventListener('visibilitychange', function() {
+        if (window.isConfirmingOrSubmitted) return;
+        if (EXAM_REQUIRE_FULLSCREEN && !document.fullscreenElement) return;
         logExamEvent(document.hidden ? 'tab_hidden' : 'tab_visible');
     });
-    window.addEventListener('blur', function() { logExamEvent('focus_lost'); });
+    window.addEventListener('blur', function() { 
+        if (!window.isConfirmingOrSubmitted) {
+            if (EXAM_REQUIRE_FULLSCREEN && !document.fullscreenElement) return;
+            logExamEvent('focus_lost'); 
+        }
+    });
     window.addEventListener('focus', function() { logExamEvent('focus_returned'); });
     document.addEventListener('fullscreenchange', function() {
-        if (EXAM_REQUIRE_FULLSCREEN && !document.fullscreenElement) {
-            logExamEvent('fullscreen_exit');
+        const overlay = document.getElementById('fullscreen-overlay');
+        if (EXAM_REQUIRE_FULLSCREEN) {
+            if (!document.fullscreenElement) {
+                logExamEvent('fullscreen_exit');
+                if (overlay) overlay.classList.remove('hidden');
+            } else {
+                if (overlay) overlay.classList.add('hidden');
+            }
         }
     });
     document.addEventListener('paste', function() { logExamEvent('paste'); });
     document.addEventListener('copy', function() { logExamEvent('copy'); });
     document.addEventListener('contextmenu', function() { logExamEvent('context_menu'); });
+
+    if (EXAM_REQUIRE_FULLSCREEN) {
+        const overlay = document.getElementById('fullscreen-overlay');
+        const fsBtn = document.getElementById('btn-enter-fullscreen');
+        if (fsBtn) {
+            fsBtn.addEventListener('click', () => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                }
+            });
+        }
+        if (!document.fullscreenElement && overlay) {
+            overlay.classList.remove('hidden');
+        }
+    }
 }
 
 function showTab(name) {
@@ -720,7 +758,11 @@ function runCustom() {
 }
 
 function submitCode() {
-    if (!confirm('Bạn có chắc muốn nộp bài? Code sẽ được chấm với TẤT CẢ testcases.')) return;
+    window.isConfirmingOrSubmitted = true;
+    if (!confirm('Bạn có chắc muốn nộp bài? Code sẽ được chấm với TẤT CẢ testcases.')) {
+        window.isConfirmingOrSubmitted = false;
+        return;
+    }
 
     const btn = document.getElementById('btn-submit');
     btn.disabled = true;

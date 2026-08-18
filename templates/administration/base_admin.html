@@ -15,17 +15,33 @@
                 <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
             </summary>
             <div class="admin-mobile-menu-grid">
-                <a class="btn btn-sm" href="{% url 'administation:dashboard' %}">Tổng quan</a>
-                <a class="btn btn-sm" href="{% url 'administation:user_management' %}">Người dùng</a>
-                <a class="btn btn-sm" href="{% url 'administation:student_management' %}">Học sinh</a>
-                <a class="btn btn-sm" href="{% url 'administation:teacher_management' %}">Giáo viên</a>
-                <a class="btn btn-sm" href="{% url 'administation:classroom_management' %}">Lớp học</a>
-                <a class="btn btn-sm" href="{% url 'administation:subject_approvals' %}">Môn học</a>
-                <a class="btn btn-sm" href="{% url 'classrooms:semester_list' %}">Kỳ học</a>
-                <a class="btn btn-sm" href="{% url 'administation:sandbox_monitor' %}">Sandbox</a>
-                <a class="btn btn-sm" href="{% url 'administation:metrics' %}">Metrics</a>
-                <a class="btn btn-sm" href="{% url 'administation:activity_logs' %}">Logs</a>
-                <a class="btn btn-sm" href="{% url 'administation:system_settings' %}">Cài đặt</a>
+                <!-- Tổng quan -->
+                <a class="btn btn-sm {% if current_page == 'dashboard' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:dashboard' %}">Bảng điều khiển</a>
+                <a class="btn btn-sm {% if current_page == 'analytics' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:analytics' %}">Analytics</a>
+                
+                <!-- Người dùng -->
+                <a class="btn btn-sm {% if current_page == 'user_management' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:user_management' %}">Tài khoản</a>
+                <a class="btn btn-sm {% if current_page == 'student_management' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:student_management' %}">Học sinh</a>
+                <a class="btn btn-sm {% if current_page == 'teacher_management' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:teacher_management' %}">Giáo viên</a>
+                
+                <!-- Học tập -->
+                <a class="btn btn-sm {% if current_page == 'classroom_management' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:classroom_management' %}">Lớp học</a>
+                <a class="btn btn-sm {% if current_page == 'subject_management' or current_page == 'subject_approvals' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:subject_approvals' %}">Môn học</a>
+                <a class="btn btn-sm {% if current_page == 'semesters' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'classrooms:semester_list' %}">Kỳ học</a>
+                
+                <!-- Chấm code -->
+                <a class="btn btn-sm {% if current_page == 'languages' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:languages' %}">Ngôn ngữ</a>
+                <a class="btn btn-sm {% if current_page == 'sandboxes' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:sandboxes' %}">Cấu hình Sandbox</a>
+                <a class="btn btn-sm {% if current_page == 'sandbox_monitor' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:sandbox_monitor' %}">Sandbox Monitor</a>
+                
+                <!-- Giám sát -->
+                <a class="btn btn-sm {% if current_page == 'metrics' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:metrics' %}">Server Metrics</a>
+                <a class="btn btn-sm {% if current_page == 'exam_events' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:exam_events' %}">Sự kiện thi</a>
+                <a class="btn btn-sm {% if current_page == 'logs' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:activity_logs' %}">Nhật ký hoạt động</a>
+                <a class="btn btn-sm {% if current_page == 'system_feedbacks' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:system_feedbacks' %}">Phản hồi lỗi</a>
+                
+                <!-- Cấu hình -->
+                <a class="btn btn-sm {% if current_page == 'settings' %}bg-primary-50 text-primary-600{% endif %}" href="{% url 'administation:system_settings' %}">Cài đặt hệ thống</a>
             </div>
         </details>
 

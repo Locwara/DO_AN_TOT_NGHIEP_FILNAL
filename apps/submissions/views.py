@@ -79,9 +79,9 @@ def _submission_attempt_context(assignment, user):
 
 
 def _sanitize_text_for_db(value):
-    """Strip NUL chars that PostgreSQL text columns cannot store."""
+    """Strip NUL chars and replace NBSP with spaces."""
     if isinstance(value, str):
-        return value.replace('\x00', '')
+        return value.replace('\x00', '').replace('\xa0', ' ')
     return value
 
 
@@ -716,7 +716,7 @@ def _log_exam_event(session, event_type, metadata=None):
 def _filtered_exam_monitor_sessions(assignment, request):
     sessions = ExamSessions.objects.filter(
         assignment=assignment,
-    ).select_related('student', 'final_submission').prefetch_related('final_submission__files').order_by('student__username')
+    ).select_related('student', 'final_submission').prefetch_related('final_submission__files', 'events').order_by('student__username')
     status_filter = request.GET.get('status', 'all')
     if status_filter in EXAM_MONITOR_FILTER_STATUSES:
         if status_filter == ExamSessions.STATUS_SUBMITTED:
@@ -3401,3 +3401,18 @@ def my_grades_view(request):
         'stats': stats,
         'trend_data_json': trend_data_json
     })
+
+@login_required
+@require_POST
+def delete_code_comment_view(request, pk):
+    comment = get_object_or_404(CodeComments, pk=pk)
+    submission = comment.submission
+    if not submission:
+        return JsonResponse({'status': 'error', 'message': 'Không tìm thấy.'}, status=404)
+    classroom = submission.assignment.classroom
+    if not _is_classroom_teacher(request.user, classroom):
+        return JsonResponse({'status': 'error', 'message': 'Không có quyền.'}, status=403)
+    if comment.teacher != request.user and not _is_admin_user(request.user):
+        return JsonResponse({'status': 'error', 'message': 'Không có quyền xóa.'}, status=403)
+    comment.delete()
+    return JsonResponse({'status': 'ok'})

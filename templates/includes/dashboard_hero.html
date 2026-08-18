@@ -1,0 +1,117 @@
+{% comment %}
+    includes/dashboard_hero.html — Hero band gradient dùng chung cho 3 role (student / teacher / admin).
+
+    Biến nhận vào (tất cả optional, kế thừa context của home.html):
+      hero_role            : 'student' | 'teacher' | 'admin' (mặc định lấy home_role)
+      hero_eyebrow         : text nhỏ trong pill phía trên
+      hero_eyebrow_icon    : tên Material Symbols cho pill
+      hero_primary_url     : URL nút CTA chính (nền trắng)
+      hero_primary_label   : nhãn nút CTA chính
+      hero_primary_icon    : icon nút CTA chính
+      hero_secondary_url   : URL nút CTA phụ (outline trên gradient)
+      hero_secondary_label : nhãn nút CTA phụ
+      hero_secondary_icon  : icon nút CTA phụ
+
+    Lời chào + mô tả được render theo role, dùng lại home_greeting / home_summary
+    có sẵn trong context (không cần truyền thêm).
+{% endcomment %}
+{% firstof hero_role home_role 'student' as active_role %}
+
+<section class="hero-band mb-6">
+    <div class="hero-band-inner">
+        <div class="min-w-0">
+            {% if hero_eyebrow %}
+            <span class="hero-band-eyebrow">
+                <span class="material-symbols-outlined text-[13px]" aria-hidden="true">{{ hero_eyebrow_icon|default:'bolt' }}</span>
+                {{ hero_eyebrow }}
+            </span>
+            {% endif %}
+
+            <h1 class="hero-band-title">
+                {% if active_role == 'admin' %}
+                    Trung tâm quản trị
+                {% elif active_role == 'teacher' %}
+                    {{ home_greeting|default:'Chào quay trở lại' }}, GV {{ user.first_name|default:user.username }}!
+                {% else %}
+                    {{ home_greeting|default:'Chào quay trở lại' }}, {{ user.first_name|default:user.username }}!
+                {% endif %}
+            </h1>
+
+            <p class="hero-band-copy">
+                {% if active_role == 'student' %}
+                    {% if home_summary.upcoming_count %}
+                        Bạn có <strong class="hero-band-strong">{{ home_summary.upcoming_count }} bài</strong> sắp đến hạn trong 7 ngày tới. Hoàn thành sớm để không bị trừ điểm nộp muộn nhé!
+                    {% else %}
+                        Không có deadline nào trong 7 ngày tới — thời điểm tốt để xem lại bài đã nộp hoặc luyện thêm.
+                    {% endif %}
+                {% elif active_role == 'teacher' %}
+                    {% if home_summary.needs_review_count %}
+                        Có <strong class="hero-band-strong">{{ home_summary.needs_review_count }} bài</strong> đang chờ chấm{% if home_summary.pending_members_count %} và {{ home_summary.pending_members_count }} học sinh chờ duyệt vào lớp{% endif %}.
+                    {% elif home_summary.pending_members_count %}
+                        Hàng chờ chấm đã trống, còn <strong class="hero-band-strong">{{ home_summary.pending_members_count }} học sinh</strong> chờ duyệt vào lớp.
+                    {% else %}
+                        Hàng chờ chấm đã trống. Bạn có thể tạo bài tập mới hoặc theo dõi tiến độ lớp.
+                    {% endif %}
+                {% else %}
+                    Hệ thống đang có <strong class="hero-band-strong">{{ home_summary.total_users }} người dùng</strong>{% if home_summary.pending_teachers_count %}, {{ home_summary.pending_teachers_count }} đơn giáo viên chờ phê duyệt{% endif %}{% if home_summary.zombie_count %}, {{ home_summary.zombie_count }} tiến trình sandbox cần kiểm tra{% endif %}.
+                {% endif %}
+            </p>
+
+            {% if hero_primary_url or hero_secondary_url %}
+            <div class="hero-band-actions">
+                {% if hero_primary_url %}
+                <a href="{{ hero_primary_url }}" class="btn-hero">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">{{ hero_primary_icon|default:'arrow_forward' }}</span>
+                    {{ hero_primary_label|default:'Bắt đầu' }}
+                </a>
+                {% endif %}
+                {% if hero_secondary_url %}
+                <a href="{{ hero_secondary_url }}" class="btn-hero btn-hero-ghost">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">{{ hero_secondary_icon|default:'open_in_new' }}</span>
+                    {{ hero_secondary_label }}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        {# Illustration line-art tông trắng + primary-100/200, ẩn trên mobile/tablet #}
+        <div class="hero-band-art" aria-hidden="true">
+            {% if active_role == 'teacher' %}
+            <svg viewBox="0 0 240 160" fill="none" role="presentation">
+                <rect x="28" y="20" width="150" height="96" rx="9" fill="rgba(255,255,255,.08)" stroke="#ffffff" stroke-width="2.5"/>
+                <path d="M46 44h72M46 62h94M46 80h56" stroke="#b8d9fd" stroke-width="3" stroke-linecap="round"/>
+                <path d="M128 86l11 11 21-25" stroke="#daeefe" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M103 116v22M84 140h38" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="205" cy="50" r="13" fill="rgba(255,255,255,.14)" stroke="#ffffff" stroke-width="2.5"/>
+                <path d="M187 110c0-13 8-23 18-23s18 10 18 23" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M197 74l-13 16" stroke="#daeefe" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            {% elif active_role == 'admin' %}
+            <svg viewBox="0 0 240 160" fill="none" role="presentation">
+                <rect x="40" y="18" width="104" height="34" rx="7" fill="rgba(255,255,255,.08)" stroke="#ffffff" stroke-width="2.5"/>
+                <rect x="40" y="62" width="104" height="34" rx="7" fill="rgba(255,255,255,.08)" stroke="#ffffff" stroke-width="2.5"/>
+                <rect x="40" y="106" width="104" height="34" rx="7" fill="rgba(255,255,255,.08)" stroke="#ffffff" stroke-width="2.5"/>
+                <circle cx="58" cy="35" r="4" fill="#daeefe"/>
+                <circle cx="58" cy="79" r="4" fill="#daeefe"/>
+                <circle cx="58" cy="123" r="4" fill="#daeefe"/>
+                <path d="M78 35h46M78 79h46M78 123h46" stroke="#b8d9fd" stroke-width="3" stroke-linecap="round"/>
+                <path d="M196 38l26 10v23c0 20-14 32-26 38-12-6-26-18-26-38V48z" fill="rgba(255,255,255,.14)" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M186 74l8 8 17-19" stroke="#daeefe" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {% else %}
+            <svg viewBox="0 0 240 160" fill="none" role="presentation">
+                <rect x="38" y="32" width="140" height="86" rx="9" fill="rgba(255,255,255,.08)" stroke="#ffffff" stroke-width="2.5"/>
+                <path d="M26 130h164l-11-14H37z" fill="rgba(255,255,255,.14)" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M74 62L62 75l12 13" stroke="#b8d9fd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M142 62l12 13-12 13" stroke="#b8d9fd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M124 56l-30 40" stroke="#daeefe" stroke-width="3" stroke-linecap="round"/>
+                <path d="M186 40l26-11 26 11-26 11z" fill="rgba(218,238,254,.20)" stroke="#daeefe" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M198 46v13c0 6 28 6 28 0V46" stroke="#daeefe" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="30" cy="30" r="14" fill="rgba(255,255,255,.14)" stroke="#ffffff" stroke-width="2.5"/>
+                <path d="M24 30l5 5 9-10" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {% endif %}
+        </div>
+    </div>
+</section>

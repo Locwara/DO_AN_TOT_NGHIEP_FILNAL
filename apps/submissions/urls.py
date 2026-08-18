@@ -39,4 +39,5 @@ urlpatterns = [
     path('comment/<int:pk>/', views.add_code_comment_view, name='add_comment'),
     path('grade/<int:pk>/feedback-template/<int:template_pk>/delete/', views.delete_feedback_template_view, name='delete_feedback_template'),
     path('resolve-comment/<int:pk>/', views.resolve_comment_view, name='resolve_comment'),
+    path('delete-comment/<int:pk>/', views.delete_code_comment_view, name='delete_comment'),
 ]

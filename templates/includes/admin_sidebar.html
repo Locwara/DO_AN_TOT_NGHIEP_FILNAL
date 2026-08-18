@@ -89,6 +89,10 @@
                 <span class="material-symbols-outlined" aria-hidden="true">history</span>
                 Nhật ký hoạt động
             </a>
+            <a href="{% url 'administation:system_feedbacks' %}" class="admin-sidebar-link {% if current_page == 'system_feedbacks' %}active{% endif %}">
+                <span class="material-symbols-outlined" aria-hidden="true">feedback</span>
+                Phản hồi lỗi
+            </a>
         </div>
 
         <div class="admin-sidebar-section">

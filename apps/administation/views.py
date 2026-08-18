@@ -2204,6 +2204,17 @@ def user_bulk_action_view(request):
             request=request,
         )
         messages.success(request, f'Đã xóa (vô hiệu hóa) {updated} tài khoản.')
+    elif action == 'downgrade_to_student':
+        Profiles.objects.filter(id__in=target_ids).update(role='student')
+        updated = len(target_ids)
+        _log_admin_action(
+            request.user,
+            'ADMIN_BULK_USER_DOWNGRADE_TO_STUDENT',
+            'accounts',
+            metadata={'target_user_ids': target_ids, 'count': updated},
+            request=request,
+        )
+        messages.success(request, f'Đã chuyển {updated} tài khoản về vai trò học sinh.')
     else:
         messages.error(request, 'Hành động không hợp lệ.')
 
@@ -4109,3 +4120,30 @@ def exam_events_export_view(request):
             json.dumps(event.metadata or {}, ensure_ascii=False),
         ])
     return response
+
+@admin_required
+def system_feedbacks_view(request):
+    from .models import SystemFeedback
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        feedback_id = request.POST.get('feedback_id')
+        if action == 'resolve' and feedback_id:
+            feedback = get_object_or_404(SystemFeedback, id=feedback_id)
+            feedback.is_resolved = True
+            feedback.save()
+            messages.success(request, 'Đã đánh dấu phản hồi là đã giải quyết.')
+        return redirect('administation:system_feedbacks')
+        
+    feedbacks = SystemFeedback.objects.select_related('user').order_by('-created_at')
+    
+    paginator = Paginator(feedbacks, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        **_admin_base_context(),
+        'page_obj': page_obj,
+        'current_page': 'system_feedbacks',
+    }
+    return render(request, 'administration/system_feedbacks.html', context)

@@ -59,6 +59,29 @@
                 </form>
             </section>
 
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">person_add</span>
+                    Thêm thủ công
+                </h2>
+                <div class="space-y-4">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        <input type="text" 
+                               name="q"
+                               hx-get="{% url 'classrooms:search_students_htmx' pk=classroom.pk %}"
+                               hx-trigger="keyup changed delay:500ms, search"
+                               hx-target="#search-results"
+                               placeholder="Tìm kiếm theo tên hoặc username..." 
+                               class="w-full h-11 pl-10 pr-4 rounded-lg border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary text-sm transition-all outline-none">
+                    </div>
+                    
+                    <div id="search-results" class="bg-white border border-slate-200 rounded-lg max-h-[300px] overflow-y-auto empty:hidden">
+                        <!-- Kết quả tìm kiếm sẽ hiển thị ở đây qua HTMX -->
+                    </div>
+                </div>
+            </section>
+
             {% if summary %}
             <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="bg-white border border-slate-200 rounded-xl p-5">

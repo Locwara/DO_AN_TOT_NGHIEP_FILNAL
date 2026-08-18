@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load submission_extras %}
 {% block title %}Theo dõi phòng thi - {{ assignment.title }}{% endblock %}
 
 {% block content %}
@@ -101,7 +102,41 @@
                                 {{ session.run_count }}
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-right {% if session.violation_count %}text-amber-600 font-bold{% endif %}">{{ session.violation_count }}</td>
+                        <td class="px-4 py-3 text-right">
+                            {% if session.violation_count %}
+                            <button onclick="document.getElementById('modal-{{ session.pk }}').showModal()" class="text-amber-600 font-bold hover:underline" title="Xem chi tiết vi phạm">
+                                {{ session.violation_count }}
+                            </button>
+                            <dialog id="modal-{{ session.pk }}" class="p-0 rounded-xl backdrop:bg-slate-900/50 shadow-2xl max-w-lg w-full m-auto open:flex flex-col hidden">
+                                <div class="p-6 bg-white w-full text-left">
+                                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-amber-500">warning</span>
+                                        Lịch sử - {{ session.student.get_full_name|default:session.student.username }}
+                                    </h3>
+                                    <div class="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar text-sm">
+                                        {% for event in session.events.all %}
+                                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="flex justify-between items-center mb-1">
+                                                <span class="font-bold {% if event.event_type == 'fullscreen_exit' or event.event_type == 'focus_lost' or event.event_type == 'copy' or event.event_type == 'paste' or event.event_type == 'tab_hidden' %}text-amber-600{% else %}text-slate-700{% endif %}">{{ event.event_type|event_label }}</span>
+                                                <span class="text-xs text-slate-500">{{ event.created_at|date:"d/m H:i:s" }}</span>
+                                            </div>
+                                            {% if event.metadata %}
+                                            <pre class="text-[10px] text-slate-500 font-mono mt-1 whitespace-pre-wrap">{{ event.metadata|json_script:""|slice:"31:-10" }}</pre>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="mt-6 text-right">
+                                        <form method="dialog">
+                                            <button class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-colors">Đóng</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </dialog>
+                            {% else %}
+                            0
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-right font-bold text-primary">
                             {% if is_quiz_exam %}
                                 {% if session.quiz_score != None %}{{ session.quiz_score|floatformat:2 }}{% else %}-{% endif %}
@@ -128,7 +163,7 @@
                                 {% if not session.final_submission %}
                                 <form method="post" action="{% url 'submissions:force_submit_exam_session' session_pk=session.pk %}">
                                     {% csrf_token %}
-                                    <button class="h-8 px-2 rounded bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20" onclick="return confirm('{% if is_file_exam %}File exam không lưu file nháp trên server. Đánh dấu phiên này hết giờ?{% elif is_quiz_exam %}Force submit các đáp án quiz đã autosave?{% else %}Force submit draft hiện tại?{% endif %}')">{% if is_file_exam %}Đánh dấu hết giờ{% elif is_quiz_exam %}Force submit quiz{% else %}Force submit{% endif %}</button>
+                                    <button class="h-8 px-2 rounded bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20" onclick="return confirm('{% if is_file_exam %}File exam không lưu file nháp trên server. Đánh dấu phiên này hết giờ?{% elif is_quiz_exam %}Bắt buộc nộp bài trắc nghiệm với các đáp án đã được tự động lưu?{% else %}Bắt buộc nộp bài với code nháp hiện tại?{% endif %}')">{% if is_file_exam %}Đánh dấu hết giờ{% elif is_quiz_exam %}Bắt buộc nộp bài{% else %}Bắt buộc nộp bài{% endif %}</button>
                                 </form>
                                 {% endif %}
                             </div>
@@ -191,10 +226,12 @@
                             }
                         }
                         
-                        // Cập nhật bảng dữ liệu học sinh
-                        const newTbody = doc.querySelector('tbody');
-                        if (newTbody) {
-                            document.querySelector('tbody').innerHTML = newTbody.innerHTML;
+                        // Cập nhật bảng dữ liệu học sinh (bỏ qua nếu đang mở hộp thoại lịch sử)
+                        if (!document.querySelector('dialog[open]')) {
+                            const newTbody = doc.querySelector('tbody');
+                            if (newTbody) {
+                                document.querySelector('tbody').innerHTML = newTbody.innerHTML;
+                            }
                         }
                     })
                     .catch(err => console.error("Error auto-refreshing:", err));

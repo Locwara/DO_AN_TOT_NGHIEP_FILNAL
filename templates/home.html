@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load l10n %}
 {% block title %}DevLearn - Học lập trình với Web IDE và chấm điểm tự động{% endblock %}
 
 {% block content %}
+{% if not user.is_authenticated %}
 <div class="home-shell max-w-[1200px] mx-auto w-full overflow-hidden">
-    {% if not user.is_authenticated %}
     <!-- Hero Section (Legacy/Public) -->
     <section class="hero text-center md:text-left">
         <div class="container-md grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -40,417 +41,774 @@
             </div>
         </div>
     </section>
-    {% endif %}
+</div>
+{% else %}
 
-    {% if user.is_authenticated %}
-    <!-- Logged In Portal (Teacher/Student) -->
-    <section class="py-8 px-4 md:px-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
-            <div>
-                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Chào quay trở lại, {{ user.first_name|default:user.username }}!</h1>
-                <p class="text-slate-500 mt-1 font-medium">{% if home_role == 'teacher' %}Bắt đầu quản lý lớp học và bài nộp của sinh viên.{% else %}Tiếp tục hành trình chinh phục các thử thách lập trình.{% endif %}</p>
-            </div>
-            <div class="flex items-center gap-3">
-                {% if home_role == 'teacher' %}
-                <a href="{% url 'classrooms:create' %}" class="btn btn-outline border-2 border-primary text-primary h-12 px-6 font-bold">
-                    <span class="material-symbols-outlined text-sm">add_circle</span>
-                    Tạo lớp học
-                </a>
-                <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-primary h-12 px-6 font-bold shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-sm">dashboard</span>
-                    Dashboard Giáo viên
-                </a>
-                {% else %}
-                <a href="{% url 'classrooms:join' %}" class="btn btn-outline border-2 border-primary text-primary h-12 px-6 font-bold">
-                    <span class="material-symbols-outlined text-sm">vpn_key</span>
-                    Vào lớp mới
-                </a>
-                <a href="{% url 'accounts:student_dashboard' %}" class="btn btn-primary h-12 px-6 font-bold shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-sm">person</span>
-                    Dashboard cá nhân
-                </a>
-                {% endif %}
-            </div>
-        </div>
+{% comment %}
+   DASHBOARD v2 — nền surface #f8fafc để card trắng nổi lên.
+   Bố cục: [hero band] + [main 8 cols | sidebar 4 cols].
+{% endcomment %}
+<div class="dashboard-surface">
+<div class="max-w-[1200px] mx-auto w-full px-4 md:px-6 py-6 md:py-8">
 
-        {% if home_role == 'student' %}
-        <!-- Student Dashboard Quick View -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 flex flex-col gap-6">
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Sắp đến hạn</p>
-                            <h3 class="text-xl font-bold">Bài sắp đến hạn</h3>
+{% if home_role == 'student' %}
+    {# ---------------------------- STUDENT ---------------------------- #}
+    {% include 'includes/dashboard_hero.html' with hero_role='student' hero_eyebrow=role_labels.student hero_eyebrow_icon='school' hero_primary_url=primary_cta_url hero_primary_label=primary_cta_label hero_primary_icon=primary_cta_icon hero_secondary_url=secondary_cta_url hero_secondary_label=secondary_cta_label hero_secondary_icon=secondary_cta_icon %}
+
+    <div class="dash-shell">
+        <div class="dash-grid">
+            {# ===== MAIN (8 cols) ===== #}
+            <div class="dash-col">
+
+                {# --- Ưu tiên #1: Sắp đến hạn --- #}
+                <section class="dash-card dash-card-hero">
+                    <div class="dash-card-head">
+                        <div class="min-w-0">
+                            <h2 class="dash-card-title">
+                                <span class="material-symbols-outlined" aria-hidden="true">alarm</span>
+                                Sắp đến hạn
+                                {% if home_summary.upcoming_count %}
+                                <span class="badge-status badge-status-warning">{{ home_summary.upcoming_count }} bài</span>
+                                {% endif %}
+                            </h2>
+                            <p class="caption mt-1">Deadline trong 7 ngày tới — làm sớm để tránh bị trừ điểm nộp muộn.</p>
                         </div>
-                        {% if home_sections.upcoming_assignments|length > 3 %}
-                        <a href="{% url 'assignments:calendar' %}" class="btn btn-sm">Xem tất cả</a>
-                        {% endif %}
+                        <a href="{% url 'assignments:calendar' %}" class="btn btn-sm flex-shrink-0">Xem tất cả</a>
                     </div>
+
                     {% if home_sections.upcoming_assignments %}
                     <div class="space-y-3">
                         {% for row in home_sections.upcoming_assignments|slice:":3" %}
-                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border border-primary-100 rounded-lg">
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-center gap-2 mb-1">
-                                    <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
+                        <div class="dash-row card-priority {% if row.due_tone == 'success' %}is-done{% elif row.due_tone == 'danger' %}is-critical{% elif row.due_tone == 'warning' %}is-urgent{% else %}is-info{% endif %} flex-col md:flex-row md:items-center">
+                            <div class="min-w-0 flex-1 w-full">
+                                <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                                    <span class="badge-status badge-status-{{ row.status_tone }}">{{ row.status_label }}</span>
                                     {% if row.subject %}
-                                    <span class="badge badge-general">{{ row.subject.code }}</span>
+                                    <span class="badge-status badge-status-neutral">{{ row.subject.code }}</span>
                                     {% endif %}
+                                    <span class="badge-status badge-status-{{ row.due_tone }}">
+                                        <span class="material-symbols-outlined" aria-hidden="true">timer</span>
+                                        còn {{ row.assignment.due_date|timeuntil }}
+                                    </span>
                                 </div>
-                                <a href="{{ row.action_url }}" class="font-bold text-primary-900 hover:text-primary-600 truncate block">{{ row.assignment.title }}</a>
-                                <p class="caption mt-1 text-xs">
+                                <a href="{{ row.action_url }}" class="font-bold text-primary-900 hover:text-primary-600 line-clamp-1 block">{{ row.assignment.title }}</a>
+                                <p class="caption mt-1 text-[11px]">
                                     <span class="font-bold text-primary">{{ row.assignment.classroom.name }}</span>
                                     {% if row.assignment.classroom_subject %}
-                                    <span class="mx-1">•</span> Môn: {{ row.assignment.classroom_subject.subject.name }}
+                                    <span class="mx-1">•</span>{{ row.assignment.classroom_subject.subject.name }}
                                     {% endif %}
-                                </p>
-                                <p class="caption mt-1 text-slate-500">
-                                    Hạn: {{ row.assignment.due_date|date:"d/m/Y H:i" }}
+                                    <span class="mx-1">•</span>Hạn {{ row.assignment.due_date|date:"H:i d/m" }}
                                 </p>
                             </div>
-                            <a href="{{ row.action_url }}" class="btn btn-primary flex-shrink-0">
-                                <span class="material-symbols-outlined text-sm">play_arrow</span>
-                                Làm bài
+                            <a href="{{ row.action_url }}" class="btn btn-primary btn-sm flex-shrink-0 w-full md:w-auto justify-center">
+                                <span class="material-symbols-outlined text-sm" aria-hidden="true">play_arrow</span>
+                                {% if row.is_completed %}Xem lại{% else %}Làm bài{% endif %}
                             </a>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="text-center py-8">
-                        <span class="material-symbols-outlined text-4xl text-success-600">check_circle</span>
-                        <p class="font-bold mt-2">Chưa có bài nào sắp đến hạn.</p>
-                        <p class="caption">Khi giáo viên giao bài mới, mục này sẽ tự cập nhật.</p>
+                    {# Empty state có illustration line-art tông Primary #}
+                    <div class="empty-illustration">
+                        <svg viewBox="0 0 200 140" fill="none" role="img" aria-label="Không có deadline nào">
+                            <rect x="34" y="28" width="118" height="94" rx="12" fill="#f0f8ff" stroke="#137fec" stroke-width="3"/>
+                            <path d="M34 56h118" stroke="#137fec" stroke-width="3"/>
+                            <path d="M62 20v18M124 20v18" stroke="#1260c0" stroke-width="3" stroke-linecap="round"/>
+                            <path d="M66 88l14 14 30-32" stroke="#1260c0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="170" cy="46" r="7" fill="#daeefe" stroke="#1260c0" stroke-width="2"/>
+                            <path d="M174 94l4 8 8 4-8 4-4 8-4-8-8-4 8-4z" fill="#f0f8ff" stroke="#137fec" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
+                        <strong>Không có deadline nào, thảnh thơi!</strong>
+                        <span>Khi giáo viên giao bài mới, mục này sẽ tự cập nhật kèm đếm ngược thời gian.</span>
                     </div>
                     {% endif %}
                 </section>
 
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Bài thi</p>
-                            <h3 class="text-xl font-bold">Bài thi của bạn</h3>
-                        </div>
-                        {% if home_sections.exam_assignments|length > 3 %}
-                        <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-sm">Chi tiết</a>
-                        {% endif %}
+                {# --- Lớp đang học: progress-ring thay progress bar ngang --- #}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">school</span>
+                            Lớp đang học
+                        </h2>
+                        <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-sm flex-shrink-0">Tất cả lớp</a>
                     </div>
-                    {% if home_sections.exam_assignments %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {% for row in home_sections.exam_assignments|slice:":3" %}
-                        <a href="{{ row.action_url }}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
-                                <span class="material-symbols-outlined text-primary">quiz</span>
-                            </div>
-                            <p class="font-bold mt-3 line-clamp-1">{{ row.assignment.title }}</p>
-                            <p class="caption mt-1 text-xs">
-                                <span class="font-bold text-primary">{{ row.assignment.classroom.name }}</span>
-                                {% if row.assignment.classroom_subject %}
-                                <br><span class="text-slate-500">Môn: {{ row.assignment.classroom_subject.subject.name }}</span>
-                                {% endif %}
-                            </p>
-                            {% if row.assignment.exam_start_time %}
-                            <p class="caption mt-2 font-bold text-amber-600">Mở: {{ row.assignment.exam_start_time|date:"H:i d/m" }}</p>
-                            {% endif %}
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="caption">Hiện chưa có bài thi nào đang hoặc gần mở.</p>
-                    {% endif %}
-                </section>
 
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Lớp của tôi</p>
-                            <h3 class="text-xl font-bold">Lớp đang học</h3>
-                        </div>
-                        <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-sm">Tất cả lớp</a>
-                    </div>
                     {% if home_sections.classrooms %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% for row in home_sections.classrooms|slice:":3" %}
-                        {% with classroom_obj=row.classroom|default:row %}
-                        <a href="{% url 'classrooms:classroom_detail' pk=classroom_obj.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <h4 class="font-bold text-primary-900 truncate">{{ classroom_obj.name }}</h4>
-                                    <p class="caption mt-1">{{ row.subject_count|default:0 }} môn · {{ row.completed_count|default:0 }}/{{ row.assignment_count|default:0 }} bài</p>
-                                </div>
-                                <span class="material-symbols-outlined text-primary">chevron_right</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% for row in home_sections.classrooms|slice:":4" %}
+                        <a href="{% url 'classrooms:classroom_detail' pk=row.classroom.pk %}" class="dash-row card-priority {% if row.completion_rate >= 80 %}is-done{% elif row.completion_rate >= 40 %}is-info{% else %}is-urgent{% endif %}">
+                            <div class="progress-ring {% if row.completion_rate >= 80 %}is-success{% elif row.completion_rate < 40 %}is-warning{% endif %}" style="--ring-value: {{ row.completion_rate|unlocalize }}">
+                                <svg viewBox="0 0 52 52" aria-hidden="true">
+                                    <circle class="progress-ring-track" cx="26" cy="26" r="20"/>
+                                    <circle class="progress-ring-bar" cx="26" cy="26" r="20"/>
+                                </svg>
+                                <span class="progress-ring-label">{{ row.completion_rate|floatformat:0 }}%</span>
                             </div>
-                            <div class="h-2 bg-primary-100 rounded-full overflow-hidden mt-4">
-                                <div class="h-full bg-primary" style="width: {{ row.completion_rate|default:0 }}%"></div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="font-bold text-primary-900 text-sm line-clamp-1">{{ row.classroom.name }}</h3>
+                                <p class="caption mt-1 text-[11px]">{{ row.subject_count|default:0 }} môn · {{ row.completed_count|default:0 }}/{{ row.assignment_count|default:0 }} bài đã làm</p>
                             </div>
+                            <span class="material-symbols-outlined text-primary-400 flex-shrink-0" aria-hidden="true">chevron_right</span>
                         </a>
-                        {% endwith %}
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Chưa có lớp đang học.</p>
+                    <div class="dash-empty-inline">
+                        <span class="material-symbols-outlined" aria-hidden="true">group_add</span>
+                        Chưa tham gia lớp nào.
+                        <a href="{% url 'classrooms:join' %}" class="text-primary-600 font-bold hover:underline ml-auto">Vào lớp bằng mã mời</a>
+                    </div>
                     {% endif %}
                 </section>
+
+                {# --- Bài thi: ẩn HẲN nếu không có bài nào đang mở / mở trong 48h --- #}
+                {% if home_summary.exam_soon_count %}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <div class="min-w-0">
+                            <h2 class="dash-card-title">
+                                <span class="material-symbols-outlined" aria-hidden="true">timer</span>
+                                Bài thi sắp diễn ra
+                                <span class="badge-status badge-status-info">{{ home_summary.exam_soon_count }}</span>
+                            </h2>
+                            <p class="caption mt-1">Đang mở hoặc mở trong 48 giờ tới.</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% for row in home_sections.exam_assignments %}
+                        {% if row.is_soon %}
+                        <a href="{{ row.action_url }}" class="dash-row card-priority is-info is-top">
+                            <span class="material-symbols-outlined text-primary-500 flex-shrink-0 mt-0.5" aria-hidden="true">quiz</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="badge-status badge-status-{{ row.status_tone }}">{{ row.status_label }}</span>
+                                </div>
+                                <p class="font-bold text-sm text-primary-900 line-clamp-1">{{ row.assignment.title }}</p>
+                                <p class="caption mt-1 text-[11px]">{{ row.assignment.classroom.name }}</p>
+                                {% if row.assignment.exam_start_time %}
+                                <p class="caption is-warning mt-1 text-[11px] font-bold">Mở lúc {{ row.assignment.exam_start_time|date:"H:i d/m" }}</p>
+                                {% elif row.assignment.exam_end_time %}
+                                <p class="caption is-danger mt-1 text-[11px] font-bold">Đóng sau {{ row.assignment.exam_end_time|timeuntil }}</p>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
             </div>
 
-            <div class="flex flex-col gap-6">
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Điểm số</p>
-                            <h3 class="text-xl font-bold">Điểm gần đây</h3>
-                        </div>
-                        {% if home_sections.recent_submissions|length > 3 %}
-                        <a href="{% url 'accounts:student_dashboard' %}" class="btn btn-sm text-[10px]">Tất cả</a>
-                        {% endif %}
+            {# ===== SIDEBAR (4 cols) ===== #}
+            <aside class="dash-col">
+
+                {# --- Điểm gần đây --- #}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">grade</span>
+                            Điểm gần đây
+                        </h2>
+                        <a href="{% url 'accounts:student_dashboard' %}" class="btn btn-sm flex-shrink-0">Tất cả</a>
                     </div>
+
                     {% if home_sections.recent_submissions %}
-                    <div class="space-y-3">
+                    <div class="space-y-2">
                         {% for row in home_sections.recent_submissions|slice:":3" %}
-                        <a href="{% url 'submissions:detail' pk=row.submission.pk %}" class="block p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
-                            <p class="font-bold text-sm line-clamp-1">{{ row.submission.assignment.title }}</p>
-                            <p class="caption mt-1">{{ row.submission.assignment.classroom.name }}</p>
-                            <div class="flex items-center justify-between gap-2 mt-2">
-                                <span class="badge {{ row.status_class }}">{{ row.status_label }}</span>
-                                <span class="font-bold text-primary">{{ row.earned_score|floatformat:1 }}/{{ row.submission.max_score|floatformat:0 }}</span>
+                        {# Theo spec 3.5: chỉ tô màu con số theo ngưỡng, không tint cả dòng #}
+                        <a href="{% url 'submissions:detail' pk=row.submission.pk %}" class="dash-row">
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-xs text-primary-900 line-clamp-1">{{ row.submission.assignment.title }}</p>
+                                <p class="caption mt-0.5 text-[11px] line-clamp-1">{{ row.submission.assignment.classroom.name }}</p>
+                                <span class="badge-status badge-status-{{ row.score_tone }} mt-1.5">{{ row.status_label }}</span>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <span class="text-xl font-extrabold leading-none {% if row.score_tone == 'success' %}text-success-600{% elif row.score_tone == 'warning' %}text-warning-600{% else %}text-danger-600{% endif %}">{{ row.earned_score|default_if_none:0|floatformat:1 }}</span>
+                                <p class="caption text-[10px] mt-0.5">/ {{ row.submission.max_score|floatformat:0 }}</p>
                             </div>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Chưa có bài nộp nào.</p>
+                    <div class="dash-empty-inline">
+                        <span class="material-symbols-outlined" aria-hidden="true">history_edu</span>
+                        Chưa có bài nộp nào.
+                    </div>
                     {% endif %}
                 </section>
 
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Thông báo</p>
-                            <h3 class="text-xl font-bold">Thông báo mới</h3>
-                        </div>
-                        <a href="{% url 'notifications:list' %}" class="btn btn-sm">Mở</a>
+                {# --- Thông báo: badge số chưa đọc; thu gọn 1 dòng khi rỗng --- #}
+                {% if home_sections.notifications %}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+                            Thông báo
+                            {# unread_notifications_count đến từ context processor của app notifications #}
+                            {% if unread_notifications_count %}<span class="badge-status badge-status-danger">{{ unread_notifications_count }} mới</span>{% endif %}
+                        </h2>
+                        <a href="{% url 'notifications:list' %}" class="btn btn-sm flex-shrink-0">Mở</a>
                     </div>
-                    {% if home_sections.notifications %}
                     <div class="space-y-2">
                         {% for notification in home_sections.notifications|slice:":3" %}
-                        <div class="p-3 rounded-lg {% if notification.is_read %}bg-white border border-primary-100{% else %}bg-primary-50 border border-primary-200{% endif %}">
-                            <div class="flex items-start gap-2">
-                                <span class="material-symbols-outlined text-primary text-lg mt-0.5">{% if notification.is_read %}notifications{% else %}notifications_active{% endif %}</span>
-                                <div class="min-w-0 flex-1">
-                                    <a href="{% url 'notifications:open' pk=notification.pk %}" class="font-bold text-xs line-clamp-1 hover:text-primary">{{ notification.title }}</a>
-                                    <p class="caption line-clamp-2">{{ notification.message }}</p>
-                                    <p class="caption mt-1">{{ notification.created_at|timesince }} trước</p>
-                                </div>
+                        <a href="{% url 'notifications:open' pk=notification.pk %}" class="dash-row{% if not notification.is_read %} card-priority{% endif %} is-top">
+                            <span class="material-symbols-outlined flex-shrink-0 mt-0.5 {% if notification.is_read %}text-primary-400{% else %}text-primary-600{% endif %}" aria-hidden="true">{% if notification.is_read %}notifications{% else %}notifications_active{% endif %}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-xs text-primary-900 line-clamp-1">{{ notification.title }}</p>
+                                <p class="caption text-[11px] line-clamp-2">{{ notification.message }}</p>
+                                <p class="caption text-[10px] mt-0.5">{{ notification.created_at|timesince }} trước</p>
                             </div>
-                        </div>
+                        </a>
                         {% endfor %}
                     </div>
-                    {% else %}
-                    <p class="caption">Không có thông báo mới.</p>
-                    {% endif %}
                 </section>
+                {% else %}
+                <a href="{% url 'notifications:list' %}" class="dash-mini-link">
+                    <span class="material-symbols-outlined" aria-hidden="true">notifications_off</span>
+                    Không có thông báo mới
+                    <span class="material-symbols-outlined ml-auto" aria-hidden="true">chevron_right</span>
+                </a>
+                {% endif %}
 
-                <section class="course-card p-6">
-                    <div class="mb-4">
-                        <p class="eyebrow">Support</p>
-                        <h3 class="text-xl font-bold">Hỗ trợ kỹ thuật</h3>
-                    </div>
-                    <p class="caption mb-4">Gặp lỗi trong quá trình chạy code hoặc thi cử? Hãy báo cáo ngay với chúng tôi.</p>
-                    <a href="mailto:support@devlearn.edu.vn" class="flex items-center justify-center gap-2 w-full py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold text-sm hover:bg-slate-100 transition-colors">
-                        <span class="material-symbols-outlined text-sm">bug_report</span>
-                        Báo lỗi hệ thống
+                {# --- Chức năng phụ: thu nhỏ thành link 1 dòng --- #}
+                <div class="space-y-2">
+                    <a href="{% url 'accounts:student_dashboard' %}" class="dash-mini-link">
+                        <span class="material-symbols-outlined" aria-hidden="true">insights</span>
+                        Dashboard cá nhân
+                        <span class="material-symbols-outlined ml-auto" aria-hidden="true">chevron_right</span>
                     </a>
-                </section>
-            </div>
+                    <a href="{% url 'user_guide' %}" class="dash-mini-link">
+                        <span class="material-symbols-outlined" aria-hidden="true">help_center</span>
+                        Hướng dẫn sử dụng
+                        <span class="material-symbols-outlined ml-auto" aria-hidden="true">chevron_right</span>
+                    </a>
+                    <a href="{% url 'submit_feedback' %}" class="dash-mini-link">
+                        <span class="material-symbols-outlined" aria-hidden="true">bug_report</span>
+                        Báo lỗi hệ thống
+                        <span class="material-symbols-outlined ml-auto" aria-hidden="true">chevron_right</span>
+                    </a>
+                </div>
+            </aside>
         </div>
-        {% elif home_role == 'teacher' %}
-        <!-- Teacher Portal Layout -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 flex flex-col gap-6">
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Hàng chờ chấm</p>
-                            <h3 class="text-xl font-bold">Bài nộp cần xem</h3>
+    </div>
+
+{% elif home_role == 'teacher' %}
+    {# ---------------------------- TEACHER ---------------------------- #}
+    {% include 'includes/dashboard_hero.html' with hero_role='teacher' hero_eyebrow=role_labels.teacher hero_eyebrow_icon='co_present' hero_primary_url=primary_cta_url hero_primary_label=primary_cta_label hero_primary_icon=primary_cta_icon hero_secondary_url=secondary_cta_url hero_secondary_label=secondary_cta_label hero_secondary_icon=secondary_cta_icon %}
+
+    <div class="dash-shell">
+        <div class="dash-grid">
+            {# ===== MAIN (8 cols) ===== #}
+            <div class="dash-col">
+
+                {# --- Ưu tiên #1: Hàng chờ chấm --- #}
+                <section class="dash-card dash-card-hero">
+                    <div class="dash-card-head">
+                        <div class="min-w-0">
+                            <h2 class="dash-card-title">
+                                <span class="material-symbols-outlined" aria-hidden="true">rate_review</span>
+                                Hàng chờ chấm
+                                {% if home_summary.needs_review_count %}
+                                <span class="badge-status badge-status-warning">{{ home_summary.needs_review_count }} bài</span>
+                                {% endif %}
+                            </h2>
+                            <p class="caption mt-1">Bài nộp lỗi, đang chờ chạy hoặc cần chấm tay.</p>
                         </div>
-                        {% if home_sections.needs_review|length > 3 %}
-                        <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-sm">Mở dashboard</a>
+                        {% if home_sections.needs_review %}
+                        <a href="{{ teacher_actions.grade_queue_url }}" class="btn btn-sm flex-shrink-0">Chấm ngay</a>
                         {% endif %}
                     </div>
+
                     {% if home_sections.needs_review %}
                     <div class="space-y-3">
-                        {% for sub in home_sections.needs_review|slice:":3" %}
-                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 border border-primary-100 rounded-lg">
-                            <div class="min-w-0">
+                        {% for sub in home_sections.needs_review|slice:":4" %}
+                        <div class="dash-row card-priority {% if sub.status == 'error' %}is-critical{% elif sub.status == 'finished' %}is-info{% else %}is-urgent{% endif %} flex-col md:flex-row md:items-center">
+                            <span class="avatar-initial" aria-hidden="true">{{ sub.student.get_full_name|default:sub.student.username|slice:":1" }}</span>
+                            <div class="min-w-0 flex-1 w-full">
                                 <div class="flex flex-wrap items-center gap-2 mb-1">
-                                    <span class="badge {% if sub.status == 'error' %}bg-danger-100 text-danger-600{% elif sub.status == 'finished' %}bg-success-100 text-success-600{% else %}bg-warning-100 text-warning-600{% endif %}">{{ sub.status }}</span>
-                                    <span class="badge badge-general truncate max-w-[80px]">{{ sub.assignment.type }}</span>
+                                    {% if sub.status == 'error' %}
+                                    <span class="badge-status badge-status-danger"><span class="material-symbols-outlined" aria-hidden="true">error</span>Lỗi</span>
+                                    {% elif sub.status == 'finished' %}
+                                    <span class="badge-status badge-status-info"><span class="material-symbols-outlined" aria-hidden="true">fact_check</span>Cần review</span>
+                                    {% elif sub.status == 'running' %}
+                                    <span class="badge-status badge-status-warning"><span class="material-symbols-outlined" aria-hidden="true">sync</span>Đang chạy</span>
+                                    {% else %}
+                                    <span class="badge-status badge-status-warning"><span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span>Chờ chạy</span>
+                                    {% endif %}
+                                    <span class="badge-status badge-status-neutral">{{ sub.assignment.get_type_display|default:sub.assignment.type }}</span>
                                 </div>
-                                <p class="font-bold text-primary-900 line-clamp-1 text-sm">{{ sub.assignment.title }}</p>
-                                <p class="caption mt-1 truncate text-[11px]">
-                                    {{ sub.student.get_full_name|default:sub.student.username }} · {{ sub.assignment.classroom.name }}
+                                <p class="font-bold text-sm text-primary-900 line-clamp-1">{{ sub.assignment.title }}</p>
+                                <p class="caption mt-0.5 text-[11px] line-clamp-1">
+                                    {{ sub.student.get_full_name|default:sub.student.username }} · {{ sub.assignment.classroom.name }} · {{ sub.submitted_at|timesince }} trước
                                 </p>
                             </div>
-                            <a href="{% url 'submissions:grade' pk=sub.pk %}" class="btn btn-primary flex-shrink-0 btn-sm">
+                            <a href="{% url 'submissions:grade' pk=sub.pk %}" class="btn btn-primary btn-sm flex-shrink-0 w-full md:w-auto justify-center">
+                                <span class="material-symbols-outlined text-sm" aria-hidden="true">edit_note</span>
                                 Chấm bài
                             </a>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="text-center py-8">
-                        <span class="material-symbols-outlined text-4xl text-success-600">task_alt</span>
-                        <p class="font-bold mt-2">Không có bài nào cần xử lý ngay.</p>
+                    <div class="empty-illustration">
+                        <svg viewBox="0 0 200 140" fill="none" role="img" aria-label="Đã chấm hết bài">
+                            <rect x="42" y="22" width="96" height="104" rx="12" fill="#f0f8ff" stroke="#137fec" stroke-width="3"/>
+                            <rect x="72" y="12" width="36" height="20" rx="7" fill="#ffffff" stroke="#137fec" stroke-width="3"/>
+                            <path d="M62 60h42M62 80h56M62 100h30" stroke="#137fec" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+                            <circle cx="146" cy="98" r="26" fill="#daeefe" stroke="#1260c0" stroke-width="3"/>
+                            <path d="M135 98l8 9 15-18" stroke="#1260c0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M154 34l14-14 8 8-14 14z" fill="#f0f8ff" stroke="#137fec" stroke-width="2.5" stroke-linejoin="round"/>
+                        </svg>
+                        <strong>Đã chấm hết, tuyệt vời!</strong>
+                        <span>Không còn bài nộp nào cần xử lý. Bạn có thể tạo bài tập mới hoặc theo dõi tiến độ lớp.</span>
                     </div>
                     {% endif %}
                 </section>
 
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Lớp của tôi</p>
-                            <h3 class="text-xl font-bold">Lớp đang dạy</h3>
-                        </div>
-                        <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-sm">Tất cả lớp</a>
+                {# --- Lớp đang dạy: grid 2 cột + copy mã mời --- #}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+                            Lớp đang dạy
+                        </h2>
+                        <a href="{% url 'classrooms:classroom_list' %}" class="btn btn-sm flex-shrink-0">Tất cả lớp</a>
                     </div>
+
                     {% if home_sections.classrooms %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% for classroom in home_sections.classrooms|slice:":3" %}
-                        <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <h4 class="font-bold text-primary-900 truncate">{{ classroom.name }}</h4>
-                                    <p class="caption mt-1">{{ classroom.member_count }} HS · {{ classroom.assignment_count }} bài</p>
-                                </div>
-                                <span class="material-symbols-outlined text-primary">chevron_right</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% for classroom in home_sections.classrooms|slice:":4" %}
+                        <div class="dash-row card-priority is-info is-top">
+                            <div class="min-w-0 flex-1">
+                                <a href="{% url 'classrooms:classroom_detail' pk=classroom.pk %}" class="font-bold text-sm text-primary-900 hover:text-primary-600 line-clamp-1 block">{{ classroom.name }}</a>
+                                <p class="caption mt-1 text-[11px]">{{ classroom.member_count }} HS · {{ classroom.subject_count }} môn · {{ classroom.assignment_count }} bài</p>
+                                {% if classroom.invite_code %}
+
+                                <button type="button" class="copy-chip mt-2" data-copy="{{ classroom.invite_code }}" title="Sao chép mã mời">
+                                    <span class="material-symbols-outlined copy-chip-icon" aria-hidden="true">content_copy</span>
+                                    {{ classroom.invite_code }}
+                                </button>
+                                {% endif %}
                             </div>
-                            <p class="caption mt-3">Mã: <span class="font-bold text-primary">{{ classroom.invite_code }}</span></p>
-                        </a>
+                        </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Chưa có lớp đang hoạt động.</p>
+                    <div class="dash-empty-inline">
+                        <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+                        Chưa có lớp đang hoạt động.
+                        <a href="{% url 'classrooms:create' %}" class="text-primary-600 font-bold hover:underline ml-auto">Tạo lớp học</a>
+                    </div>
                     {% endif %}
                 </section>
 
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Hiệu suất</p>
-                            <h3 class="text-xl font-bold">Hiệu suất lớp 7 ngày</h3>
+                {# --- Hiệu suất 7 ngày: khối DUY NHẤT có biểu đồ (sparkline) --- #}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <div class="min-w-0">
+                            <h2 class="dash-card-title">
+                                <span class="material-symbols-outlined" aria-hidden="true">trending_up</span>
+                                Hiệu suất lớp 7 ngày
+                            </h2>
+                            <p class="caption mt-1">Xu hướng theo từng ngày trong tuần gần nhất.</p>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-3 mb-4">
-                        <div class="rounded-lg bg-primary-50 p-4">
-                            <p class="stat-number">{{ home_summary.submissions_7d }}</p>
-                            <p class="stat-label">Bài nộp</p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="stat-chip">
+                            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">upload_file</span></span>
+                            <div class="stat-chip-body">
+                                <p class="stat-chip-value">{{ home_summary.submissions_7d }}</p>
+                                <p class="stat-chip-label">Bài nộp</p>
+                            </div>
+                            {% if home_sparklines.submissions.points %}
+                            <svg class="spark stat-chip-spark" viewBox="0 0 64 22" width="64" height="22" aria-hidden="true">
+                                <polygon class="spark-area" points="{{ home_sparklines.submissions.area }}"/>
+                                <polyline class="spark-line" points="{{ home_sparklines.submissions.points }}"/>
+                            </svg>
+                            {% endif %}
                         </div>
-                        <div class="rounded-lg bg-success-100 p-4">
-                            <p class="stat-number text-success-600 text-base md:text-xl">{{ home_summary.pass_rate_7d }}%</p>
-                            <p class="stat-label">Pass</p>
+
+                        <div class="stat-chip is-success">
+                            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">verified</span></span>
+                            <div class="stat-chip-body">
+                                <p class="stat-chip-value">{{ home_summary.pass_rate_7d }}%</p>
+                                <p class="stat-chip-label">Tỷ lệ pass</p>
+                            </div>
+                            {% if home_sparklines.pass_rate.points %}
+                            <svg class="spark stat-chip-spark" viewBox="0 0 64 22" width="64" height="22" aria-hidden="true">
+                                <polygon class="spark-area" points="{{ home_sparklines.pass_rate.area }}"/>
+                                <polyline class="spark-line" points="{{ home_sparklines.pass_rate.points }}"/>
+                            </svg>
+                            {% endif %}
                         </div>
-                        <div class="rounded-lg bg-warning-100 p-4">
-                            <p class="stat-number text-warning-600 text-base md:text-xl">{{ home_summary.avg_score_7d }}</p>
-                            <p class="stat-label">TB</p>
+
+                        <div class="stat-chip is-warning">
+                            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">functions</span></span>
+                            <div class="stat-chip-body">
+                                <p class="stat-chip-value">{{ home_summary.avg_score_7d }}</p>
+                                <p class="stat-chip-label">Điểm TB</p>
+                            </div>
+                            {% if home_sparklines.avg_score.points %}
+                            <svg class="spark stat-chip-spark" viewBox="0 0 64 22" width="64" height="22" aria-hidden="true">
+                                <polygon class="spark-area" points="{{ home_sparklines.avg_score.area }}"/>
+                                <polyline class="spark-line" points="{{ home_sparklines.avg_score.points }}"/>
+                            </svg>
+                            {% endif %}
                         </div>
                     </div>
+
                     {% if home_sections.weak_assignments %}
+                    <div class="mt-4">
+                        <p class="eyebrow mb-2">Bài tập điểm thấp cần chú ý</p>
+                        <div class="space-y-2">
+                            {% for stat in home_sections.weak_assignments|slice:":2" %}
+                            <a href="{% url 'assignments:statistics' pk=stat.assignment.pk %}" class="dash-row card-priority {% if stat.pass_rate < 50 %}is-critical{% else %}is-urgent{% endif %}">
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-bold text-xs text-primary-900 line-clamp-1">{{ stat.assignment.title }}</p>
+                                    <p class="caption text-[11px] mt-0.5">{{ stat.assignment.classroom.name }} · Xem chi tiết thống kê</p>
+                                </div>
+                                <span class="badge-status {% if stat.pass_rate < 50 %}badge-status-danger{% else %}badge-status-warning{% endif %} flex-shrink-0">{{ stat.pass_rate|floatformat:0 }}% pass</span>
+                                <span class="material-symbols-outlined text-primary-400 flex-shrink-0" aria-hidden="true">chevron_right</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </section>
+            </div>
+
+            {# ===== SIDEBAR (4 cols) ===== #}
+            <aside class="dash-col">
+
+                {# --- Bài thi đang chạy: chỉ hiện khi có session live --- #}
+                {% if home_sections.running_exam_sessions %}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="live-dot" aria-hidden="true"></span>
+                            Đang thi LIVE
+                            <span class="badge-status badge-status-info">{{ home_summary.running_exams_count }}</span>
+                        </h2>
+                    </div>
                     <div class="space-y-2">
-                        {% for stat in home_sections.weak_assignments|slice:":3" %}
-                        <a href="{% url 'assignments:statistics' pk=stat.assignment.pk %}" class="flex items-center justify-between gap-3 p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
-                            <div class="min-w-0">
-                                <p class="font-bold text-xs truncate">{{ stat.assignment.title }}</p>
-                                <p class="caption text-[10px]">{{ stat.assignment.classroom.name }}</p>
-                            </div>
-                            <span class="badge {% if stat.pass_rate < 50 %}bg-danger-100 text-danger-600{% else %}bg-warning-100 text-warning-600{% endif %} text-[10px]">{{ stat.pass_rate|floatformat:0 }}%</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </section>
-            </div>
-
-            <div class="flex flex-col gap-6">
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Theo dõi thi</p>
-                            <h3 class="text-xl font-bold">Bài thi đang chạy</h3>
-                        </div>
-                    </div>
-                    {% if home_sections.running_exam_sessions %}
-                    <div class="space-y-3">
                         {% for session in home_sections.running_exam_sessions|slice:":3" %}
-                        <a href="{% url 'submissions:exam_monitor' assignment_pk=session.assignment.pk %}" class="block p-4 border border-primary-100 rounded-lg hover:border-primary transition-colors">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="badge bg-primary-100 text-primary-700">Đang thi</span>
-                                <span class="badge {% if session.violation_count %}bg-danger-100 text-danger-600{% else %}bg-success-100 text-success-600{% endif %}">{{ session.violation_count }} cảnh báo</span>
+                        <a href="{% url 'submissions:exam_monitor' assignment_pk=session.assignment.pk %}" class="dash-row card-priority {% if session.violation_count %}is-critical{% else %}is-info{% endif %} is-top">
+                            <span class="avatar-initial" aria-hidden="true">{{ session.student.get_full_name|default:session.student.username|slice:":1" }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-xs text-primary-900 line-clamp-1">{{ session.assignment.title }}</p>
+                                <p class="caption text-[11px] mt-0.5 line-clamp-1">{{ session.student.get_full_name|default:session.student.username }}</p>
+                                {% if session.violation_count %}
+                                <span class="badge-status badge-status-danger mt-1.5">
+                                    <span class="material-symbols-outlined" aria-hidden="true">gpp_maybe</span>
+                                    {{ session.violation_count }} cảnh báo
+                                </span>
+                                {% else %}
+                                <span class="badge-status badge-status-success mt-1.5">Không cảnh báo</span>
+                                {% endif %}
                             </div>
-                            <p class="font-bold mt-3 line-clamp-1 text-sm">{{ session.assignment.title }}</p>
-                            <p class="caption mt-1 truncate text-[11px]">{{ session.student.get_full_name|default:session.student.username }}</p>
                         </a>
                         {% endfor %}
                     </div>
-                    {% else %}
-                    <p class="caption">Không có phiên thi nào đang chạy.</p>
-                    {% endif %}
                 </section>
+                {% else %}
+                <div class="dash-empty-inline">
+                    <span class="material-symbols-outlined" aria-hidden="true">desktop_access_disabled</span>
+                    Không có phiên thi nào đang chạy.
+                </div>
+                {% endif %}
 
-                <section class="course-card p-6">
-                    <div class="flex items-center justify-between gap-4 mb-4">
-                        <div>
-                            <p class="eyebrow">Duyệt vào lớp</p>
-                            <h3 class="text-xl font-bold">Thành viên mới</h3>
-                        </div>
-                        {% if home_sections.pending_members|length > 3 %}
-                        <a href="{% url 'accounts:teacher_dashboard' %}" class="btn btn-sm">Tất cả</a>
-                        {% endif %}
+                {# --- Thành viên chờ duyệt: duyệt/từ chối ngay tại dashboard --- #}
+                {% if home_sections.pending_members %}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                            Chờ duyệt vào lớp
+                            <span class="badge-status badge-status-warning">{{ home_summary.pending_members_count }}</span>
+                        </h2>
                     </div>
-                    {% if home_sections.pending_members %}
-                    <div class="space-y-3">
+                    <div class="space-y-2">
                         {% for member in home_sections.pending_members|slice:":3" %}
-                        <a href="{% url 'classrooms:classroom_detail' pk=member.classroom.pk %}" class="block p-3 rounded-lg border border-primary-100 hover:border-primary transition-colors">
-                            <p class="font-bold text-sm line-clamp-1">{{ member.student.get_full_name|default:member.student.username }}</p>
-                            <p class="caption text-[11px]">{{ member.classroom.name }} · {{ member.joined_at|timesince }} trước</p>
+                        <div class="dash-row card-priority is-urgent is-top">
+                            <span class="avatar-initial" aria-hidden="true">{{ member.student.get_full_name|default:member.student.username|slice:":1" }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-xs text-primary-900 line-clamp-1">{{ member.student.get_full_name|default:member.student.username }}</p>
+                                <p class="caption text-[11px] mt-0.5 line-clamp-1">{{ member.classroom.name }} · {{ member.joined_at|timesince }} trước</p>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <form method="post" action="{% url 'classrooms:approve_member' pk=member.classroom.pk member_id=member.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-primary btn-sm">
+                                            <span class="material-symbols-outlined text-sm" aria-hidden="true">check</span>
+                                            Duyệt
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'classrooms:remove_member' pk=member.classroom.pk member_id=member.pk %}" onsubmit="return confirm('Từ chối và chặn học sinh này khỏi lớp?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm is-danger" title="Từ chối (chặn khỏi lớp)">
+                                            <span class="material-symbols-outlined text-sm" aria-hidden="true">close</span>
+                                            Từ chối
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% else %}
+                <div class="dash-empty-inline">
+                    <span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span>
+                    Không có học sinh chờ duyệt.
+                </div>
+                {% endif %}
+
+                {# --- Phím tắt nhanh: 2 nút ngang icon lớn bên trái --- #}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+                            Phím tắt nhanh
+                        </h2>
+                    </div>
+                    <div class="space-y-2">
+                        <a href="{% url 'assignments:calendar' %}" class="quick-link-row">
+                            <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+                            <div class="min-w-0">
+                                <p class="font-bold text-sm text-primary-900">Lịch học</p>
+                                <p class="caption text-[11px]">Deadline &amp; buổi thi theo tuần</p>
+                            </div>
+                            <span class="material-symbols-outlined text-primary-400 ml-auto" aria-hidden="true">chevron_right</span>
                         </a>
+                        <a href="{% url 'administation:activity_logs' %}" class="quick-link-row">
+                            <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                            <div class="min-w-0">
+                                <p class="font-bold text-sm text-primary-900">Nhật ký</p>
+                                <p class="caption text-[11px]">Hoạt động gần đây trên hệ thống</p>
+                            </div>
+                            <span class="material-symbols-outlined text-primary-400 ml-auto" aria-hidden="true">chevron_right</span>
+                        </a>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+
+{% else %}
+    {# ---------------------------- ADMIN ---------------------------- #}
+    {% include 'includes/dashboard_hero.html' with hero_role='admin' hero_eyebrow='Quản trị hệ thống' hero_eyebrow_icon='shield_person' hero_primary_url=primary_cta_url hero_primary_label='Vào Dashboard quản trị' hero_primary_icon=primary_cta_icon hero_secondary_url=secondary_cta_url hero_secondary_label=secondary_cta_label hero_secondary_icon=secondary_cta_icon %}
+
+    {# --- Hàng 4 stat chip: sức khoẻ hệ thống nhìn là thấy --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+        <a href="{% url 'administation:user_management' %}" class="stat-chip">
+            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">group</span></span>
+            <div class="stat-chip-body">
+                <p class="stat-chip-value">{{ home_summary.total_users }}</p>
+                <p class="stat-chip-label">Người dùng</p>
+            </div>
+        </a>
+
+        <a href="{% url 'administation:teacher_approvals' %}" class="stat-chip {% if home_summary.pending_teachers_count %}is-warning{% else %}is-success{% endif %}">
+            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">person_check</span></span>
+            <div class="stat-chip-body">
+                <p class="stat-chip-value">{{ home_summary.pending_teachers_count }}</p>
+                <p class="stat-chip-label">GV chờ duyệt</p>
+            </div>
+        </a>
+
+        <a href="{% url 'administation:classroom_management' %}" class="stat-chip">
+            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">school</span></span>
+            <div class="stat-chip-body">
+                <p class="stat-chip-value">{{ home_summary.active_classrooms_count }}</p>
+                <p class="stat-chip-label">Lớp hoạt động</p>
+            </div>
+        </a>
+
+        <a href="{% url 'administation:sandbox_monitor' %}" class="stat-chip {% if home_summary.zombie_count %}is-danger{% else %}is-success{% endif %}">
+            <span class="stat-chip-icon"><span class="material-symbols-outlined" aria-hidden="true">{% if home_summary.zombie_count %}warning{% else %}verified_user{% endif %}</span></span>
+            <div class="stat-chip-body">
+                <p class="stat-chip-value">{{ home_summary.zombie_count }}</p>
+                <p class="stat-chip-label">Cảnh báo sandbox</p>
+            </div>
+        </a>
+    </div>
+
+    <div class="dash-shell">
+        <div class="dash-grid">
+            {# ===== MAIN (8 cols) ===== #}
+            <div class="dash-col">
+
+                {# --- Ưu tiên #1: Giáo viên chờ phê duyệt (duyệt nhanh tại đây) --- #}
+                <section class="dash-card dash-card-hero">
+                    <div class="dash-card-head">
+                        <div class="min-w-0">
+                            <h2 class="dash-card-title">
+                                <span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span>
+                                Giáo viên chờ phê duyệt
+                                {% if home_summary.pending_teachers_count %}
+                                <span class="badge-status badge-status-warning">{{ home_summary.pending_teachers_count }}</span>
+                                {% endif %}
+                            </h2>
+                            <p class="caption mt-1">Duyệt nhanh ngay tại đây, không cần vào trang quản trị.</p>
+                        </div>
+                        <a href="{% url 'administation:teacher_approvals' %}" class="btn btn-sm flex-shrink-0">Xem tất cả</a>
+                    </div>
+
+                    {% if home_sections.pending_teachers %}
+                    <div class="space-y-3">
+                        {% for reg in home_sections.pending_teachers|slice:":3" %}
+                        <div class="dash-row card-priority is-urgent flex-col md:flex-row md:items-center">
+                            <span class="avatar-initial" aria-hidden="true">{{ reg.user.get_full_name|default:reg.user.username|slice:":1" }}</span>
+                            <div class="min-w-0 flex-1 w-full">
+                                <p class="font-bold text-sm text-primary-900 line-clamp-1">{{ reg.user.get_full_name|default:reg.user.username }}</p>
+                                <p class="caption mt-0.5 text-[11px] line-clamp-1">
+                                    {% if reg.institution %}{{ reg.institution }} · {% endif %}{{ reg.created_at|timesince }} trước
+                                </p>
+                                {% if reg.reason %}
+                                <p class="caption text-[11px] line-clamp-1 mt-0.5">{{ reg.reason }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <form method="post" action="{% url 'administation:approve_teacher' pk=reg.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="return_to" value="teacher_management">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <span class="material-symbols-outlined text-sm" aria-hidden="true">check</span>
+                                        Duyệt
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'administation:reject_teacher' pk=reg.pk %}" onsubmit="return confirm('Từ chối đơn đăng ký giáo viên này?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="return_to" value="teacher_management">
+                                    <button type="submit" class="btn btn-sm is-danger">
+                                        <span class="material-symbols-outlined text-sm" aria-hidden="true">close</span>
+                                        Từ chối
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="caption">Không có học sinh chờ duyệt.</p>
+                    <div class="empty-illustration is-compact">
+                        <svg viewBox="0 0 200 140" fill="none" role="img" aria-label="Không có đơn chờ duyệt">
+                            <circle cx="78" cy="52" r="22" fill="#f0f8ff" stroke="#137fec" stroke-width="3"/>
+                            <path d="M40 120c0-21 17-34 38-34s38 13 38 34" stroke="#137fec" stroke-width="3" stroke-linecap="round"/>
+                            <path d="M150 42l24 9v22c0 19-13 30-24 36-11-6-24-17-24-36V51z" fill="#daeefe" stroke="#1260c0" stroke-width="3" stroke-linejoin="round"/>
+                            <path d="M140 76l8 8 16-18" stroke="#1260c0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <strong>Hàng chờ phê duyệt đã trống</strong>
+                        <span>Mọi đơn đăng ký giáo viên đã được xử lý.</span>
+                    </div>
                     {% endif %}
                 </section>
 
-                <section class="course-card p-6">
-                    <div class="mb-4">
-                        <p class="eyebrow">Quick Links</p>
-                        <h3 class="text-xl font-bold">Phím tắt nhanh</h3>
+                {# --- Hoạt động gần đây: timeline gọn --- #}
+                <section class="dash-card">
+                    <div class="dash-card-head">
+                        <h2 class="dash-card-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                            Hoạt động gần đây
+                        </h2>
+                        <a href="{% url 'administation:activity_logs' %}" class="btn btn-sm flex-shrink-0">Xem toàn bộ logs</a>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <a href="{% url 'assignments:calendar' %}" class="flex flex-col items-center justify-center p-4 bg-primary-50 rounded-xl hover:bg-primary-100 transition-colors">
-                            <span class="material-symbols-outlined text-primary mb-2">calendar_month</span>
-                            <span class="text-xs font-bold text-primary-950">Lịch học</span>
-                        </a>
-                        <a href="{% url 'administation:activity_logs' %}" class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                            <span class="material-symbols-outlined text-slate-500 mb-2">history</span>
-                            <span class="text-xs font-bold text-primary-950">Nhật ký</span>
-                        </a>
+
+                    {% if home_sections.recent_logs %}
+                    <ul class="dash-timeline list-none">
+                        {% for log in home_sections.recent_logs|slice:":5" %}
+                        <li class="dash-timeline-item {% if forloop.first %}is-latest{% endif %}">
+                            <p class="font-bold text-[13px] text-primary-900 line-clamp-2">{{ log.action }}</p>
+                            <p class="caption text-[11px] mt-0.5">
+                                {% if log.user %}{{ log.user.get_full_name|default:log.user.username }}{% else %}Hệ thống{% endif %}
+                                · {{ log.created_at|timesince }} trước
+                                {% if log.resource_type %}<span class="badge-status badge-status-neutral ml-1">{{ log.resource_type }}</span>{% endif %}
+                            </p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="dash-empty-inline">
+                        <span class="material-symbols-outlined" aria-hidden="true">inbox</span>
+                        Chưa có hoạt động nào được ghi nhận.
                     </div>
+                    {% endif %}
                 </section>
             </div>
+
+            {# ===== SIDEBAR (4 cols) ===== #}
+            <aside class="dash-col">
+
+                {# --- Illustration "admin console" + CTA chính --- #}
+                <section class="dash-card">
+                    {% comment %}
+                       Không dùng .empty-illustration ở đây: spec 6 định nghĩa class đó
+                       cho trạng thái RỖNG, còn đây là card giới thiệu có nội dung.
+                    {% endcomment %}
+                    <div class="flex flex-col items-center text-center gap-1 py-3">
+                        <svg class="w-[172px] max-w-[62%] h-auto mb-3" viewBox="0 0 220 150" fill="none" role="img" aria-label="Bảng điều khiển quản trị">
+                            <rect x="18" y="16" width="184" height="104" rx="14" fill="#f0f8ff" stroke="#137fec" stroke-width="3"/>
+                            <path d="M18 44h184" stroke="#137fec" stroke-width="3"/>
+                            <circle cx="36" cy="30" r="4" fill="#1260c0"/>
+                            <circle cx="50" cy="30" r="4" fill="#137fec"/>
+                            <circle cx="64" cy="30" r="4" fill="#137fec" opacity=".4"/>
+                            <rect x="34" y="58" width="62" height="48" rx="9" fill="#ffffff" stroke="#137fec" stroke-width="2.5"/>
+                            <path d="M44 94l13-16 10 12 9-11" stroke="#1260c0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M112 62h74M112 78h56M112 94h68" stroke="#137fec" stroke-width="3" stroke-linecap="round" opacity=".45"/>
+                            <path d="M84 120v14M136 120v14M62 140h96" stroke="#137fec" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                        <strong class="text-sm font-bold text-primary-900">Bảng điều khiển đầy đủ</strong>
+                        <span class="caption leading-relaxed max-w-[44ch]">Phê duyệt, cấu hình sandbox, số liệu chi tiết và nhật ký hệ thống.</span>
+                    </div>
+                    <a href="{% url 'administation:dashboard' %}" class="btn btn-primary w-full justify-center mt-1">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">admin_panel_settings</span>
+                        Vào Dashboard quản trị
+                    </a>
+                </section>
+
+                {% comment %}
+                   Spec 5 giới hạn sidebar admin ở illustration + CTA chính:
+                   không nhồi thêm số liệu/biểu đồ nào ở đây.
+                {% endcomment %}
+            </aside>
         </div>
-        {% else %}
-        <!-- Default Portal (Admin/Other) -->
-        <div class="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl shadow-sm">
-            <span class="material-symbols-outlined text-6xl text-primary mb-4">admin_panel_settings</span>
-            <h2 class="text-2xl font-black text-slate-900 mb-2">Trung tâm quản trị</h2>
-            <p class="text-slate-500 mb-8">Bạn đang đăng nhập với tư cách quản trị viên hệ thống.</p>
-            <a href="{% url 'administation:dashboard' %}" class="btn btn-primary h-12 px-8 font-bold shadow-lg shadow-primary/20 hover-lift">
-                Vào Dashboard quản trị
-            </a>
-        </div>
-        {% endif %}
-    </section>
-    {% endif %}
+    </div>
+{% endif %}
+
 </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if home_role == 'teacher' %}
+<script>
+    // Copy mã mời lớp (chip trong card "Lớp đang dạy")
+    document.addEventListener('click', function (event) {
+        var chip = event.target.closest('.copy-chip[data-copy]');
+        if (!chip) return;
+        var icon = chip.querySelector('.copy-chip-icon');
+        var done = function () {
+            chip.classList.add('is-copied');
+            if (icon) icon.textContent = 'check';
+            window.setTimeout(function () {
+                chip.classList.remove('is-copied');
+                if (icon) icon.textContent = 'content_copy';
+            }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(chip.dataset.copy).then(done);
+            return;
+        }
+        // Fallback cho ngữ cảnh không phải HTTPS/localhost
+        var temp = document.createElement('input');
+        temp.value = chip.dataset.copy;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        temp.remove();
+        done();
+    });
+</script>
+{% endif %}
 {% endblock %}

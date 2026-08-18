@@ -68,13 +68,11 @@ def redirect_after_login(request, user, profile=None, next_url=''):
 
     if user.is_superuser or user.is_staff:
         messages.success(request, f'Chào mừng quản trị viên {user.get_full_name() or user.username}!')
-        return redirect('administation:dashboard')
-
-    if (profile.role or 'student') == 'teacher':
+    elif (profile.role or 'student') == 'teacher':
         messages.success(request, f'Chào mừng giáo viên {user.get_full_name() or user.username}!')
-        return redirect('accounts:teacher_dashboard')
-
-    messages.success(request, f'Chào mừng trở lại, {user.get_full_name() or user.username}!')
+    else:
+        messages.success(request, f'Chào mừng trở lại, {user.get_full_name() or user.username}!')
+        
     return redirect('home')
 
 

@@ -212,10 +212,17 @@
                                 {% if comment.line_number == forloop.parentloop.counter %}
                                 <tr>
                                     <td colspan="2" class="px-0">
-                                        <div class="mx-8 my-2 p-4 bg-primary-50 border-l-4 border-primary rounded-r-xl shadow-sm">
+                                        <div class="mx-8 my-2 p-4 bg-primary-50 border-l-4 border-primary rounded-r-xl shadow-sm group/comment">
                                             <div class="flex items-center justify-between mb-2">
                                                 <span class="text-xs font-black text-primary uppercase">{{ comment.teacher.get_full_name|default:comment.teacher.username }}</span>
-                                                <span class="text-[10px] font-bold text-slate-400">{{ comment.created_at|date:"d/m H:i" }}</span>
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-[10px] font-bold text-slate-400">{{ comment.created_at|date:"d/m H:i" }}</span>
+                                                    {% if comment.teacher == request.user or is_admin %}
+                                                    <button onclick="deleteComment({{ comment.pk }}, this)" class="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover/comment:opacity-100" title="Xóa nhận xét">
+                                                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                             <p class="text-sm text-slate-700 leading-relaxed">{{ comment.comment_text }}</p>
                                         </div>
@@ -565,6 +572,29 @@ function hideCommentInput() {
     document.getElementById('comment-input-box').classList.add('hidden');
 }
 
+function deleteComment(id, btn) {
+    if (!confirm('Bạn có chắc muốn xóa nhận xét này?')) return;
+    const row = btn.closest('tr');
+    btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span>';
+    fetch(`/submissions/delete-comment/${id}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN }
+    })
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => {
+        if (data.status === 'ok') {
+            if (row) row.remove();
+        } else {
+            alert(data.message || 'Lỗi');
+            btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">delete</span>';
+        }
+    })
+    .catch(() => {
+        alert('Lỗi mạng. Không thể xóa.');
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">delete</span>';
+    });
+}
+
 function submitComment() {
     const lineNumber = parseInt(document.getElementById('comment-line-number').value);
     const commentText = document.getElementById('comment-text').value.trim();
@@ -579,12 +609,14 @@ function submitComment() {
         lineEl.insertAdjacentHTML('afterend', `
             <tr id="${optimisticId}">
                 <td colspan="2" class="px-0">
-                    <div class="mx-8 my-1 p-3 bg-primary-900 border-l-4 border-primary rounded-r opacity-90">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-bold text-white">Bạn</span>
-                            <span class="text-[10px] text-slate-400">vừa gửi</span>
+                    <div class="mx-8 my-2 p-4 bg-primary-50 border-l-4 border-primary rounded-r-xl shadow-sm group/comment">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-black text-primary uppercase">Bạn</span>
+                            <div class="flex items-center gap-3 action-container">
+                                <span class="text-[10px] font-bold text-slate-400">vừa gửi</span>
+                            </div>
                         </div>
-                        <p class="text-sm text-slate-200">${escapeHtml(commentText)}</p>
+                        <p class="text-sm text-slate-700 leading-relaxed">${escapeHtml(commentText)}</p>
                     </div>
                 </td>
             </tr>
@@ -601,6 +633,15 @@ function submitComment() {
         if (data.status === 'ok') {
             if (statusEl) statusEl.textContent = 'Đã gửi nhận xét.';
             hideCommentInput();
+            const temp = document.getElementById(optimisticId);
+            if (temp && data.comment_id) {
+                const btnHtml = `
+                    <button onclick="deleteComment(${data.comment_id}, this)" class="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover/comment:opacity-100" title="Xóa nhận xét">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                `;
+                temp.querySelector('.action-container').insertAdjacentHTML('beforeend', btnHtml);
+            }
         } else {
             const temp = document.getElementById(optimisticId);
             if (temp) temp.remove();

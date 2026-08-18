@@ -15,8 +15,6 @@ def download_quiz_template_view(request, format):
     sample_data = [
         {
             'question': 'Kiểu dữ liệu nào trong Python là immutable?',
-            'type': 'single_choice',
-            'points': 1.0,
             'choice_1': 'list',
             'choice_2': 'dict',
             'choice_3': 'tuple',
@@ -51,8 +49,6 @@ def download_quiz_template_view(request, format):
         
         for item in sample_data:
             doc.add_paragraph(f"[QUESTION]: {item['question']}")
-            doc.add_paragraph(f"[TYPE]: {item['type']}")
-            doc.add_paragraph(f"[POINTS]: {item['points']}")
             doc.add_paragraph(f"[A]: {item['choice_1']}")
             doc.add_paragraph(f"[B]: {item['choice_2']}")
             doc.add_paragraph(f"[C]: {item['choice_3']}")
@@ -112,33 +108,51 @@ def parse_quiz_file(file_obj):
         doc = Document(file_obj)
         current_q = {}
         idx = 0
+        last_key = None
         for para in doc.paragraphs:
-            text = para.text.strip()
-            if not text: continue
-            
-            if text.startswith('[QUESTION]:'):
-                if current_q: rows.append(current_q)
-                idx += 1
-                current_q = {
-                    'line_no': idx, 
-                    'question_text': text.replace('[QUESTION]:', '').strip(),
-                    'question_type': 'single_choice',
-                    'points': 1.0,
-                    'choices': [],
-                    'correct_answers': [],
-                    'explanation': '',
-                }
-            elif not current_q: continue
-            elif text.startswith('[TYPE]:'): current_q['question_type'] = text.replace('[TYPE]:', '').strip()
-            elif text.startswith('[A]:'): current_q['choice_1'] = text.replace('[A]:', '').strip()
-            elif text.startswith('[B]:'): current_q['choice_2'] = text.replace('[B]:', '').strip()
-            elif text.startswith('[C]:'): current_q['choice_3'] = text.replace('[C]:', '').strip()
-            elif text.startswith('[D]:'): current_q['choice_4'] = text.replace('[D]:', '').strip()
-            elif text.startswith('[CORRECT]:'):
-                val = text.replace('[CORRECT]:', '').strip().upper()
-                mapping = {'A': 1, 'B': 2, 'C': 3, 'D': 4, '1': 1, '2': 2, '3': 3, '4': 4}
-                current_q['correct_index'] = mapping.get(val, 1)
-            elif text.startswith('[EXPLANATION]:'): current_q['explanation'] = text.replace('[EXPLANATION]:', '').strip()
+            for line in para.text.split('\n'):
+                text = line.strip()
+                if not text: continue
+                
+                if text.startswith('[QUESTION]:'):
+                    if current_q: rows.append(current_q)
+                    idx += 1
+                    current_q = {
+                        'line_no': idx, 
+                        'question_text': text.replace('[QUESTION]:', '').strip(),
+                        'question_type': 'single_choice',
+                        'choices': [],
+                        'correct_answers': [],
+                        'explanation': '',
+                    }
+                    last_key = 'question_text'
+                elif not current_q: continue
+                elif text.startswith('[TYPE]:'): 
+                    current_q['question_type'] = text.replace('[TYPE]:', '').strip()
+                    last_key = 'question_type'
+                elif text.startswith('[A]:'): 
+                    current_q['choice_1'] = text.replace('[A]:', '').strip()
+                    last_key = 'choice_1'
+                elif text.startswith('[B]:'): 
+                    current_q['choice_2'] = text.replace('[B]:', '').strip()
+                    last_key = 'choice_2'
+                elif text.startswith('[C]:'): 
+                    current_q['choice_3'] = text.replace('[C]:', '').strip()
+                    last_key = 'choice_3'
+                elif text.startswith('[D]:'): 
+                    current_q['choice_4'] = text.replace('[D]:', '').strip()
+                    last_key = 'choice_4'
+                elif text.startswith('[CORRECT]:'):
+                    val = text.replace('[CORRECT]:', '').strip().upper()
+                    mapping = {'A': 1, 'B': 2, 'C': 3, 'D': 4, '1': 1, '2': 2, '3': 3, '4': 4}
+                    current_q['correct_index'] = mapping.get(val, 1)
+                    last_key = None
+                elif text.startswith('[EXPLANATION]:'): 
+                    current_q['explanation'] = text.replace('[EXPLANATION]:', '').strip()
+                    last_key = 'explanation'
+                else:
+                    if last_key and last_key in current_q:
+                        current_q[last_key] += '\n' + text
         if current_q: rows.append(current_q)
         
     return rows

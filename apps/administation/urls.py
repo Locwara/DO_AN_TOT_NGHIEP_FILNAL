@@ -80,4 +80,5 @@ urlpatterns = [
     path('sandbox-monitor/', views.sandbox_monitor_view, name='sandbox_monitor'),
     path('sandbox-monitor/kill/<int:submission_pk>/', views.kill_zombie_view, name='kill_zombie'),
     path('sandbox-monitor/requeue/<int:submission_pk>/', views.requeue_zombie_view, name='requeue_zombie'),
+    path('system-feedbacks/', views.system_feedbacks_view, name='system_feedbacks'),
 ]

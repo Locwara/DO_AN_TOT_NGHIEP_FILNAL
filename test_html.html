@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<body>
+<form id="f" method="post" action="javascript:alert(new FormData(document.getElementById('f')).get('x'))">
+  <input type="hidden" name="x" id="h">
+  <button type="submit">Submit</button>
+</form>
+<script>
+  document.getElementById('h').value = "line1\nline2";
+</script>
+</body>
+</html>

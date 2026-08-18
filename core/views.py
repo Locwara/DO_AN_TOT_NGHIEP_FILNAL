@@ -76,6 +76,43 @@ def percent(part, total):
     return round(part / total * 100, 1)
 
 
+SPARKLINE_WIDTH = 64
+SPARKLINE_HEIGHT = 22
+SPARKLINE_PADDING = 3
+
+
+def build_sparkline(values):
+    """Chuyển list số (7 ngày) thành toạ độ cho <polyline>/<polygon> SVG.
+
+    Trả về chuỗi toạ độ đã render sẵn để template chỉ cần in ra, tránh phải
+    tính toán trong Django template và tránh việc localize dấu thập phân.
+    """
+    if not values:
+        return {'points': '', 'area': ''}
+
+    series = list(values)
+    if len(series) == 1:
+        series = series * 2
+
+    peak = max(series) or 1
+    usable_height = SPARKLINE_HEIGHT - SPARKLINE_PADDING * 2
+    step = (SPARKLINE_WIDTH - SPARKLINE_PADDING * 2) / (len(series) - 1)
+    baseline = SPARKLINE_HEIGHT - SPARKLINE_PADDING
+
+    points = []
+    for index, value in enumerate(series):
+        x = SPARKLINE_PADDING + step * index
+        y = SPARKLINE_PADDING + usable_height - ((value or 0) / peak * usable_height)
+        points.append(f'{round(x, 2)},{round(y, 2)}')
+
+    first_x = points[0].split(',')[0]
+    last_x = points[-1].split(',')[0]
+    return {
+        'points': ' '.join(points),
+        'area': f"{' '.join(points)} {last_x},{baseline} {first_x},{baseline}",
+    }
+
+
 def build_student_home_context(user):
     from datetime import timedelta
 
@@ -194,6 +231,16 @@ def build_student_home_context(user):
     for assignment in upcoming_assignments:
         is_completed = assignment.pk in completed_assignment_ids
         has_submission = assignment.pk in submitted_assignment_ids
+        time_left = assignment.due_date - now if assignment.due_date else None
+        is_urgent = bool(time_left and time_left <= timedelta(hours=24))
+        if is_completed:
+            due_tone = 'success'
+        elif is_urgent:
+            due_tone = 'danger'
+        elif time_left and time_left <= timedelta(hours=72):
+            due_tone = 'warning'
+        else:
+            due_tone = 'info'
         upcoming_assignment_rows.append({
             'assignment': assignment,
             'subject': (
@@ -202,7 +249,10 @@ def build_student_home_context(user):
                 else None
             ),
             'is_completed': is_completed,
+            'is_urgent': is_urgent,
+            'due_tone': due_tone,
             'status_label': 'Đã nộp' if is_completed or has_submission else 'Chưa nộp',
+            'status_tone': 'success' if is_completed else 'warning',
             'status_class': (
                 'bg-success-100 text-success-600'
                 if is_completed
@@ -250,6 +300,7 @@ def build_student_home_context(user):
         .filter(Q(exam_end_time__isnull=True) | Q(exam_end_time__gte=now))
         .order_by('exam_start_time', 'due_date', 'title')[:4]
     )
+    exam_soon_count = 0
     for assignment in exam_assignments:
         session = exam_sessions.get(assignment.pk)
         if session and session.status in (
@@ -258,20 +309,35 @@ def build_student_home_context(user):
         ):
             label = 'Đã nộp'
             badge_class = 'bg-success-100 text-success-600'
+            status_tone = 'success'
         elif session and session.status == ExamSessions.STATUS_RUNNING:
             label = 'Đang làm'
             badge_class = 'bg-primary-100 text-primary-700'
+            status_tone = 'info'
         elif assignment.exam_start_time and assignment.exam_start_time > now:
             label = 'Chưa mở'
             badge_class = 'bg-warning-100 text-warning-600'
+            status_tone = 'warning'
         else:
             label = 'Có thể vào'
             badge_class = 'bg-primary-100 text-primary-700'
+            status_tone = 'info'
+        # Chỉ coi là "đáng hiện trên trang chủ" khi đang mở hoặc mở trong 48h tới.
+        is_open_now = not assignment.exam_start_time or assignment.exam_start_time <= now
+        starts_soon = bool(
+            assignment.exam_start_time
+            and now < assignment.exam_start_time <= now + timedelta(hours=48)
+        )
+        is_soon = is_open_now or starts_soon
+        if is_soon:
+            exam_soon_count += 1
         exam_rows.append({
             'assignment': assignment,
             'session': session,
             'status_label': label,
+            'status_tone': status_tone,
             'status_class': badge_class,
+            'is_soon': is_soon,
             'action_url': reverse('submissions:exam_lobby', kwargs={'assignment_pk': assignment.pk}),
         })
 
@@ -288,10 +354,19 @@ def build_student_home_context(user):
     for submission in recent_submissions:
         earned_score = submission.manual_score if submission.manual_score is not None else submission.total_score
         is_passed = submission.max_score and earned_score is not None and earned_score >= submission.max_score * 0.5
+        score_percent = percent(earned_score or 0, submission.max_score or 0)
+        if score_percent >= 80:
+            score_tone = 'success'
+        elif score_percent >= 50:
+            score_tone = 'warning'
+        else:
+            score_tone = 'danger'
         recent_submission_rows.append({
             'submission': submission,
             'earned_score': earned_score,
             'is_passed': is_passed,
+            'score_percent': score_percent,
+            'score_tone': score_tone,
             'status_label': 'Đạt' if is_passed else 'Cần cải thiện',
             'status_class': (
                 'bg-success-100 text-success-600'
@@ -410,6 +485,7 @@ def build_student_home_context(user):
             'avg_score': avg_score,
             'pass_rate': percent(passed_count, completed_count),
             'completion_rate': percent(completed_count, total_assignments),
+            'exam_soon_count': exam_soon_count,
         },
         'home_sections': {
             'upcoming_assignments': upcoming_assignment_rows,
@@ -517,6 +593,38 @@ def build_teacher_home_context(user):
     )
     pass_rate_7d = percent(passed_count, len(recent_finished))
 
+    # Chuỗi số liệu theo từng ngày trong 7 ngày gần nhất -> sparkline stat-chip.
+    daily_submissions = [0] * 7
+    daily_scores = [[] for _ in range(7)]
+    daily_passed = [0] * 7
+    day_offsets = {
+        timezone.localdate() - timedelta(days=6 - offset): offset
+        for offset in range(7)
+    }
+    series_rows = Submissions.objects.filter(
+        assignment__classroom_id__in=active_classroom_ids,
+        submitted_at__gte=seven_days_ago,
+    ).values_list('submitted_at', 'status', 'manual_score', 'total_score', 'max_score')
+    for submitted_at, status, manual_score, total_score, max_score in series_rows:
+        offset = day_offsets.get(timezone.localtime(submitted_at).date())
+        if offset is None:
+            continue
+        daily_submissions[offset] += 1
+        if status != 'finished':
+            continue
+        score = manual_score if manual_score is not None else total_score
+        score = score or 0
+        daily_scores[offset].append(score)
+        if max_score and score >= max_score * 0.5:
+            daily_passed[offset] += 1
+
+    daily_avg_score = [
+        round(sum(scores) / len(scores), 1) if scores else 0 for scores in daily_scores
+    ]
+    daily_pass_rate = [
+        percent(daily_passed[offset], len(daily_scores[offset])) for offset in range(7)
+    ]
+
     weak_assignments = list(
         AssignmentStatistics.objects.filter(
             assignment__classroom_id__in=active_classroom_ids,
@@ -599,6 +707,11 @@ def build_teacher_home_context(user):
             'pass_rate_7d': pass_rate_7d,
             'avg_score_7d': avg_score_7d,
         },
+        'home_sparklines': {
+            'submissions': build_sparkline(daily_submissions),
+            'pass_rate': build_sparkline(daily_pass_rate),
+            'avg_score': build_sparkline(daily_avg_score),
+        },
         'home_sections': {
             'classrooms': classroom_rows,
             'needs_review': needs_review,
@@ -655,6 +768,7 @@ def build_admin_home_context():
 
     total_users = User.objects.count()
     total_classrooms = Classrooms.objects.count()
+    active_classrooms_count = Classrooms.objects.filter(is_active=True).count()
     total_subjects = Subjects.objects.count()
     teacher_registrations_count = TeacherRegistrations.objects.count()
     total_teachers = Profiles.objects.filter(role='teacher').count()
@@ -739,6 +853,7 @@ def build_admin_home_context():
             'total_teachers': total_teachers,
             'total_students': total_students,
             'total_classrooms': total_classrooms,
+            'active_classrooms_count': active_classrooms_count,
             'total_subjects': total_subjects,
             'teacher_registrations_count': teacher_registrations_count,
             'pending_teachers_count': approval_items[0]['total'],
@@ -772,10 +887,23 @@ def build_admin_home_context():
     }
 
 
+def build_greeting():
+    """Lời chào theo giờ trong ngày (template không tự lấy được giờ hiện tại)."""
+    hour = timezone.localtime().hour
+    if hour < 11:
+        return 'Chào buổi sáng'
+    if hour < 14:
+        return 'Chào buổi trưa'
+    if hour < 18:
+        return 'Chào buổi chiều'
+    return 'Chào buổi tối'
+
+
 def build_base_home_context(request):
     role, profile = get_home_role(request.user)
     context = {
         'home_role': role,
+        'home_greeting': build_greeting(),
         'home_profile': profile,
         'is_role_home': role != ROLE_ANONYMOUS,
         'role_labels': {
@@ -799,3 +927,29 @@ def build_base_home_context(request):
 
 def home_view(request):
     return render(request, 'home.html', build_base_home_context(request))
+
+def user_guide(request):
+    return render(request, 'core/user_guide.html')
+
+def terms_policies(request):
+    return render(request, 'core/terms_policies.html')
+
+def submit_feedback(request):
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        content = request.POST.get('content')
+        user = request.user if request.user.is_authenticated else None
+        
+        from apps.administation.models import SystemFeedback
+        SystemFeedback.objects.create(
+            user=user,
+            title=title,
+            content=content
+        )
+        
+        from django.contrib import messages
+        messages.success(request, 'Cảm ơn bạn đã gửi phản hồi. Chúng tôi sẽ xem xét sớm nhất!')
+        from django.shortcuts import redirect
+        return redirect('submit_feedback')
+        
+    return render(request, 'core/submit_feedback.html')

@@ -110,7 +110,7 @@ class AssignmentForm(forms.ModelForm):
     ]
 
     SUBMISSION_MODE_CHOICES = Assignments.SUBMISSION_MODE_CHOICES
-    GRADING_MODE_CHOICES = Assignments.GRADING_MODE_CHOICES
+    GRADING_MODE_CHOICES = [c for c in Assignments.GRADING_MODE_CHOICES if c[0] != Assignments.GRADING_MIXED]
 
     submission_mode = forms.ChoiceField(
         choices=SUBMISSION_MODE_CHOICES,
@@ -373,6 +373,9 @@ class AssignmentForm(forms.ModelForm):
         if submission_mode == Assignments.SUBMISSION_FILE:
             grading_mode = Assignments.GRADING_MANUAL
             cleaned['grading_mode'] = grading_mode
+        elif submission_mode in (Assignments.SUBMISSION_CODE, Assignments.SUBMISSION_QUIZ):
+            grading_mode = Assignments.GRADING_AUTO
+            cleaned['grading_mode'] = grading_mode
 
         if submission_mode != Assignments.SUBMISSION_CODE:
             cleaned['show_testcase_result'] = False
@@ -396,9 +399,6 @@ class AssignmentForm(forms.ModelForm):
                 cleaned['max_attempts'] = 1
 
         if submission_mode == Assignments.SUBMISSION_QUIZ:
-            if grading_mode not in (Assignments.GRADING_AUTO, Assignments.GRADING_MIXED):
-                cleaned['grading_mode'] = Assignments.GRADING_AUTO
-                grading_mode = Assignments.GRADING_AUTO
             if not max_attempts and not is_exam:
                 cleaned['max_attempts'] = get_int_setting(
                     'quiz.default_max_attempts',
@@ -409,10 +409,6 @@ class AssignmentForm(forms.ModelForm):
                 max_attempts = cleaned['max_attempts']
             if is_exam:
                 cleaned['max_attempts'] = 1
-                cleaned['quiz_show_score_after_submit'] = False
-                cleaned['quiz_show_correct_answers'] = False
-                cleaned['quiz_allow_review'] = False
-                cleaned['quiz_show_explanation'] = False
             passing_score = cleaned.get('quiz_passing_score')
             if passing_score is not None and max_score is not None and passing_score > max_score:
                 self.add_error('quiz_passing_score', f'Điểm đạt không được vượt quá {max_score}.')

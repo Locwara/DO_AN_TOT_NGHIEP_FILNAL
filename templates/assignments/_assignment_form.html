@@ -138,7 +138,6 @@
                         <select id="assignment-grading-mode" name="grading_mode" class="w-full bg-slate-50 border border-slate-200 rounded-lg h-12 px-4 focus:ring-2 focus:ring-primary text-sm">
                             <option value="auto" {% if form.grading_mode.value|default:'auto' == 'auto' %}selected{% endif %}>Tự động</option>
                             <option value="manual" {% if form.grading_mode.value == 'manual' %}selected{% endif %}>Thủ công</option>
-                            <option value="mixed" {% if form.grading_mode.value == 'mixed' %}selected{% endif %}>Kết hợp</option>
                         </select>
                         <div id="grading-mode-info" class="hidden mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-medium">
                             <span class="material-symbols-outlined text-[14px] align-middle mr-1">info</span>
@@ -467,16 +466,11 @@
                     gradingModeSelect.classList.add('bg-slate-100', 'cursor-not-allowed');
                     gradingModeSelect.style.pointerEvents = 'none';
                     if (gradingModeInfo) gradingModeInfo.classList.remove('hidden');
-                } else {
-                    gradingModeSelect.classList.remove('bg-slate-100', 'cursor-not-allowed');
-                    gradingModeSelect.style.pointerEvents = 'auto';
+                } else if (mode === 'quiz' || mode === 'code') {
+                    gradingModeSelect.value = 'auto';
+                    gradingModeSelect.classList.add('bg-slate-100', 'cursor-not-allowed');
+                    gradingModeSelect.style.pointerEvents = 'none';
                     if (gradingModeInfo) gradingModeInfo.classList.add('hidden');
-                    // Optional: set to auto if switching from file
-                    if (mode === 'code' || mode === 'quiz') {
-                         if (gradingModeSelect.value === 'manual' && !{{ is_edit|yesno:"true,false" }}) {
-                            gradingModeSelect.value = 'auto';
-                         }
-                    }
                 }
             }
             
@@ -542,26 +536,7 @@
             }
 
             // Sync exam mode with quiz checkboxes
-            const examToggleChecked = examToggle && examToggle.checked;
-            const quizShowScore = document.querySelector('input[name="quiz_show_score_after_submit"]');
-            const quizShowCorrect = document.querySelector('input[name="quiz_show_correct_answers"]');
-            const quizAllowReview = document.querySelector('input[name="quiz_allow_review"]');
-            const quizShowExplanation = document.querySelector('input[name="quiz_show_explanation"]');
-            
-            if (mode === 'quiz') {
-                [quizShowScore, quizShowCorrect, quizAllowReview, quizShowExplanation].forEach(cb => {
-                    if (cb) {
-                        if (examToggleChecked) {
-                            cb.checked = false;
-                            cb.disabled = true;
-                            cb.closest('label').classList.add('opacity-50', 'cursor-not-allowed');
-                        } else {
-                            cb.disabled = false;
-                            cb.closest('label').classList.remove('opacity-50', 'cursor-not-allowed');
-                        }
-                    }
-                });
-            }
+            // Removed automatic disabling of review checkboxes for exams per user request.
         }
 
         function updateSubjectLanguages() {
@@ -723,39 +698,69 @@ updateUI();
         // Function to fix python indentation formatting
         function formatPythonCode(editor) {
             editor.getAction('editor.action.formatDocument').run();
-            const val = editor.getValue();
-            if (val.trim() !== '') {
-                const lines = val.split('\n');
-                const nonEmptyLines = lines.filter(l => l.trim().length > 0);
-                if (nonEmptyLines.length > 0) {
-                    const minIndent = nonEmptyLines.map(l => l.match(/^\s*/)[0].length).reduce((a, b) => Math.min(a, b), Infinity);
+            let val = editor.getValue();
+            if (val.trim() === '') return;
+            
+            // Heuristic to un-squash code that was pasted as a single line
+            if (val.split('\n').length === 1 && (val.includes('def ') || val.includes('if '))) {
+                let s = val.replace(/:\s+/g, ':\n');
+                s = s.replace(/\s+(def |if |elif |else:|for |while |return|print|try:|except|with |class |pass|continue|break|a, |b, )/g, '\n$1');
+                s = s.replace(/\s*(if __name__ ==)/g, '\n$1');
+                
+                let lines = s.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                let out = [];
+                let indent = 0;
+                
+                for (let i=0; i<lines.length; i++) {
+                    let l = lines[i];
+                    if (l.startsWith('if __name__')) indent = 0;
                     
-                    if (minIndent === 0) {
-                        // Heuristic for copy-paste error: first line has 0 indent, rest have > 0
-                        let firstIdx = -1;
-                        for (let i=0; i<lines.length; i++) { if (lines[i].trim().length > 0) { firstIdx = i; break; } }
-                        if (firstIdx !== -1 && !lines[firstIdx].trim().endsWith(':')) {
-                            let restMin = Infinity;
-                            for (let i=firstIdx+1; i<lines.length; i++) {
-                                if (lines[i].trim().length > 0) restMin = Math.min(restMin, lines[i].match(/^\s*/)[0].length);
-                            }
-                            if (restMin > 0 && restMin !== Infinity) {
-                                const fixed = lines.map((l, i) => {
-                                    if (i <= firstIdx) return l;
-                                    if (l.trim().length === 0) return '';
-                                    return l.substring(restMin);
-                                }).join('\n');
-                                editor.setValue(fixed);
-                                return;
-                            }
-                        }
-                    } else if (minIndent > 0 && minIndent !== Infinity) {
-                        const fixed = lines.map(l => {
-                            if (l.trim().length === 0) return '';
-                            return l.substring(minIndent);
-                        }).join('\n');
-                        editor.setValue(fixed);
+                    if (l.startsWith('elif ') || l === 'else:' || l.startsWith('except') || l === 'finally:') {
+                        indent = Math.max(0, indent - 1);
                     }
+                    
+                    out.push('    '.repeat(indent) + l);
+                    
+                    if (l.endsWith(':')) {
+                        indent++;
+                    }
+                    if (l.startsWith('return ') || l === 'return' || l === 'pass' || l === 'continue' || l === 'break') {
+                        indent = Math.max(0, indent - 1);
+                    }
+                }
+                editor.setValue(out.join('\n'));
+                return;
+            }
+
+            const lines = val.split('\n');
+            const nonEmptyLines = lines.filter(l => l.trim().length > 0);
+            if (nonEmptyLines.length > 0) {
+                const minIndent = nonEmptyLines.map(l => l.match(/^\s*/)[0].length).reduce((a, b) => Math.min(a, b), Infinity);
+                
+                if (minIndent === 0) {
+                    let firstIdx = -1;
+                    for (let i=0; i<lines.length; i++) { if (lines[i].trim().length > 0) { firstIdx = i; break; } }
+                    if (firstIdx !== -1 && !lines[firstIdx].trim().endsWith(':')) {
+                        let restMin = Infinity;
+                        for (let i=firstIdx+1; i<lines.length; i++) {
+                            if (lines[i].trim().length > 0) restMin = Math.min(restMin, lines[i].match(/^\s*/)[0].length);
+                        }
+                        if (restMin > 0 && restMin !== Infinity) {
+                            const fixed = lines.map((l, i) => {
+                                if (i <= firstIdx) return l;
+                                if (l.trim().length === 0) return '';
+                                return l.substring(restMin);
+                            }).join('\n');
+                            editor.setValue(fixed);
+                            return;
+                        }
+                    }
+                } else if (minIndent > 0 && minIndent !== Infinity) {
+                    const fixed = lines.map(l => {
+                        if (l.trim().length === 0) return '';
+                        return l.substring(minIndent);
+                    }).join('\n');
+                    editor.setValue(fixed);
                 }
             }
         }
@@ -814,15 +819,15 @@ updateUI();
         function updateHiddenCodeInputs() {
             hiddenInputsContainer.innerHTML = '';
             for(let lang in starterCodesData) {
-                const inputStarter = document.createElement('input');
-                inputStarter.type = 'hidden';
+                const inputStarter = document.createElement('textarea');
+                inputStarter.className = 'hidden';
                 inputStarter.name = 'starter_code_' + lang;
                 inputStarter.value = starterCodesData[lang];
                 hiddenInputsContainer.appendChild(inputStarter);
             }
             for(let lang in solutionCodesData) {
-                const inputSolution = document.createElement('input');
-                inputSolution.type = 'hidden';
+                const inputSolution = document.createElement('textarea');
+                inputSolution.className = 'hidden';
                 inputSolution.name = 'solution_code_' + lang;
                 inputSolution.value = solutionCodesData[lang];
                 hiddenInputsContainer.appendChild(inputSolution);
@@ -880,11 +885,20 @@ updateUI();
             } else {
                 switchEditorLanguage(currentLangEditor);
             }
+            updateHiddenCodeInputs();
         }
         
         // Listen to checkbox changes
         document.querySelectorAll('input[name="allowed_languages"]').forEach(cb => {
             cb.addEventListener('change', refreshEditorTabs);
+        });
+
+        document.getElementById('assignment-form').addEventListener('submit', function() {
+            if (currentLangEditor) {
+                starterCodesData[currentLangEditor] = starterEditor.getValue();
+                solutionCodesData[currentLangEditor] = solutionEditor.getValue();
+            }
+            updateHiddenCodeInputs();
         });
 
         // initial render

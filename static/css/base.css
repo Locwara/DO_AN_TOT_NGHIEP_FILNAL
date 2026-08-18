@@ -4036,3 +4036,789 @@ form.bg-white,
   color: var(--neutral-500);
   letter-spacing: 0.05em;
 }
+
+/* ============================================================
+   DASHBOARD REDESIGN (v2) — component dùng chung cho 3 role
+   Chỉ dùng token màu có sẵn: Primary / Accent / Success /
+   Warning / Danger + surface #f8fafc. Radius 5/9/14/22px.
+   ============================================================ */
+
+/* Nền surface cho khu dashboard để card trắng nổi lên.
+   Scope trong .dashboard-surface (không đổi <body> để tránh
+   ảnh hưởng toàn bộ template khác). */
+.dashboard-surface {
+  background: var(--neutral-100);
+}
+
+/* Grid 12 cột: main 8 / sidebar 4, dùng container queries.
+   Dưới 1024px sidebar rơi xuống dưới main content. */
+.dash-shell {
+  container-type: inline-size;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1.25rem;
+}
+
+/* 976px = 1024px viewport trừ padding trang (px-4/md:px-6) của .dash-shell,
+   để sidebar rơi xuống dưới main đúng tại màn hình <1024px. */
+@container (min-width: 976px) {
+  .dash-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+@supports not (container-type: inline-size) {
+  @media (min-width: 1024px) {
+    .dash-grid {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+  }
+}
+
+.dash-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* ---------- Hero band (includes/dashboard_hero.html) ---------- */
+.hero-band {
+  position: relative;
+  overflow: hidden;
+  padding: 2rem;
+  border-radius: 22px;
+  color: var(--white);
+  background: linear-gradient(135deg, #137fec 0%, #1260c0 55%, #0f4289 100%);
+  box-shadow: var(--shadow-modal);
+}
+
+.hero-band::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 86% 14%, rgba(255, 255, 255, 0.16) 0%, transparent 44%),
+    radial-gradient(circle at 10% 96%, rgba(255, 255, 255, 0.09) 0%, transparent 40%);
+}
+
+.hero-band > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-band-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.hero-band-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.hero-band-title {
+  margin: 12px 0 6px;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--white);
+  overflow-wrap: anywhere;
+}
+
+.hero-band-copy {
+  max-width: 52ch;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.hero-band-strong {
+  color: var(--white);
+  font-weight: 800;
+}
+
+.hero-band-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 1.25rem;
+}
+
+/* CTA nằm trên gradient: nền trắng + biến thể outline mờ */
+.btn-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--white);
+  color: var(--primary-600);
+  box-shadow: 0 2px 8px rgba(2, 13, 31, 0.18);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.btn-hero:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 13, 31, 0.24);
+}
+
+.btn-hero-ghost {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  color: var(--white);
+  box-shadow: none;
+}
+
+.btn-hero-ghost:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.hero-band-art {
+  flex-shrink: 0;
+  width: 228px;
+}
+
+.hero-band-art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------- Card shell dashboard ---------- */
+.dash-card {
+  min-width: 0;
+  padding: 1.25rem;
+  background: var(--white);
+  border: 1px solid var(--primary-100);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.dash-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.dash-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--primary-900);
+  line-height: 1.3;
+}
+
+.dash-card-title .material-symbols-outlined {
+  font-size: 20px;
+  color: var(--primary-500);
+}
+
+/* Card ưu tiên #1 nổi hơn phần còn lại */
+.dash-card-hero {
+  border-color: var(--primary-200);
+  box-shadow: 0 4px 18px rgba(19, 127, 236, 0.1);
+}
+
+/* Dòng list trong card */
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--white);
+  border: 1px solid var(--primary-100);
+  border-radius: 9px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.dash-row:hover {
+  border-color: var(--primary-300);
+  box-shadow: var(--shadow-card);
+}
+
+/* Dòng nhiều nội dung (có badge/nút xuống dòng) căn theo mép trên.
+   Dùng class riêng thay vì utility Tailwind vì base.css nạp sau CDN
+   nên `items-start` sẽ thua ở tie-break specificity với .dash-row. */
+.dash-row.is-top {
+  align-items: flex-start;
+}
+
+/* Cùng lý do trên: .caption và .btn-sm đã khai báo `color`, nên utility
+   màu của Tailwind (text-warning-600/text-danger-600) sẽ bị thua khi hoà
+   specificity. Dùng modifier 2 class để thắng chắc chắn. */
+.caption.is-warning {
+  color: var(--warning-600);
+}
+
+.caption.is-danger {
+  color: var(--danger-600);
+}
+
+.btn-sm.is-danger {
+  background: var(--danger-100);
+  color: var(--danger-600);
+}
+
+.btn-sm.is-danger:hover {
+  background: var(--danger-700);
+  color: var(--white);
+}
+
+.avatar-initial {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--primary-100);
+  color: var(--primary-700);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* ---------- .card-priority: viền trái theo mức ưu tiên ---------- */
+.card-priority {
+  border-left-width: 4px;
+  border-left-style: solid;
+  border-left-color: var(--primary-500);
+}
+
+.card-priority.is-urgent {
+  background: var(--warning-100);
+  border-color: rgba(234, 88, 12, 0.22);
+  border-left-color: var(--warning-600);
+}
+
+.card-priority.is-critical {
+  background: var(--danger-100);
+  border-color: rgba(220, 38, 38, 0.22);
+  border-left-color: var(--danger-600);
+}
+
+.card-priority.is-done {
+  background: var(--success-100);
+  border-color: rgba(22, 163, 74, 0.22);
+  border-left-color: var(--success-600);
+}
+
+.card-priority.is-info {
+  border-left-color: var(--primary-500);
+}
+
+/* ---------- .stat-chip: số liệu + icon tint + sparkline ---------- */
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  background: var(--white);
+  border: 1px solid var(--primary-100);
+  border-radius: 9px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.stat-chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-300);
+}
+
+.stat-chip-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: rgba(19, 127, 236, 0.08);
+  color: var(--primary-500);
+}
+
+.stat-chip-icon .material-symbols-outlined {
+  font-size: 22px;
+}
+
+.stat-chip-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-chip-value {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--primary-800);
+}
+
+.stat-chip-label {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--neutral-500);
+}
+
+.stat-chip-spark {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.stat-chip.is-success .stat-chip-icon {
+  background: var(--success-100);
+  color: var(--success-600);
+}
+
+.stat-chip.is-success .stat-chip-value {
+  color: var(--success-600);
+}
+
+.stat-chip.is-warning .stat-chip-icon {
+  background: var(--warning-100);
+  color: var(--warning-600);
+}
+
+.stat-chip.is-warning .stat-chip-value {
+  color: var(--warning-600);
+}
+
+.stat-chip.is-danger .stat-chip-icon {
+  background: var(--danger-100);
+  color: var(--danger-600);
+}
+
+.stat-chip.is-danger .stat-chip-value {
+  color: var(--danger-600);
+}
+
+/* Sparkline 7 ngày (dữ liệu thật từ home_sparklines) */
+.spark {
+  display: block;
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--primary-500);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spark-area {
+  stroke: none;
+  fill: rgba(19, 127, 236, 0.12);
+}
+
+.stat-chip.is-success .spark-line {
+  stroke: var(--success-600);
+}
+
+.stat-chip.is-success .spark-area {
+  fill: rgba(22, 163, 74, 0.12);
+}
+
+.stat-chip.is-warning .spark-line {
+  stroke: var(--warning-600);
+}
+
+.stat-chip.is-warning .spark-area {
+  fill: rgba(234, 88, 12, 0.12);
+}
+
+/* ---------- .progress-ring: vòng tròn % tiến độ ---------- */
+.progress-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+}
+
+.progress-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.progress-ring-track {
+  fill: none;
+  stroke: var(--primary-100);
+  stroke-width: 5;
+}
+
+.progress-ring-bar {
+  fill: none;
+  stroke: var(--primary-500);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 125.66;
+  stroke-dashoffset: calc(125.66 - (125.66 * var(--ring-value, 0) / 100));
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.progress-ring-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary-700);
+}
+
+.progress-ring.is-success .progress-ring-bar {
+  stroke: var(--success-600);
+}
+
+.progress-ring.is-success .progress-ring-label {
+  color: var(--success-600);
+}
+
+.progress-ring.is-warning .progress-ring-bar {
+  stroke: var(--warning-600);
+}
+
+.progress-ring.is-warning .progress-ring-label {
+  color: var(--warning-600);
+}
+
+.progress-ring.is-lg {
+  width: 64px;
+  height: 64px;
+}
+
+.progress-ring.is-lg .progress-ring-label {
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-ring-bar {
+    transition: none;
+  }
+}
+
+/* ---------- .badge-status: badge trạng thái chuẩn hoá ---------- */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-status .material-symbols-outlined {
+  font-size: 13px;
+}
+
+.badge-status-success {
+  background: var(--success-100);
+  color: var(--success-600);
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+.badge-status-warning {
+  background: var(--warning-100);
+  color: var(--warning-600);
+  border-color: rgba(234, 88, 12, 0.22);
+}
+
+.badge-status-danger {
+  background: var(--danger-100);
+  color: var(--danger-600);
+  border-color: rgba(220, 38, 38, 0.22);
+}
+
+.badge-status-info {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  border-color: rgba(19, 127, 236, 0.22);
+}
+
+.badge-status-neutral {
+  background: var(--neutral-100);
+  color: var(--neutral-500);
+  border-color: var(--neutral-300);
+}
+
+/* ---------- .empty-illustration: empty state có minh họa ---------- */
+.empty-illustration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 1.75rem 1rem;
+  text-align: center;
+}
+
+.empty-illustration svg {
+  width: 172px;
+  max-width: 62%;
+  height: auto;
+  margin-bottom: 0.75rem;
+}
+
+.empty-illustration strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-900);
+}
+
+.empty-illustration span {
+  max-width: 44ch;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--neutral-500);
+}
+
+.empty-illustration.is-compact {
+  padding: 1rem 0.75rem;
+}
+
+.empty-illustration.is-compact svg {
+  width: 112px;
+  margin-bottom: 0.5rem;
+}
+
+/* Khối rỗng thu gọn 1 dòng (thay vì card trống full-size) */
+.dash-empty-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--primary-200);
+  border-radius: 9px;
+  background: var(--primary-50);
+  color: var(--neutral-500);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.dash-empty-inline .material-symbols-outlined {
+  font-size: 17px;
+  color: var(--primary-400);
+}
+
+/* ---------- Tiện ích nhỏ cho dashboard ---------- */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--danger-600);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
+.copy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px dashed var(--primary-300);
+  border-radius: var(--radius-full);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.copy-chip:hover {
+  background: var(--primary-100);
+  border-style: solid;
+}
+
+.copy-chip .material-symbols-outlined {
+  font-size: 14px;
+}
+
+.copy-chip.is-copied {
+  background: var(--success-100);
+  border-color: var(--success-600);
+  border-style: solid;
+  color: var(--success-600);
+}
+
+.quick-link-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--primary-100);
+  border-radius: 9px;
+  background: var(--primary-50);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.quick-link-row:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-300);
+  transform: translateX(2px);
+}
+
+.quick-link-row > .material-symbols-outlined {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--white);
+  color: var(--primary-500);
+  font-size: 20px;
+}
+
+/* Link phụ 1 dòng (hỗ trợ kỹ thuật) — không chiếm cả 1 card */
+.dash-mini-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--primary-100);
+  border-radius: 9px;
+  background: var(--white);
+  color: var(--neutral-500);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.dash-mini-link:hover {
+  color: var(--primary-600);
+  border-color: var(--primary-300);
+}
+
+.dash-mini-link .material-symbols-outlined {
+  font-size: 17px;
+}
+
+/* Timeline log admin */
+.dash-timeline {
+  position: relative;
+  padding-left: 26px;
+}
+
+.dash-timeline::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--primary-100);
+}
+
+.dash-timeline-item {
+  position: relative;
+  padding-bottom: 14px;
+}
+
+.dash-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.dash-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--white);
+  border: 2px solid var(--primary-400);
+}
+
+.dash-timeline-item.is-latest::before {
+  border-color: var(--primary-600);
+  background: var(--primary-100);
+}
+
+@media (max-width: 1023px) {
+  /* Hero band: ẩn illustration, thu gọn padding trên mobile/tablet */
+  .hero-band-art {
+    display: none;
+  }
+
+  .hero-band {
+    padding: 1.5rem;
+    border-radius: 14px;
+  }
+
+  .hero-band-title {
+    font-size: 22px;
+  }
+
+  .hero-band-copy {
+    font-size: 13.5px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-band {
+    padding: 1.25rem;
+  }
+
+  .hero-band-actions .btn-hero {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  .dash-card {
+    padding: 1rem;
+  }
+}

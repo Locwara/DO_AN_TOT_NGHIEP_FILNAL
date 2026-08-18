@@ -560,7 +560,18 @@ def classroom_detail_view(request, pk):
     assignments_qs = Assignments.objects.filter(classroom=classroom)
     if not is_teacher:
         assignments_qs = assignments_qs.filter(is_published=True)
-    assignments = assignments_qs.order_by('-created_at')[:10]
+    assignments = list(assignments_qs.order_by('-created_at')[:10])
+    
+    if not is_teacher and assignments:
+        from apps.submissions.models import Submissions, ExamSessions
+        completed_ids = set(Submissions.objects.filter(
+            student=request.user, assignment__in=assignments
+        ).values_list('assignment_id', flat=True))
+        completed_ids.update(ExamSessions.objects.filter(
+            student=request.user, assignment__in=assignments, status__in=['submitted', 'auto_submitted']
+        ).values_list('assignment_id', flat=True))
+        for a in assignments:
+            a.is_completed_by_user = a.pk in completed_ids
 
     # Classroom Progress (Phase 2 Task 2.3)
     classroom_progress = None
@@ -1109,6 +1120,72 @@ def import_members_view(request, pk):
     return render(request, 'classrooms/import_members.html', context)
 
 
+@teacher_required
+def search_students_htmx_view(request, pk):
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom):
+        return HttpResponseForbidden()
+    
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return HttpResponse('')
+    
+    existing_member_ids = ClassroomMembers.objects.filter(classroom=classroom).values_list('student_id', flat=True)
+    
+    students = User.objects.filter(
+        Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query),
+        profiles__role='student',
+        is_active=True
+    ).exclude(id__in=existing_member_ids)[:5]
+    
+    html = ''
+    for st in students:
+        name = st.get_full_name() or st.username
+        html += f'''
+        <div class="flex items-center justify-between p-3 hover:bg-slate-50 border-b border-slate-100 last:border-0" id="student-row-{st.id}">
+            <div>
+                <p class="font-bold text-sm text-slate-900">{name}</p>
+                <p class="text-xs text-slate-500">@{st.username}</p>
+            </div>
+            <button hx-post="/classrooms/{classroom.id}/members/manual-add/{st.id}/"
+                    hx-target="#student-row-{st.id}"
+                    hx-swap="outerHTML"
+                    class="btn btn-sm btn-primary py-1 px-3 text-xs">
+                Thêm
+            </button>
+        </div>
+        '''
+    if not students:
+        html = '<div class="p-3 text-sm text-slate-500 text-center">Không tìm thấy học sinh nào hoặc học sinh đã ở trong lớp.</div>'
+        
+    return HttpResponse(html)
+
+
+@teacher_required
+def manual_add_student_view(request, pk, user_id):
+    classroom = get_object_or_404(Classrooms, pk=pk)
+    if not _is_classroom_teacher(request.user, classroom):
+        return HttpResponseForbidden()
+        
+    student = get_object_or_404(User, id=user_id, profiles__role='student')
+    ClassroomMembers.objects.get_or_create(
+        classroom=classroom,
+        student=student,
+        defaults={'status': 'approved'}
+    )
+    
+    html = f'''
+    <div class="flex items-center justify-between p-3 bg-emerald-50 text-emerald-700 border-b border-slate-100 last:border-0">
+        <div>
+            <p class="font-bold text-sm">{student.get_full_name() or student.username}</p>
+            <p class="text-xs opacity-80">Đã thêm thành công</p>
+        </div>
+        <span class="material-symbols-outlined text-emerald-500">check_circle</span>
+    </div>
+    '''
+    return HttpResponse(html)
+
+
 @login_required
 def search_classroom_view(request):
     query = request.GET.get('q', '').strip()
@@ -1191,9 +1268,9 @@ def delete_classroom_view(request, pk):
         return redirect('classrooms:classroom_list')
 
     if request.method == 'POST':
-        classroom.is_active = False
-        classroom.save(update_fields=['is_active'])
-        messages.success(request, f'Đã xóa lớp "{classroom.name}".')
+        name = classroom.name
+        classroom.delete()
+        messages.success(request, f'Đã xóa lớp "{name}".')
         return redirect('classrooms:classroom_list')
 
     return render(request, 'classrooms/delete_confirm.html', {'classroom': classroom})

@@ -21,3 +21,23 @@ def percentage(value, total):
         return round((float(value) / float(total)) * 100, 1)
     except (ValueError, TypeError):
         return 0
+
+EVENT_LABELS = {
+    'tab_hidden': 'Đổi tab (Ẩn trang)',
+    'tab_visible': 'Quay lại tab bài thi',
+    'focus_lost': 'Chuyển sang cửa sổ khác',
+    'focus_returned': 'Quay lại cửa sổ bài thi',
+    'fullscreen_exit': 'Thoát toàn màn hình',
+    'fullscreen_request_failed': 'Lỗi yêu cầu toàn màn hình',
+    'paste': 'Dán (Paste) nội dung',
+    'paste_prevented': 'Cố tình dán (Paste)',
+    'copy': 'Sao chép (Copy) nội dung',
+    'context_menu': 'Mở menu chuột phải',
+    'run_test': 'Chạy thử code',
+    'autosaved': 'Tự động lưu',
+    'submitted': 'Nộp bài',
+}
+
+@register.filter
+def event_label(event_type):
+    return EVENT_LABELS.get(event_type, event_type)

@@ -1617,8 +1617,8 @@ def create_assignment_view(request, classroom_pk):
                 starter_codes = {}
                 solution_codes = {}
                 for lang in assignment.allowed_languages:
-                    starter_codes[lang] = request.POST.get(f'starter_code_{lang}', '')
-                    solution_codes[lang] = request.POST.get(f'solution_code_{lang}', '')
+                    starter_codes[lang] = request.POST.get(f'starter_code_{lang}', '').replace('\xa0', ' ')
+                    solution_codes[lang] = request.POST.get(f'solution_code_{lang}', '').replace('\xa0', ' ')
                 assignment.starter_codes = starter_codes
                 assignment.solution_codes = solution_codes
                 # For backwards compatibility, save the first lang as the main code
@@ -1809,8 +1809,8 @@ def edit_assignment_view(request, pk):
                 starter_codes = {}
                 solution_codes = {}
                 for lang in assignment.allowed_languages:
-                    starter_codes[lang] = request.POST.get(f'starter_code_{lang}', '')
-                    solution_codes[lang] = request.POST.get(f'solution_code_{lang}', '')
+                    starter_codes[lang] = request.POST.get(f'starter_code_{lang}', '').replace('\xa0', ' ')
+                    solution_codes[lang] = request.POST.get(f'solution_code_{lang}', '').replace('\xa0', ' ')
                 assignment.starter_codes = starter_codes
                 assignment.solution_codes = solution_codes
                 # For backwards compatibility, save the first lang as the main code
@@ -1977,6 +1977,8 @@ def clone_assignment_view(request, pk):
             starter_code=assignment.starter_code,
             solution_code=assignment.solution_code,
             solution_language=assignment.solution_language,
+            starter_codes=assignment.starter_codes,
+            solution_codes=assignment.solution_codes,
             type=assignment.type,
             submission_mode=assignment.submission_mode,
             grading_mode=assignment.grading_mode,
@@ -1988,6 +1990,7 @@ def clone_assignment_view(request, pk):
             late_penalty_percent=assignment.late_penalty_percent,
             max_score=assignment.max_score,
             max_attempts=assignment.max_attempts,
+            score_aggregation_mode=assignment.score_aggregation_mode,
             show_testcase_result=assignment.show_testcase_result,
             enable_leaderboard=assignment.enable_leaderboard,
             is_exam=assignment.is_exam,

@@ -210,9 +210,15 @@ def check_plagiarism_task(assignment_id, report_id=None, threshold=0.85):
         report.finished_at = None
         report.save(update_fields=['status', 'threshold', 'error_message', 'finished_at'])
 
+    order_args = ['-submitted_at']
+    if assignment.score_aggregation_mode == 'best':
+        order_args = ['-total_score', '-submitted_at']
+    elif assignment.score_aggregation_mode == 'first':
+        order_args = ['submitted_at']
+
     submissions = Submissions.objects.filter(
         assignment=assignment, status='finished'
-    ).select_related('student').order_by('-submitted_at')
+    ).select_related('student').order_by(*order_args)
 
     seen_students = set()
     latest_submissions = []

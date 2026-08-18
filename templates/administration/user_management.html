@@ -327,6 +327,9 @@
                     <option value="activate">Kích hoạt</option>
                     <option value="deactivate">Vô hiệu hóa</option>
                     <option value="delete">Xóa</option>
+                    {% if forced_role == 'teacher' %}
+                    <option value="downgrade_to_student">Trở về học sinh</option>
+                    {% endif %}
                 </select>
                 <button type="submit" class="btn btn-primary text-sm">Áp dụng</button>
             </div>

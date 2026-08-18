@@ -38,6 +38,7 @@ if not DEBUG and SECRET_KEY == 'django-insecure-dev-only-change-me':
     raise RuntimeError('DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=False.')
 
 ALLOWED_HOSTS = ['*']
+SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
